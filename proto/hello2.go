@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/hex"
-	"gotdx/util"
+	"github.com/bensema/gotdx/util"
 )
 
 type Hello2 struct {

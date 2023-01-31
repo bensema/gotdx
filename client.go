@@ -5,7 +5,7 @@ import (
 	"compress/zlib"
 	"encoding/binary"
 	"errors"
-	"gotdx/proto"
+	"github.com/bensema/gotdx/proto"
 	"io"
 	"log"
 	"net"

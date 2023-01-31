@@ -5,7 +5,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
-	"gotdx/util"
+	"github.com/bensema/gotdx/util"
 )
 
 type GetSecurityQuotes struct {

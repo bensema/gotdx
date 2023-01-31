@@ -2,7 +2,7 @@ package gotdx
 
 import (
 	"fmt"
-	"gotdx/proto"
+	"github.com/bensema/gotdx/proto"
 	"testing"
 )
 

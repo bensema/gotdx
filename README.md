@@ -6,7 +6,7 @@
 package main
 
 import (
-	"gotdx"
+	"github.com/bensema/gotdx"
 	"log"
 )
 
@@ -28,7 +28,7 @@ func main() {
 	}
 
 	for _, obj := range reply.List {
-		log.Println(obj)
+		log.Printf("%+v", obj)
 	}
 
 	_ = api.Disconnect()

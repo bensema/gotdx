@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/hex"
-	"gotdx/util"
+	"github.com/bensema/gotdx/util"
 )
 
 type Hello1 struct {
@@ -54,7 +54,8 @@ func (obj *Hello1) Serialize() ([]byte, error) {
 
 /*
 00e60708051 50 f0 00 d3 a02b2020c03840384038403840384033a02b2020c0384038403840384038403 00 5a8a3401 f94a0100 5a8a3401 fd4a0100ff00e 700000101013f
-            分  时    秒                                                                      日期
+
+	分  时    秒                                                                      日期
 */
 func (obj *Hello1) UnSerialize(header interface{}, data []byte) error {
 	obj.respHeader = header.(*RespHeader)

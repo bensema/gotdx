@@ -22,6 +22,7 @@ func prepare() *Client {
 }
 
 func Test_tdx_Connect(t *testing.T) {
+	fmt.Println("================ Connect ================")
 	api := NewClient(opt)
 	reply, err := api.Connect()
 	if err != nil {
@@ -33,6 +34,7 @@ func Test_tdx_Connect(t *testing.T) {
 }
 
 func Test_tdx_GetSecurityCount(t *testing.T) {
+	fmt.Println("================ GetSecurityCount ================")
 	api := prepare()
 	reply, err := api.GetSecurityCount(MarketSh)
 	if err != nil {
@@ -44,6 +46,7 @@ func Test_tdx_GetSecurityCount(t *testing.T) {
 }
 
 func Test_tdx_GetSecurityQuotes(t *testing.T) {
+	fmt.Println("================ GetSecurityQuotes ================")
 	api := prepare()
 	reply, err := api.GetSecurityQuotes([]uint8{MarketSh}, []string{"002062"})
 	if err != nil {
@@ -51,7 +54,7 @@ func Test_tdx_GetSecurityQuotes(t *testing.T) {
 	}
 
 	for _, obj := range reply.List {
-		fmt.Println(obj)
+		fmt.Printf("%+v \n", obj)
 	}
 
 	_ = api.Disconnect()
@@ -59,13 +62,14 @@ func Test_tdx_GetSecurityQuotes(t *testing.T) {
 }
 
 func Test_tdx_GetSecurityList(t *testing.T) {
+	fmt.Println("================ GetSecurityList ================")
 	api := prepare()
 	reply, err := api.GetSecurityList(MarketSh, 0)
 	if err != nil {
 		t.Errorf("error:%s", err)
 	}
 	for _, obj := range reply.List {
-		fmt.Println(obj)
+		fmt.Printf("%+v \n", obj)
 	}
 
 	_ = api.Disconnect()
@@ -73,6 +77,7 @@ func Test_tdx_GetSecurityList(t *testing.T) {
 }
 
 func Test_tdx_GetSecurityBars(t *testing.T) {
+	fmt.Println("================ GetSecurityBars ================")
 	// GetSecurityBars 与 GetIndexBars 使用同一个接口靠market区分
 	api := prepare()
 	reply, err := api.GetSecurityBars(proto.KLINE_TYPE_RI_K, 0, "000001", 0, 10)
@@ -81,7 +86,7 @@ func Test_tdx_GetSecurityBars(t *testing.T) {
 	}
 
 	for _, obj := range reply.List {
-		fmt.Println(obj)
+		fmt.Printf("%+v \n", obj)
 	}
 
 	_ = api.Disconnect()
@@ -89,6 +94,7 @@ func Test_tdx_GetSecurityBars(t *testing.T) {
 }
 
 func Test_tdx_GetIndexBars(t *testing.T) {
+	fmt.Println("================ GetIndexBars ================")
 	// GetSecurityBars 与 GetIndexBars 使用同一个接口靠market区分
 	api := prepare()
 	reply, err := api.GetIndexBars(proto.KLINE_TYPE_RI_K, 1, "000001", 0, 10)
@@ -97,7 +103,7 @@ func Test_tdx_GetIndexBars(t *testing.T) {
 	}
 
 	for _, obj := range reply.List {
-		fmt.Println(obj)
+		fmt.Printf("%+v \n", obj)
 	}
 
 	_ = api.Disconnect()
@@ -105,6 +111,7 @@ func Test_tdx_GetIndexBars(t *testing.T) {
 }
 
 func Test_tdx_GetMinuteTimeData(t *testing.T) {
+	fmt.Println("================ GetMinuteTimeData ================")
 	api := prepare()
 	reply, err := api.GetMinuteTimeData(0, "159607")
 	if err != nil {
@@ -112,7 +119,7 @@ func Test_tdx_GetMinuteTimeData(t *testing.T) {
 	}
 
 	for _, obj := range reply.List {
-		fmt.Println(obj)
+		fmt.Printf("%+v \n", obj)
 	}
 
 	_ = api.Disconnect()
@@ -120,6 +127,7 @@ func Test_tdx_GetMinuteTimeData(t *testing.T) {
 }
 
 func Test_tdx_GetHistoryMinuteTimeData(t *testing.T) {
+	fmt.Println("================ GetHistoryMinuteTimeData ================")
 	api := prepare()
 	//reply, err := api.GetHistoryMinuteTimeData(20220511, 0, "159607")
 	reply, err := api.GetHistoryMinuteTimeData(20220511, 0, "159607")
@@ -128,7 +136,7 @@ func Test_tdx_GetHistoryMinuteTimeData(t *testing.T) {
 	}
 
 	for _, obj := range reply.List {
-		fmt.Println(obj)
+		fmt.Printf("%+v \n", obj)
 	}
 
 	_ = api.Disconnect()
@@ -136,6 +144,7 @@ func Test_tdx_GetHistoryMinuteTimeData(t *testing.T) {
 }
 
 func Test_tdx_GetTransactionData(t *testing.T) {
+	fmt.Println("================ GetTransactionData ================")
 	api := prepare()
 	//reply, err := api.GetHistoryMinuteTimeData(20220511, 0, "159607")
 	reply, err := api.GetTransactionData(0, "159607", 0, 10)
@@ -144,7 +153,7 @@ func Test_tdx_GetTransactionData(t *testing.T) {
 	}
 
 	for _, obj := range reply.List {
-		fmt.Println(obj)
+		fmt.Printf("%+v \n", obj)
 	}
 
 	_ = api.Disconnect()
@@ -152,6 +161,7 @@ func Test_tdx_GetTransactionData(t *testing.T) {
 }
 
 func Test_tdx_GetHistoryTransactionData(t *testing.T) {
+	fmt.Println("================ GetHistoryTransactionData ================")
 	api := prepare()
 	//reply, err := api.GetHistoryMinuteTimeData(20220511, 0, "159607")
 	reply, err := api.GetHistoryTransactionData(20220511, 0, "159607", 0, 10)
@@ -160,7 +170,7 @@ func Test_tdx_GetHistoryTransactionData(t *testing.T) {
 	}
 
 	for _, obj := range reply.List {
-		fmt.Println(obj)
+		fmt.Printf("%+v \n", obj)
 	}
 
 	_ = api.Disconnect()

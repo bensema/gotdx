@@ -63,6 +63,7 @@ func NewGetIndexBars() *GetIndexBars {
 	obj.contentHex = "00000000000000000000"
 	return obj
 }
+
 func (obj *GetIndexBars) SetParams(req *GetIndexBarsRequest) {
 	obj.request = req
 	obj.request.I = 1

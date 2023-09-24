@@ -34,34 +34,21 @@ const (
 	KMSG_TRANSACTIONDATA        = 0x0fc5 // 分笔成交信息
 	KMSG_XDXRINFO               = 0x000f // 除权除息信息
 
-	/*
-		K线种类
-		# K 线种类
-		# 0 -   5 分钟K 线
-		# 1 -   15 分钟K 线
-		# 2 -   30 分钟K 线
-		# 3 -   1 小时K 线
-		# 4 -   日K 线
-		# 5 -   周K 线
-		# 6 -   月K 线
-		# 7 -   1 分钟
-		# 8 -   1 分钟K 线
-		# 9 -   日K 线
-		# 10 -  季K 线
-		# 11 -  年K 线
-	*/
-	KLINE_TYPE_5MIN      = 0
-	KLINE_TYPE_15MIN     = 1
-	KLINE_TYPE_30MIN     = 2
-	KLINE_TYPE_1HOUR     = 3
-	KLINE_TYPE_DAILY     = 4
-	KLINE_TYPE_WEEKLY    = 5
-	KLINE_TYPE_MONTHLY   = 6
-	KLINE_TYPE_EXHQ_1MIN = 7
-	KLINE_TYPE_1MIN      = 8
-	KLINE_TYPE_RI_K      = 9
-	KLINE_TYPE_3MONTH    = 10
-	KLINE_TYPE_YEARLY    = 11
+)
+
+const (
+	KLINE_TYPE_5MIN      = 0  // 5 分钟K 线
+	KLINE_TYPE_15MIN     = 1  // 15 分钟K 线
+	KLINE_TYPE_30MIN     = 2  // 30 分钟K 线
+	KLINE_TYPE_1HOUR     = 3  // 1 小时K 线
+	KLINE_TYPE_DAILY     = 4  // 日K 线
+	KLINE_TYPE_WEEKLY    = 5  // 周K 线
+	KLINE_TYPE_MONTHLY   = 6  // 月K 线
+	KLINE_TYPE_EXHQ_1MIN = 7  // 1 分钟
+	KLINE_TYPE_1MIN      = 8  // 1 分钟K 线
+	KLINE_TYPE_RI_K      = 9  // 日K 线
+	KLINE_TYPE_3MONTH    = 10 // 季K 线
+	KLINE_TYPE_YEARLY    = 11 // 年K 线
 )
 
 type Msg interface {
@@ -288,11 +275,10 @@ func getvolume(ivol int) (volume float64) {
 }
 
 func baseUnit(code string) float64 {
-	c := code[:2]
-	switch c {
+	switch code[:2] {
 	case "60", "30", "68", "00":
 		return 100.0
-
+	default:
+		return 1000.0
 	}
-	return 1000.0
 }

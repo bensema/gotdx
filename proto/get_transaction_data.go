@@ -53,6 +53,7 @@ func NewGetTransactionData() *GetTransactionData {
 	obj.contentHex = ""
 	return obj
 }
+
 func (obj *GetTransactionData) SetParams(req *GetTransactionDataRequest) {
 	obj.request = req
 }

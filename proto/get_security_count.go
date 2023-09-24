@@ -36,6 +36,7 @@ func NewGetSecurityCount() *GetSecurityCount {
 	obj.contentHex = "75c73301" // 未解
 	return obj
 }
+
 func (obj *GetSecurityCount) SetParams(req *GetSecurityCountRequest) {
 	obj.request = req
 }

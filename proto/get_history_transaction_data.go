@@ -54,6 +54,7 @@ func NewGetHistoryTransactionData() *GetHistoryTransactionData {
 	obj.contentHex = ""
 	return obj
 }
+
 func (obj *GetHistoryTransactionData) SetParams(req *GetHistoryTransactionDataRequest) {
 	obj.request = req
 }

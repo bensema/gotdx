@@ -6,26 +6,21 @@ import (
 	"testing"
 )
 
-var opt = &Opt{
-	Host: "119.147.212.81",
-	Port: 7709,
-}
-
 func newClient() *Client {
-	api := NewClient(opt)
-	reply, err := api.Connect()
+	tdx := New(WithTCPAddress("119.147.212.81:7709"))
+	reply, err := tdx.Connect()
 	if err != nil {
 		fmt.Println(err)
 	}
 	fmt.Println(reply.Info)
-	return api
+	return tdx
 }
 
 func Test_tdx_Connect(t *testing.T) {
 	fmt.Println("================ Connect ================")
-	api := NewClient(opt)
-	defer api.Disconnect()
-	reply, err := api.Connect()
+	tdx := New(WithTCPAddress("119.147.212.81:7709"))
+	defer tdx.Disconnect()
+	reply, err := tdx.Connect()
 	if err != nil {
 		t.Errorf("error:%s", err)
 	}
@@ -34,9 +29,9 @@ func Test_tdx_Connect(t *testing.T) {
 
 func Test_tdx_GetSecurityCount(t *testing.T) {
 	fmt.Println("================ GetSecurityCount ================")
-	api := newClient()
-	defer api.Disconnect()
-	reply, err := api.GetSecurityCount(MarketSh)
+	tdx := newClient()
+	defer tdx.Disconnect()
+	reply, err := tdx.GetSecurityCount(MarketSh)
 	if err != nil {
 		t.Errorf("error:%s", err)
 	}
@@ -45,9 +40,9 @@ func Test_tdx_GetSecurityCount(t *testing.T) {
 
 func Test_tdx_GetSecurityQuotes(t *testing.T) {
 	fmt.Println("================ GetSecurityQuotes ================")
-	api := newClient()
-	defer api.Disconnect()
-	reply, err := api.GetSecurityQuotes([]uint8{MarketSh}, []string{"002062"})
+	tdx := newClient()
+	defer tdx.Disconnect()
+	reply, err := tdx.GetSecurityQuotes([]uint8{MarketSh}, []string{"002062"})
 	if err != nil {
 		t.Errorf("error:%s", err)
 	}
@@ -59,9 +54,9 @@ func Test_tdx_GetSecurityQuotes(t *testing.T) {
 
 func Test_tdx_GetSecurityList(t *testing.T) {
 	fmt.Println("================ GetSecurityList ================")
-	api := newClient()
-	defer api.Disconnect()
-	reply, err := api.GetSecurityList(MarketSh, 0)
+	tdx := newClient()
+	defer tdx.Disconnect()
+	reply, err := tdx.GetSecurityList(MarketSh, 0)
 	if err != nil {
 		t.Errorf("error:%s", err)
 	}
@@ -73,9 +68,9 @@ func Test_tdx_GetSecurityList(t *testing.T) {
 func Test_tdx_GetSecurityBars(t *testing.T) {
 	fmt.Println("================ GetSecurityBars ================")
 	// GetSecurityBars 与 GetIndexBars 使用同一个接口靠market区分
-	api := newClient()
-	defer api.Disconnect()
-	reply, err := api.GetSecurityBars(proto.KLINE_TYPE_RI_K, 0, "000001", 0, 10)
+	tdx := newClient()
+	defer tdx.Disconnect()
+	reply, err := tdx.GetSecurityBars(proto.KLINE_TYPE_RI_K, 0, "000001", 0, 10)
 	if err != nil {
 		t.Errorf("error:%s", err)
 	}
@@ -88,9 +83,9 @@ func Test_tdx_GetSecurityBars(t *testing.T) {
 func Test_tdx_GetIndexBars(t *testing.T) {
 	fmt.Println("================ GetIndexBars ================")
 	// GetSecurityBars 与 GetIndexBars 使用同一个接口靠market区分
-	api := newClient()
-	defer api.Disconnect()
-	reply, err := api.GetIndexBars(proto.KLINE_TYPE_RI_K, 1, "000001", 0, 10)
+	tdx := newClient()
+	defer tdx.Disconnect()
+	reply, err := tdx.GetIndexBars(proto.KLINE_TYPE_RI_K, 1, "000001", 0, 10)
 	if err != nil {
 		t.Errorf("error:%s", err)
 	}
@@ -102,9 +97,9 @@ func Test_tdx_GetIndexBars(t *testing.T) {
 
 func Test_tdx_GetMinuteTimeData(t *testing.T) {
 	fmt.Println("================ GetMinuteTimeData ================")
-	api := newClient()
-	defer api.Disconnect()
-	reply, err := api.GetMinuteTimeData(0, "159607")
+	tdx := newClient()
+	defer tdx.Disconnect()
+	reply, err := tdx.GetMinuteTimeData(0, "159607")
 	if err != nil {
 		t.Errorf("error:%s", err)
 	}
@@ -116,10 +111,10 @@ func Test_tdx_GetMinuteTimeData(t *testing.T) {
 
 func Test_tdx_GetHistoryMinuteTimeData(t *testing.T) {
 	fmt.Println("================ GetHistoryMinuteTimeData ================")
-	api := newClient()
-	defer api.Disconnect()
-	//reply, err := api.GetHistoryMinuteTimeData(20220511, 0, "159607")
-	reply, err := api.GetHistoryMinuteTimeData(20220511, 0, "159607")
+	tdx := newClient()
+	defer tdx.Disconnect()
+	//reply, err := tdx.GetHistoryMinuteTimeData(20220511, 0, "159607")
+	reply, err := tdx.GetHistoryMinuteTimeData(20220511, 0, "159607")
 	if err != nil {
 		t.Errorf("error:%s", err)
 	}
@@ -131,10 +126,10 @@ func Test_tdx_GetHistoryMinuteTimeData(t *testing.T) {
 
 func Test_tdx_GetTransactionData(t *testing.T) {
 	fmt.Println("================ GetTransactionData ================")
-	api := newClient()
-	defer api.Disconnect()
-	//reply, err := api.GetHistoryMinuteTimeData(20220511, 0, "159607")
-	reply, err := api.GetTransactionData(MarketSh, "159607", 0, 10)
+	tdx := newClient()
+	defer tdx.Disconnect()
+	//reply, err := tdx.GetHistoryMinuteTimeData(20220511, 0, "159607")
+	reply, err := tdx.GetTransactionData(MarketSh, "159607", 0, 10)
 	if err != nil {
 		t.Errorf("error:%s", err)
 	}
@@ -146,9 +141,9 @@ func Test_tdx_GetTransactionData(t *testing.T) {
 
 func Test_tdx_GetHistoryTransactionData(t *testing.T) {
 	fmt.Println("================ GetHistoryTransactionData ================")
-	api := newClient()
-	defer api.Disconnect()
-	reply, err := api.GetHistoryTransactionData(20230922, MarketSh, "159607", 0, 10)
+	tdx := newClient()
+	defer tdx.Disconnect()
+	reply, err := tdx.GetHistoryTransactionData(20230922, MarketSh, "159607", 0, 10)
 	if err != nil {
 		t.Errorf("error:%s", err)
 	}

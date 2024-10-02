@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
-	"github.com/bensema/gotdx/util"
 )
 
 type GetSecurityQuotes struct {
@@ -146,7 +145,7 @@ func (obj *GetSecurityQuotes) UnSerialize(header interface{}, data []byte) error
 		binary.Read(bytes.NewBuffer(data[pos:pos+6]), binary.LittleEndian, &code)
 		//enc := mahonia.NewDecoder("gbk")
 		//ele.Code = enc.ConvertString(string(code[:]))
-		ele.Code = util.Utf8ToGbk(code[:])
+		ele.Code = Utf8ToGbk(code[:])
 		pos += 6
 		binary.Read(bytes.NewBuffer(data[pos:pos+2]), binary.LittleEndian, &ele.Active1)
 		pos += 2

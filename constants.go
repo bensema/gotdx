@@ -23,10 +23,6 @@ const (
 	KLINE_TYPE_YEARLY    = 11 // 年K 线
 )
 
-const (
-	DefaultRetryTimes = 3 // 重试次数
-)
-
 var (
 	ErrBadData = errors.New("more than 8M data")
 )

@@ -6,18 +6,14 @@ import (
 )
 
 func main() {
-	var opt = &gotdx.Opt{
-		Host: "119.147.212.81",
-		Port: 7709,
-	}
-	api := gotdx.NewClient(opt)
-	connectReply, err := api.Connect()
+	tdx := gotdx.New(gotdx.WithTCPAddress("119.147.212.81:7709"))
+	_, err := tdx.Connect()
 	if err != nil {
-		log.Println(err)
+		log.Fatalln(err)
 	}
-	log.Println(connectReply.Info)
+	defer tdx.Disconnect()
 
-	reply, err := api.GetSecurityQuotes([]uint8{gotdx.MarketSh, gotdx.MarketSz}, []string{"000001", "600008"})
+	reply, err := tdx.GetSecurityQuotes([]uint8{gotdx.MarketSh, gotdx.MarketSz}, []string{"000001", "600008"})
 	if err != nil {
 		log.Println(err)
 	}
@@ -25,7 +21,4 @@ func main() {
 	for _, obj := range reply.List {
 		log.Printf("%+v", obj)
 	}
-
-	_ = api.Disconnect()
-
 }

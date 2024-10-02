@@ -9,39 +9,29 @@ import (
 	"io"
 	"log"
 	"net"
-	"strconv"
-	"strings"
+	"sync"
 )
 
-type Client struct {
-	conn     net.Conn
-	opt      *Opt
-	complete chan bool
-	sending  chan bool
-}
-
-type Opt struct {
-	Host          string
-	Port          int
-	MaxRetryTimes int
-}
-
-func NewClient(opt *Opt) *Client {
+func New(opts ...Option) *Client {
 	client := &Client{}
-	if opt.MaxRetryTimes <= 0 {
-		opt.MaxRetryTimes = DefaultRetryTimes
-	}
 
-	client.opt = opt
+	client.opt = applyOptions(opts...)
 	client.sending = make(chan bool, 1)
 	client.complete = make(chan bool, 1)
 
 	return client
 }
 
+type Client struct {
+	conn     net.Conn
+	opt      *Options
+	complete chan bool
+	sending  chan bool
+	mu       sync.Mutex
+}
+
 func (client *Client) connect() error {
-	addr := strings.Join([]string{client.opt.Host, strconv.Itoa(client.opt.Port)}, ":")
-	conn, err := net.Dial("tcp", addr)
+	conn, err := net.Dial("tcp", client.opt.TCPAddress)
 	if err != nil {
 		return err
 	}
@@ -112,6 +102,8 @@ func (client *Client) do(msg proto.Msg) error {
 
 // Connect 连接券商行情服务器
 func (client *Client) Connect() (*proto.Hello1Reply, error) {
+	client.mu.Lock()
+	defer client.mu.Unlock()
 	err := client.connect()
 	if err != nil {
 		return nil, err
@@ -126,11 +118,15 @@ func (client *Client) Connect() (*proto.Hello1Reply, error) {
 
 // Disconnect 断开服务器
 func (client *Client) Disconnect() error {
+	client.mu.Lock()
+	defer client.mu.Unlock()
 	return client.conn.Close()
 }
 
 // GetSecurityCount 获取指定市场内的证券数目
 func (client *Client) GetSecurityCount(market uint16) (*proto.GetSecurityCountReply, error) {
+	client.mu.Lock()
+	defer client.mu.Unlock()
 	obj := proto.NewGetSecurityCount()
 	obj.SetParams(&proto.GetSecurityCountRequest{
 		Market: market,
@@ -144,6 +140,8 @@ func (client *Client) GetSecurityCount(market uint16) (*proto.GetSecurityCountRe
 
 // GetSecurityQuotes 获取盘口五档报价
 func (client *Client) GetSecurityQuotes(markets []uint8, codes []string) (*proto.GetSecurityQuotesReply, error) {
+	client.mu.Lock()
+	defer client.mu.Unlock()
 	if len(markets) != len(codes) {
 		return nil, errors.New("market code count error")
 	}
@@ -165,6 +163,8 @@ func (client *Client) GetSecurityQuotes(markets []uint8, codes []string) (*proto
 
 // GetSecurityList 获取市场内指定范围内的所有证券代码
 func (client *Client) GetSecurityList(market uint8, start uint16) (*proto.GetSecurityListReply, error) {
+	client.mu.Lock()
+	defer client.mu.Unlock()
 	obj := proto.NewGetSecurityList()
 	_market := uint16(market)
 	obj.SetParams(&proto.GetSecurityListRequest{Market: _market, Start: start})
@@ -177,6 +177,8 @@ func (client *Client) GetSecurityList(market uint8, start uint16) (*proto.GetSec
 
 // GetSecurityBars 获取股票K线
 func (client *Client) GetSecurityBars(category uint16, market uint8, code string, start uint16, count uint16) (*proto.GetSecurityBarsReply, error) {
+	client.mu.Lock()
+	defer client.mu.Unlock()
 	obj := proto.NewGetSecurityBars()
 	_code := [6]byte{}
 	_market := uint16(market)
@@ -197,6 +199,8 @@ func (client *Client) GetSecurityBars(category uint16, market uint8, code string
 
 // GetIndexBars 获取指数K线
 func (client *Client) GetIndexBars(category uint16, market uint8, code string, start uint16, count uint16) (*proto.GetIndexBarsReply, error) {
+	client.mu.Lock()
+	defer client.mu.Unlock()
 	obj := proto.NewGetIndexBars()
 	_code := [6]byte{}
 	_market := uint16(market)
@@ -217,6 +221,8 @@ func (client *Client) GetIndexBars(category uint16, market uint8, code string, s
 
 // GetMinuteTimeData 获取分时图数据
 func (client *Client) GetMinuteTimeData(market uint8, code string) (*proto.GetMinuteTimeDataReply, error) {
+	client.mu.Lock()
+	defer client.mu.Unlock()
 	obj := proto.NewGetMinuteTimeData()
 	_code := [6]byte{}
 	_market := uint16(market)
@@ -234,6 +240,8 @@ func (client *Client) GetMinuteTimeData(market uint8, code string) (*proto.GetMi
 
 // GetHistoryMinuteTimeData 获取历史分时图数据
 func (client *Client) GetHistoryMinuteTimeData(date uint32, market uint8, code string) (*proto.GetHistoryMinuteTimeDataReply, error) {
+	client.mu.Lock()
+	defer client.mu.Unlock()
 	obj := proto.NewGetHistoryMinuteTimeData()
 	_code := [6]byte{}
 	copy(_code[:], code)
@@ -251,6 +259,8 @@ func (client *Client) GetHistoryMinuteTimeData(date uint32, market uint8, code s
 
 // GetTransactionData 获取分时成交
 func (client *Client) GetTransactionData(market uint8, code string, start uint16, count uint16) (*proto.GetTransactionDataReply, error) {
+	client.mu.Lock()
+	defer client.mu.Unlock()
 	obj := proto.NewGetTransactionData()
 	_code := [6]byte{}
 	_market := uint16(market)
@@ -270,6 +280,8 @@ func (client *Client) GetTransactionData(market uint8, code string, start uint16
 
 // GetHistoryTransactionData 获取历史分时成交
 func (client *Client) GetHistoryTransactionData(date uint32, market uint8, code string, start uint16, count uint16) (*proto.GetHistoryTransactionDataReply, error) {
+	client.mu.Lock()
+	defer client.mu.Unlock()
 	obj := proto.NewGetHistoryTransactionData()
 	_code := [6]byte{}
 	_market := uint16(market)

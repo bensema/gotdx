@@ -6,8 +6,9 @@ const (
 )
 
 type Options struct {
-	TCPAddress    string // 服务器地址
-	MaxRetryTimes int    // 重试次数
+	TCPAddress     string   // 服务器地址
+	TCPAddressPool []string // 服务器地址池
+	MaxRetryTimes  int      // 重试次数
 }
 
 func defaultOptions() *Options {
@@ -30,5 +31,11 @@ type Option func(options *Options)
 func WithTCPAddress(tcpAddress string) Option {
 	return func(o *Options) {
 		o.TCPAddress = tcpAddress
+	}
+}
+
+func WithTCPAddressPool(ips ...string) Option {
+	return func(o *Options) {
+		o.TCPAddressPool = ips
 	}
 }

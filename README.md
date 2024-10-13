@@ -26,7 +26,8 @@ import (
 )
 
 func main() {
-	tdx := gotdx.New(gotdx.WithTCPAddress("119.147.212.81:7709"))
+	// ip地址如果失效，请自行替换
+	tdx := gotdx.New(gotdx.WithTCPAddress("124.71.187.122:7709"))
 	_, err := tdx.Connect()
 	if err != nil {
 		log.Fatalln(err)

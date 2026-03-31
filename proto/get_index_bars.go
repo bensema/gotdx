@@ -3,7 +3,6 @@ package proto
 import (
 	"bytes"
 	"encoding/binary"
-	"encoding/hex"
 	"fmt"
 )
 
@@ -12,17 +11,17 @@ type GetIndexBars struct {
 	respHeader *RespHeader
 	request    *GetIndexBarsRequest
 	reply      *GetIndexBarsReply
-
-	contentHex string
 }
 
 type GetIndexBarsRequest struct {
 	Market   uint16
 	Code     [6]byte
-	Category uint16 // 种类 5分钟  10分钟
-	I        uint16 // 未知 填充
+	Category uint16
+	Times    uint16
 	Start    uint16
 	Count    uint16
+	Adjust   uint16
+	Reserved [8]byte
 }
 
 type GetIndexBarsReply struct {
@@ -57,16 +56,15 @@ func NewGetIndexBars() *GetIndexBars {
 	obj.reqHeader.Zip = 0x0c
 	obj.reqHeader.SeqID = seqID()
 	obj.reqHeader.PacketType = 0x00
-	//obj.reqHeader.PkgLen1  =
-	//obj.reqHeader.PkgLen2  =
 	obj.reqHeader.Method = KMSG_INDEXBARS
-	obj.contentHex = "00000000000000000000"
 	return obj
 }
 
 func (obj *GetIndexBars) SetParams(req *GetIndexBarsRequest) {
+	if req.Times == 0 {
+		req.Times = 1
+	}
 	obj.request = req
-	obj.request.I = 1
 }
 
 func (obj *GetIndexBars) Serialize() ([]byte, error) {
@@ -76,14 +74,6 @@ func (obj *GetIndexBars) Serialize() ([]byte, error) {
 	buf := new(bytes.Buffer)
 	err := binary.Write(buf, binary.LittleEndian, obj.reqHeader)
 	err = binary.Write(buf, binary.LittleEndian, obj.request)
-	b, err := hex.DecodeString(obj.contentHex)
-	buf.Write(b)
-
-	//b, err := hex.DecodeString(obj.contentHex)
-	//buf.Write(b)
-
-	//err = binary.Write(buf, binary.LittleEndian, uint16(len(obj.stocks)))
-
 	return buf.Bytes(), err
 }
 
@@ -91,57 +81,58 @@ func (obj *GetIndexBars) UnSerialize(header interface{}, data []byte) error {
 	obj.respHeader = header.(*RespHeader)
 
 	pos := 0
-	err := binary.Read(bytes.NewBuffer(data[pos:pos+2]), binary.LittleEndian, &obj.reply.Count)
+	if err := binary.Read(bytes.NewBuffer(data[pos:pos+2]), binary.LittleEndian, &obj.reply.Count); err != nil {
+		return err
+	}
 	pos += 2
 
-	pre_diff_base := 0
-	//lasttime := ""
 	for index := uint16(0); index < obj.reply.Count; index++ {
-		ele := IndexBar{}
-
-		ele.Year, ele.Month, ele.Day, ele.Hour, ele.Minute = getdatetime(int(obj.request.Category), data, &pos)
-
-		//if index == 0 {
-		//	ele.Year, ele.Month, ele.Day, ele.Hour, ele.Minute = getdatetime(int(obj.request.Category), data, &pos)
-		//} else {
-		//	ele.Year, ele.Month, ele.Day, ele.Hour, ele.Minute = getdatetimenow(int(obj.request.Category), lasttime)
-		//}
-		ele.DateTime = fmt.Sprintf("%d-%02d-%02d %02d:%02d:00", ele.Year, ele.Month, ele.Day, ele.Hour, ele.Minute)
-
-		price_open_diff := getprice(data, &pos)
-		price_close_diff := getprice(data, &pos)
-
-		price_high_diff := getprice(data, &pos)
-		price_low_diff := getprice(data, &pos)
-
-		var ivol uint32
-		binary.Read(bytes.NewBuffer(data[pos:pos+4]), binary.LittleEndian, &ivol)
-		ele.Vol = getvolume(int(ivol))
+		var dateNum uint32
+		if err := binary.Read(bytes.NewBuffer(data[pos:pos+4]), binary.LittleEndian, &dateNum); err != nil {
+			return err
+		}
 		pos += 4
 
-		var dbvol uint32
-		binary.Read(bytes.NewBuffer(data[pos:pos+4]), binary.LittleEndian, &dbvol)
-		ele.Amount = getvolume(int(dbvol))
-		pos += 4
+		dateTime, ok := decodeDateNum(obj.request.Category, dateNum)
+		if !ok {
+			return fmt.Errorf("invalid kline datetime: %d", dateNum)
+		}
 
-		binary.Read(bytes.NewBuffer(data[pos:pos+2]), binary.LittleEndian, &ele.UpCount)
-		pos += 2
-		binary.Read(bytes.NewBuffer(data[pos:pos+2]), binary.LittleEndian, &ele.DownCount)
-		pos += 2
+		openRaw := getprice(data, &pos)
+		closeRaw := getprice(data, &pos)
+		highRaw := getprice(data, &pos)
+		lowRaw := getprice(data, &pos)
+		vol := getfloat32(data, &pos)
+		amount := getfloat32(data, &pos)
 
-		ele.Open = float64(price_open_diff+pre_diff_base) / 1000.0
-		price_open_diff += pre_diff_base
+		bar := IndexBar{
+			Open:     float64(openRaw) / 1000.0,
+			Close:    float64(closeRaw) / 1000.0,
+			High:     float64(highRaw) / 1000.0,
+			Low:      float64(lowRaw) / 1000.0,
+			Vol:      vol,
+			Amount:   amount,
+			Year:     dateTime.Year(),
+			Month:    int(dateTime.Month()),
+			Day:      dateTime.Day(),
+			Hour:     dateTime.Hour(),
+			Minute:   dateTime.Minute(),
+			DateTime: dateTime.Format("2006-01-02 15:04:05"),
+		}
 
-		ele.Close = float64(price_open_diff+price_close_diff) / 1000.0
-		ele.High = float64(price_open_diff+price_high_diff) / 1000.0
-		ele.Low = float64(price_open_diff+price_low_diff) / 1000.0
+		if pos+4 <= len(data) {
+			tryDateNum := binary.LittleEndian.Uint32(data[pos : pos+4])
+			if _, ok := decodeDateNum(obj.request.Category, tryDateNum); !ok {
+				bar.UpCount = binary.LittleEndian.Uint16(data[pos : pos+2])
+				bar.DownCount = binary.LittleEndian.Uint16(data[pos+2 : pos+4])
+				pos += 4
+			}
+		}
 
-		pre_diff_base = price_open_diff + price_close_diff
-		//lasttime = ele.DateTime
-
-		obj.reply.List = append(obj.reply.List, ele)
+		obj.reply.List = append(obj.reply.List, bar)
 	}
-	return err
+
+	return nil
 }
 
 func (obj *GetIndexBars) Reply() *GetIndexBarsReply {

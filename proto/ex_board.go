@@ -1,0 +1,122 @@
+package proto
+
+import (
+	"bytes"
+	"encoding/binary"
+	"fmt"
+	"math"
+)
+
+type ExGetBoardList struct {
+	reqHeader  *ReqHeader
+	respHeader *RespHeader
+	request    *ExGetBoardListRequest
+	reply      *ExGetBoardListReply
+}
+
+type ExGetBoardListRequest struct {
+	PageSize  uint16
+	BoardType uint16
+	SortType  uint8
+	SortOrder uint8
+	Start     uint16
+	One       uint16
+	Reserved  [8]byte
+}
+
+type ExGetBoardListReply struct {
+	Unknown uint16
+	Count   uint16
+	List    []ExBoardListItem
+}
+
+type ExBoardListItem struct {
+	Market          uint16
+	Code            string
+	Name            string
+	Price           float64
+	RiseSpeed       float64
+	PreClose        float64
+	SymbolMarket    uint16
+	SymbolCode      string
+	SymbolName      string
+	SymbolPrice     float64
+	SymbolRiseSpeed float64
+	SymbolPreClose  float64
+}
+
+func NewExGetBoardList() *ExGetBoardList {
+	obj := &ExGetBoardList{
+		reqHeader:  new(ReqHeader),
+		respHeader: new(RespHeader),
+		request:    new(ExGetBoardListRequest),
+		reply:      new(ExGetBoardListReply),
+	}
+	obj.reqHeader.Zip = 0x0c
+	obj.reqHeader.SeqID = seqID()
+	obj.reqHeader.PacketType = 0x01
+	obj.reqHeader.Method = KMSG_EXBOARDLIST
+	obj.request.PageSize = 300
+	obj.request.SortOrder = 1
+	obj.request.One = 1
+	return obj
+}
+
+func (obj *ExGetBoardList) SetParams(req *ExGetBoardListRequest) {
+	if req.PageSize == 0 {
+		req.PageSize = 300
+	}
+	if req.One == 0 {
+		req.One = 1
+	}
+	if req.SortOrder == 0 {
+		req.SortOrder = 1
+	}
+	obj.request = req
+}
+
+func (obj *ExGetBoardList) Serialize() ([]byte, error) {
+	payload := new(bytes.Buffer)
+	if err := binary.Write(payload, binary.LittleEndian, obj.request); err != nil {
+		return nil, err
+	}
+	return serializeExRequest(KMSG_EXBOARDLIST, payload.Bytes())
+}
+
+func (obj *ExGetBoardList) UnSerialize(header interface{}, data []byte) error {
+	obj.respHeader = header.(*RespHeader)
+	if len(data) < 4 {
+		return fmt.Errorf("invalid ex board list response length: %d", len(data))
+	}
+
+	obj.reply.Unknown = binary.LittleEndian.Uint16(data[:2])
+	obj.reply.Count = binary.LittleEndian.Uint16(data[2:4])
+	pos := 4
+
+	for i := uint16(0); i < obj.reply.Count; i++ {
+		if pos+160 > len(data) {
+			return fmt.Errorf("invalid ex board item %d", i)
+		}
+		item := ExBoardListItem{
+			Market:          binary.LittleEndian.Uint16(data[pos : pos+2]),
+			Code:            Utf8ToGbk(data[pos+2 : pos+24]),
+			Name:            Utf8ToGbk(data[pos+24 : pos+68]),
+			Price:           float64(math.Float32frombits(binary.LittleEndian.Uint32(data[pos+68 : pos+72]))),
+			RiseSpeed:       float64(math.Float32frombits(binary.LittleEndian.Uint32(data[pos+72 : pos+76]))),
+			PreClose:        float64(math.Float32frombits(binary.LittleEndian.Uint32(data[pos+76 : pos+80]))),
+			SymbolMarket:    binary.LittleEndian.Uint16(data[pos+80 : pos+82]),
+			SymbolCode:      Utf8ToGbk(data[pos+82 : pos+104]),
+			SymbolName:      Utf8ToGbk(data[pos+104 : pos+148]),
+			SymbolPrice:     float64(math.Float32frombits(binary.LittleEndian.Uint32(data[pos+148 : pos+152]))),
+			SymbolRiseSpeed: float64(math.Float32frombits(binary.LittleEndian.Uint32(data[pos+152 : pos+156]))),
+			SymbolPreClose:  float64(math.Float32frombits(binary.LittleEndian.Uint32(data[pos+156 : pos+160]))),
+		}
+		obj.reply.List = append(obj.reply.List, item)
+		pos += 160
+	}
+	return nil
+}
+
+func (obj *ExGetBoardList) Reply() *ExGetBoardListReply {
+	return obj.reply
+}

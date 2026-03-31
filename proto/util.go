@@ -2,10 +2,12 @@ package proto
 
 import (
 	"bytes"
-	"golang.org/x/text/encoding/simplifiedchinese"
-	"golang.org/x/text/transform"
 	"io/ioutil"
 	"strings"
+	"unicode"
+
+	"golang.org/x/text/encoding/simplifiedchinese"
+	"golang.org/x/text/transform"
 )
 
 func Utf8ToGbk(text []byte) string {
@@ -16,5 +18,8 @@ func Utf8ToGbk(text []byte) string {
 
 	content, _ := ioutil.ReadAll(decoder)
 
-	return strings.ReplaceAll(string(content), string([]byte{0x00}), "")
+	result := strings.ReplaceAll(string(content), string([]byte{0x00}), "")
+	return strings.TrimFunc(result, func(r rune) bool {
+		return unicode.IsControl(r)
+	})
 }

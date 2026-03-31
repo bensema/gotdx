@@ -3,7 +3,6 @@ package proto
 import (
 	"bytes"
 	"encoding/binary"
-	"encoding/hex"
 )
 
 type GetSecurityCount struct {
@@ -16,6 +15,7 @@ type GetSecurityCount struct {
 
 type GetSecurityCountRequest struct {
 	Market uint16
+	Date   uint32
 }
 
 type GetSecurityCountReply struct {
@@ -33,23 +33,23 @@ func NewGetSecurityCount() *GetSecurityCount {
 	obj.reqHeader.SeqID = seqID()
 	obj.reqHeader.PacketType = 0x01
 	obj.reqHeader.Method = KMSG_SECURITYCOUNT
-	obj.contentHex = "75c73301" // 未解
 	return obj
 }
 
 func (obj *GetSecurityCount) SetParams(req *GetSecurityCountRequest) {
+	if req.Date == 0 {
+		req.Date = todayDate()
+	}
 	obj.request = req
 }
 
 func (obj *GetSecurityCount) Serialize() ([]byte, error) {
-	obj.reqHeader.PkgLen1 = 2 + 4 + 2
-	obj.reqHeader.PkgLen2 = 2 + 4 + 2
+	obj.reqHeader.PkgLen1 = 2 + 2 + 4
+	obj.reqHeader.PkgLen2 = 2 + 2 + 4
 
 	buf := new(bytes.Buffer)
 	err := binary.Write(buf, binary.LittleEndian, obj.reqHeader)
 	err = binary.Write(buf, binary.LittleEndian, obj.request)
-	b, err := hex.DecodeString(obj.contentHex)
-	buf.Write(b)
 	return buf.Bytes(), err
 }
 

@@ -3,6 +3,7 @@ package proto
 import (
 	"bytes"
 	"encoding/binary"
+	"math"
 )
 
 type GetSecurityList struct {
@@ -16,7 +17,9 @@ type GetSecurityList struct {
 
 type GetSecurityListRequest struct {
 	Market uint16
-	Start  uint16
+	Start  uint32
+	Count  uint32
+	Zero   uint32
 }
 
 type GetSecurityListReply struct {
@@ -26,10 +29,14 @@ type GetSecurityListReply struct {
 
 type Security struct {
 	Code         string
+	Vol          uint16
 	VolUnit      uint16
 	DecimalPoint int8
 	Name         string
 	PreClose     float64
+	Unknown1     float32
+	Unknown2     uint16
+	Unknown3     uint16
 }
 
 func NewGetSecurityList() *GetSecurityList {
@@ -47,21 +54,19 @@ func NewGetSecurityList() *GetSecurityList {
 }
 
 func (obj *GetSecurityList) SetParams(req *GetSecurityListRequest) {
+	if req.Count == 0 {
+		req.Count = 1600
+	}
 	obj.request = req
 }
 
 func (obj *GetSecurityList) Serialize() ([]byte, error) {
-	obj.reqHeader.PkgLen1 = 2 + 4
-	obj.reqHeader.PkgLen2 = 2 + 4
+	obj.reqHeader.PkgLen1 = 2 + 2 + 4 + 4 + 4
+	obj.reqHeader.PkgLen2 = 2 + 2 + 4 + 4 + 4
 
 	buf := new(bytes.Buffer)
 	err := binary.Write(buf, binary.LittleEndian, obj.reqHeader)
 	err = binary.Write(buf, binary.LittleEndian, obj.request)
-
-	//b, err := hex.DecodeString(obj.contentHex)
-	//buf.Write(b)
-
-	//err = binary.Write(buf, binary.LittleEndian, uint16(len(obj.stocks)))
 
 	return buf.Bytes(), err
 }
@@ -69,7 +74,6 @@ func (obj *GetSecurityList) Serialize() ([]byte, error) {
 func (obj *GetSecurityList) UnSerialize(header interface{}, data []byte) error {
 	obj.respHeader = header.(*RespHeader)
 
-	//fmt.Println(hex.EncodeToString(data))
 	pos := 0
 	err := binary.Read(bytes.NewBuffer(data[pos:pos+2]), binary.LittleEndian, &obj.reply.Count)
 	pos += 2
@@ -80,24 +84,28 @@ func (obj *GetSecurityList) UnSerialize(header interface{}, data []byte) error {
 		pos += 6
 		ele.Code = string(code[:])
 
-		binary.Read(bytes.NewBuffer(data[pos:pos+2]), binary.LittleEndian, &ele.VolUnit)
+		binary.Read(bytes.NewBuffer(data[pos:pos+2]), binary.LittleEndian, &ele.Vol)
 		pos += 2
+		ele.VolUnit = ele.Vol
 
-		var name [8]byte
-		binary.Read(bytes.NewBuffer(data[pos:pos+8]), binary.LittleEndian, &name)
-		pos += 8
+		var name [16]byte
+		binary.Read(bytes.NewBuffer(data[pos:pos+16]), binary.LittleEndian, &name)
+		pos += 16
 
 		ele.Name = Utf8ToGbk(name[:])
 
+		var unknown1 uint32
+		binary.Read(bytes.NewBuffer(data[pos:pos+4]), binary.LittleEndian, &unknown1)
+		ele.Unknown1 = math.Float32frombits(unknown1)
 		pos += 4
 		binary.Read(bytes.NewBuffer(data[pos:pos+1]), binary.LittleEndian, &ele.DecimalPoint)
 		pos += 1
-		var precloseraw uint32
-		binary.Read(bytes.NewBuffer(data[pos:pos+4]), binary.LittleEndian, &precloseraw)
-		pos += 4
+		ele.PreClose = getfloat32(data, &pos)
 
-		ele.PreClose = getvolume(int(precloseraw))
-		pos += 4
+		binary.Read(bytes.NewBuffer(data[pos:pos+2]), binary.LittleEndian, &ele.Unknown2)
+		pos += 2
+		binary.Read(bytes.NewBuffer(data[pos:pos+2]), binary.LittleEndian, &ele.Unknown3)
+		pos += 2
 
 		obj.reply.List = append(obj.reply.List, ele)
 	}

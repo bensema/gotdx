@@ -17,22 +17,53 @@ const (
 	KMSG_CMD1                   = 0x000d // 建立链接
 	KMSG_CMD2                   = 0x0fdb // 建立链接
 	KMSG_PING                   = 0x0015 // 测试连接
-	KMSG_HEARTBEAT              = 0xFFFF // 心跳(自定义)
+	KMSG_HEARTBEAT              = 0x0004 // 心跳
 	KMSG_SECURITYCOUNT          = 0x044e // 证券数量
 	KMSG_BLOCKINFOMETA          = 0x02c5 // 板块文件信息
 	KMSG_BLOCKINFO              = 0x06b9 // 板块文件
 	KMSG_COMPANYCATEGORY        = 0x02cf // 公司信息文件信息
 	KMSG_COMPANYCONTENT         = 0x02d0 // 公司信息描述
 	KMSG_FINANCEINFO            = 0x0010 // 财务信息
-	KMSG_HISTORYMINUTETIMEDATE  = 0x0fb4 // 历史分时信息
+	KMSG_HISTORYMINUTETIMEDATE  = 0x0feb // 历史分时信息
 	KMSG_HISTORYTRANSACTIONDATA = 0x0fb5 // 历史分笔成交信息
-	KMSG_INDEXBARS              = 0x052d // 指数K线
-	KMSG_SECURITYBARS           = 0x052d // 股票K线
+	KMSG_INDEXBARS              = 0x0523 // 指数K线
+	KMSG_VOLUMEPROFILE          = 0x051a // 成交分布
+	KMSG_INDEXMOMENTUM          = 0x051c // 指数动量
+	KMSG_INDEXINFO              = 0x051d // 指数概况
+	KMSG_SECURITYBARS           = 0x0523 // 股票K线
+	KMSG_SECURITYBARS_OFFSET    = 0x052d // 偏移K线
 	KMSG_MINUTETIMEDATA         = 0x0537 // 分时数据
-	KMSG_SECURITYLIST           = 0x0450 // 证券列表
+	KMSG_SECURITYLIST           = 0x044d // 证券列表
+	KMSG_SECURITYLIST_OLD       = 0x0450 // 旧版证券列表
+	KMSG_QUOTESLIST             = 0x054b // 排序行情列表
+	KMSG_QUOTES                 = 0x054c // 批量行情
 	KMSG_SECURITYQUOTES         = 0x053e // 行情信息
+	KMSG_TOPBOARD               = 0x053f // 排行榜
+	KMSG_UNUSUAL                = 0x0563 // 主力监控
+	KMSG_AUCTION                = 0x056a // 集合竞价
+	KMSG_CHARTSAMPLING          = 0x0fd1 // 抽样图
+	KMSG_HISTORYORDERS          = 0x0fb4 // 历史委托
 	KMSG_TRANSACTIONDATA        = 0x0fc5 // 分笔成交信息
 	KMSG_XDXRINFO               = 0x000f // 除权除息信息
+	KMSG_EXLOGIN                = 0x2454 // 扩展市场登录
+	KMSG_EXSERVERINFO           = 0x2455 // 扩展市场服务信息
+	KMSG_EXCOUNT                = 0x23f0 // 扩展市场数量
+	KMSG_EXCATEGORYLIST         = 0x23f4 // 扩展市场分类列表
+	KMSG_EXLIST                 = 0x23f5 // 扩展市场商品列表
+	KMSG_EXKLINE                = 0x23ff // 扩展市场K线
+	KMSG_EXHISTORYTRANSACTION   = 0x2412 // 扩展市场历史成交
+	KMSG_EXTABLE                = 0x2422 // 扩展市场表格
+	KMSG_EXTABLEDETAIL          = 0x2423 // 扩展市场详细表格
+	KMSG_EXFILEMETA             = 0x2458 // 扩展市场文件元信息
+	KMSG_EXFILEDOWNLOAD         = 0x2459 // 扩展市场文件下载
+	KMSG_EXQUOTESLIST           = 0x2484 // 扩展市场行情列表
+	KMSG_EXQUOTESINGLE          = 0x23fa // 扩展市场单个行情
+	KMSG_EXQUOTES               = 0x248a // 扩展市场批量行情
+	KMSG_EXQUOTES2              = 0x23fb // 扩展市场批量行情2
+	KMSG_EXTICKCHART            = 0x248b // 扩展市场分时图
+	KMSG_EXHISTORYTICKCHART     = 0x248c // 扩展市场历史分时图
+	KMSG_EXCHARTSAMPLING        = 0x254d // 扩展市场抽样图
+	KMSG_EXBOARDLIST            = 0x1231 // 扩展市场板块榜单
 
 )
 
@@ -87,6 +118,11 @@ func seqID() uint32 {
 	return _seqId
 }
 
+func todayDate() uint32 {
+	now := time.Now()
+	return uint32(now.Year()*10000 + int(now.Month())*100 + now.Day())
+}
+
 // pytdx : 类似utf-8的编码方式保存有符号数字
 func getprice(b []byte, pos *int) int {
 	/*
@@ -134,6 +170,82 @@ func gettime(b []byte, pos *int) (h uint16, m uint16) {
 	m = sec % 60
 	(*pos) += 2
 	return
+}
+
+func getfloat32(b []byte, pos *int) float64 {
+	value := math.Float32frombits(binary.LittleEndian.Uint32(b[*pos : *pos+4]))
+	(*pos) += 4
+	return float64(value)
+}
+
+func decodeDateNum(category uint16, num uint32) (time.Time, bool) {
+	minuteCategory := category < 4 || category == 7 || category == 8
+	year, month, day := 0, 0, 0
+	hour, minute := 15, 0
+
+	if minuteCategory {
+		zipData := num & 0xFFFF
+		year = int((zipData >> 11) + 2004)
+		month = int((zipData & 0x7FF) / 100)
+		day = int((zipData & 0x7FF) % 100)
+
+		totalMinutes := int(num >> 16)
+		hour = totalMinutes / 60
+		minute = totalMinutes % 60
+	} else {
+		year = int(num / 10000)
+		month = int((num % 10000) / 100)
+		day = int(num % 100)
+	}
+
+	if year < 2004 || year > time.Now().Year()+1 {
+		return time.Time{}, false
+	}
+	if month < 1 || month > 12 || day < 1 || day > 31 {
+		return time.Time{}, false
+	}
+	if hour < 0 || hour > 23 || minute < 0 || minute > 59 {
+		return time.Time{}, false
+	}
+
+	t := time.Date(year, time.Month(month), day, hour, minute, 0, 0, time.Local)
+	if t.Year() != year || int(t.Month()) != month || t.Day() != day || t.Hour() != hour || t.Minute() != minute {
+		return time.Time{}, false
+	}
+
+	return t, true
+}
+
+func formatServerTime(raw int) string {
+	if raw == 0 || raw == 100 {
+		return "00:00:00.000"
+	}
+
+	ts := raw
+	minutesField := (ts / 10000) % 100
+	if minutesField < 60 {
+		hours := ts / 1000000
+		minutes := minutesField
+		secondsMillis := float64(ts%10000) * 60 / 10000.0
+		seconds := int(secondsMillis)
+		millis := int((secondsMillis - float64(seconds)) * 1000)
+		return time.Date(0, 1, 1, hours, minutes, seconds, millis*int(time.Millisecond), time.Local).Format("15:04:05.000")
+	}
+
+	total := float64(ts%1000000) * 60 / 1000000.0
+	hours := ts / 1000000
+	minutes := int(total / 60)
+	secondsMillis := total - float64(minutes*60)
+	seconds := int(secondsMillis)
+	millis := int((secondsMillis - float64(seconds)) * 1000)
+	return time.Date(0, 1, 1, hours, minutes, seconds, millis*int(time.Millisecond), time.Local).Format("15:04:05.000")
+}
+
+func parseYMD(raw uint32) (time.Time, error) {
+	year := int(raw / 10000)
+	month := int((raw % 10000) / 100)
+	day := int(raw % 100)
+	return time.Date(year, time.Month(month), day, 0, 0, 0, 0, time.Local), nil
 }
 
 func getdatetime(category int, b []byte, pos *int) (year int, month int, day int, hour int, minute int) {

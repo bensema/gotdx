@@ -1,0 +1,1108 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>gotdx 网页查看器</title>
+  <style>
+    :root {
+      --bg: #dfe5ec;
+      --bg-deep: #cfd7e2;
+      --panel: #f7f9fc;
+      --panel-2: #eef3f8;
+      --panel-3: #ffffff;
+      --line: #c8d2de;
+      --line-strong: #b3bfcd;
+      --ink: #132235;
+      --muted: #617286;
+      --accent: #0c5a9b;
+      --accent-soft: rgba(12, 90, 155, 0.1);
+      --rise: #c62828;
+      --rise-soft: rgba(198, 40, 40, 0.1);
+      --fall: #1b8a4a;
+      --fall-soft: rgba(27, 138, 74, 0.1);
+      --warn: #a35a00;
+      --warn-soft: rgba(163, 90, 0, 0.12);
+      --shadow: 0 12px 24px rgba(11, 31, 51, 0.08);
+      --radius: 14px;
+      --mono: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+      --sans: "IBM Plex Sans", "PingFang SC", "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--ink); }
+    body {
+      font-family: var(--sans);
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.48), transparent 180px),
+        linear-gradient(180deg, var(--bg) 0%, var(--bg-deep) 100%);
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background-image:
+        linear-gradient(rgba(19, 34, 53, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(19, 34, 53, 0.03) 1px, transparent 1px);
+      background-size: 20px 20px;
+      opacity: 0.55;
+    }
+
+    .shell {
+      min-height: 100vh;
+      padding: 14px;
+      display: grid;
+      grid-template-rows: auto 1fr;
+      gap: 12px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .topbar {
+      display: grid;
+      grid-template-columns: minmax(0, 1.35fr) 360px;
+      gap: 12px;
+    }
+
+    .hero,
+    .market-board,
+    .pane {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(247,249,252,0.96));
+      box-shadow: var(--shadow);
+    }
+
+    .hero {
+      padding: 18px 20px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .hero-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: flex-start;
+      flex-wrap: wrap;
+    }
+
+    .eyebrow {
+      margin: 0 0 8px;
+      font-size: 11px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--accent);
+      font-family: var(--mono);
+    }
+
+    .title {
+      margin: 0;
+      font-size: clamp(28px, 4vw, 40px);
+      line-height: 0.96;
+      letter-spacing: -0.05em;
+    }
+
+    .subtitle {
+      margin: 10px 0 0;
+      max-width: 70ch;
+      color: var(--muted);
+      line-height: 1.55;
+    }
+
+    .hero-tags {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .tag {
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--panel-3);
+      color: var(--muted);
+      font-size: 12px;
+      font-family: var(--mono);
+      white-space: nowrap;
+    }
+
+    .hero-strip {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .strip-cell {
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: linear-gradient(180deg, var(--panel-3), var(--panel));
+    }
+
+    .strip-label {
+      margin: 0 0 6px;
+      color: var(--muted);
+      font-size: 10px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      font-family: var(--mono);
+    }
+
+    .strip-value {
+      margin: 0;
+      color: var(--ink);
+      font-size: 13px;
+      line-height: 1.4;
+      font-family: var(--mono);
+      word-break: break-word;
+    }
+
+    .market-board {
+      overflow: hidden;
+      display: grid;
+      grid-template-rows: auto 1fr;
+    }
+
+    .market-head {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+      background: linear-gradient(180deg, #edf4fb, #f7f9fc);
+    }
+
+    .market-title {
+      margin: 0;
+      font-size: 12px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--accent);
+      font-family: var(--mono);
+    }
+
+    .market-grid {
+      display: grid;
+      gap: 1px;
+      background: var(--line);
+    }
+
+    .market-row {
+      padding: 12px 14px;
+      background: var(--panel);
+      display: grid;
+      gap: 5px;
+    }
+
+    .market-label {
+      margin: 0;
+      color: var(--muted);
+      font-size: 10px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      font-family: var(--mono);
+    }
+
+    .market-value {
+      margin: 0;
+      color: var(--ink);
+      font-size: 13px;
+      line-height: 1.4;
+      font-family: var(--mono);
+    }
+
+    .workspace {
+      min-height: 0;
+      display: grid;
+      grid-template-columns: 320px minmax(0, 1fr) 360px;
+      gap: 12px;
+    }
+
+    .pane {
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .pane-head {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+      background: linear-gradient(180deg, #fdfefe, #eef4f9);
+    }
+
+    .pane-title {
+      margin: 0;
+      font-size: 12px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--accent);
+      font-family: var(--mono);
+    }
+
+    .pane-desc {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .pane-body {
+      min-height: 0;
+      overflow: auto;
+      padding: 14px;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.56), rgba(247,249,252,0.56));
+    }
+
+    .search-box {
+      margin-bottom: 12px;
+    }
+
+    .search-box input,
+    .field input,
+    .field textarea,
+    .filter {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--panel-3);
+      color: var(--ink);
+      font: inherit;
+      transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
+    }
+
+    .search-box input,
+    .filter,
+    .field textarea {
+      font-family: var(--mono);
+      font-size: 13px;
+    }
+
+    .search-box input:focus,
+    .field input:focus,
+    .field textarea:focus,
+    .filter:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 4px rgba(12, 90, 155, 0.08);
+      background: #fff;
+    }
+
+    .method-group + .method-group {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid var(--line);
+    }
+
+    .group-title {
+      margin: 0 0 8px;
+      color: var(--muted);
+      font-size: 10px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      font-family: var(--mono);
+    }
+
+    .method-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .method-btn {
+      width: 100%;
+      display: grid;
+      gap: 6px;
+      text-align: left;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: linear-gradient(180deg, var(--panel-3), var(--panel));
+      color: var(--ink);
+      cursor: pointer;
+      transition: transform 150ms ease, border-color 150ms ease, box-shadow 150ms ease, background 150ms ease;
+    }
+
+    .method-btn:hover {
+      transform: translateY(-1px);
+      border-color: var(--line-strong);
+      box-shadow: 0 8px 18px rgba(12, 90, 155, 0.08);
+    }
+
+    .method-btn.active {
+      border-color: rgba(12, 90, 155, 0.32);
+      background:
+        linear-gradient(180deg, rgba(12, 90, 155, 0.09), rgba(255,255,255,0.96));
+      box-shadow: inset 3px 0 0 var(--accent), 0 8px 18px rgba(12, 90, 155, 0.08);
+    }
+
+    .method-meta {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .method-name,
+    .method-target {
+      font-family: var(--mono);
+      font-size: 11px;
+    }
+
+    .method-name {
+      color: var(--accent);
+    }
+
+    .method-target {
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+
+    .method-label {
+      font-size: 14px;
+      font-weight: 700;
+      line-height: 1.3;
+    }
+
+    .method-desc {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .query-summary {
+      display: grid;
+      gap: 12px;
+      padding-bottom: 14px;
+      margin-bottom: 14px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .query-title {
+      margin: 0;
+      font-size: 30px;
+      line-height: 1;
+      letter-spacing: -0.05em;
+    }
+
+    .query-desc {
+      margin: 8px 0 0;
+      max-width: 72ch;
+      color: var(--muted);
+      line-height: 1.55;
+    }
+
+    .method-info {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .info-chip {
+      padding: 7px 10px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--panel-3);
+      color: var(--muted);
+      font-size: 11px;
+      font-family: var(--mono);
+    }
+
+    .query-form {
+      display: grid;
+      gap: 14px;
+      margin-bottom: 14px;
+    }
+
+    .param-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .field {
+      display: grid;
+      gap: 6px;
+    }
+
+    .field.full {
+      grid-column: 1 / -1;
+    }
+
+    .field label {
+      color: var(--muted);
+      font-size: 10px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      font-family: var(--mono);
+    }
+
+    .field textarea {
+      min-height: 84px;
+      resize: vertical;
+    }
+
+    .field-help {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    .actions {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: linear-gradient(180deg, rgba(12, 90, 155, 0.04), rgba(255,255,255,0.7));
+    }
+
+    .run-btn {
+      min-width: 152px;
+      padding: 11px 15px;
+      border: 1px solid #0a487c;
+      border-radius: 10px;
+      background: linear-gradient(180deg, #0d63aa, #084c83);
+      color: #fff;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      font-family: var(--mono);
+      cursor: pointer;
+      transition: transform 150ms ease, box-shadow 150ms ease, opacity 150ms ease;
+      box-shadow: 0 8px 18px rgba(12, 90, 155, 0.22);
+    }
+
+    .run-btn:hover {
+      transform: translateY(-1px);
+    }
+
+    .run-btn:disabled {
+      opacity: 0.72;
+      cursor: progress;
+    }
+
+    .status {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
+      font-family: var(--mono);
+    }
+
+    .status strong {
+      color: var(--ink);
+    }
+
+    .warning {
+      display: none;
+      margin-bottom: 12px;
+      padding: 12px 14px;
+      border: 1px solid rgba(163, 90, 0, 0.18);
+      border-radius: 12px;
+      background: var(--warn-soft);
+      color: var(--warn);
+      line-height: 1.5;
+    }
+
+    .warning.show {
+      display: block;
+      animation: pop 180ms ease;
+    }
+
+    .result-head {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 240px;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .stats {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .stat {
+      padding: 7px 10px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--panel-3);
+      color: var(--muted);
+      font-size: 11px;
+      font-family: var(--mono);
+    }
+
+    .table-wrap {
+      min-height: 280px;
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fff;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    th, td {
+      padding: 10px 12px;
+      text-align: left;
+      vertical-align: top;
+      border-bottom: 1px solid #e3e9f0;
+      white-space: nowrap;
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: linear-gradient(180deg, #f3f7fb, #e8eef6);
+      color: #516274;
+      font-size: 10px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      font-family: var(--mono);
+    }
+
+    td {
+      font-family: var(--mono);
+      color: var(--ink);
+    }
+
+    tbody tr:nth-child(even) {
+      background: rgba(238, 243, 248, 0.42);
+    }
+
+    tbody tr:hover {
+      background: rgba(12, 90, 155, 0.06);
+    }
+
+    td.cell-rise {
+      color: var(--rise);
+      background: linear-gradient(90deg, var(--rise-soft), transparent);
+    }
+
+    td.cell-fall {
+      color: var(--fall);
+      background: linear-gradient(90deg, var(--fall-soft), transparent);
+    }
+
+    td.cell-flag {
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    .empty {
+      padding: 28px 18px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .inspector {
+      display: grid;
+      gap: 12px;
+    }
+
+    .raw-section {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      overflow: hidden;
+      background: var(--panel-3);
+    }
+
+    .raw-head {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--line);
+      background: linear-gradient(180deg, #eef4fb, #f7f9fc);
+    }
+
+    .raw-label {
+      margin: 0;
+      color: var(--accent);
+      font-size: 10px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      font-family: var(--mono);
+    }
+
+    pre {
+      margin: 0;
+      padding: 14px;
+      overflow: auto;
+      background: #fbfcfe;
+      color: #102033;
+      font-size: 12px;
+      line-height: 1.55;
+      font-family: var(--mono);
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    @keyframes pop {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (max-width: 1240px) {
+      .topbar,
+      .workspace {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 860px) {
+      .hero-strip,
+      .param-grid,
+      .result-head {
+        grid-template-columns: 1fr;
+      }
+
+      .hero-top,
+      .actions {
+        display: grid;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .shell {
+        padding: 10px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <section class="hero">
+        <div class="hero-top">
+          <div>
+            <p class="eyebrow">gotdx webviewer</p>
+            <h1 class="title">接口终端</h1>
+            <p class="subtitle">按行情软件的工作台方式组织查询。左侧像监控列表，中间是指令与表格主屏，右侧保留协议检查器和原始响应。</p>
+          </div>
+          <div class="hero-tags">
+            <span class="tag">接口列表</span>
+            <span class="tag">查询面板</span>
+            <span class="tag">原始检查器</span>
+          </div>
+        </div>
+
+        <div class="hero-strip">
+          <div class="strip-cell">
+            <p class="strip-label">启动方式</p>
+            <p class="strip-value">go run ./cmd/webviewer</p>
+          </div>
+          <div class="strip-cell">
+            <p class="strip-label">访问地址</p>
+            <p class="strip-value">127.0.0.1:8080</p>
+          </div>
+          <div class="strip-cell">
+            <p class="strip-label">使用模式</p>
+            <p class="strip-value">接口请求 + 表格查询</p>
+          </div>
+          <div class="strip-cell">
+            <p class="strip-label">路由目标</p>
+            <p class="strip-value">主行情 / 扩展行情</p>
+          </div>
+        </div>
+      </section>
+
+      <aside class="market-board">
+        <div class="market-head">
+          <h2 class="market-title">会话看板</h2>
+        </div>
+        <div class="market-grid">
+          <div class="market-row">
+            <p class="market-label">接口注册表</p>
+            <p class="market-value">左侧分组来自 /api/methods 接口返回</p>
+          </div>
+          <div class="market-row">
+            <p class="market-label">执行链路</p>
+            <p class="market-value">POST /api/query 返回表格行和原始响应</p>
+          </div>
+          <div class="market-row">
+            <p class="market-label">表格展示</p>
+            <p class="market-value">支持本地筛选，并固定表头方便浏览</p>
+          </div>
+          <div class="market-row">
+            <p class="market-label">提示</p>
+            <p class="market-value">红绿着色基于常见行情字段语义自动推断</p>
+          </div>
+        </div>
+      </aside>
+    </header>
+
+    <main class="workspace">
+      <aside class="pane">
+        <div class="pane-head">
+          <h2 class="pane-title">接口列表</h2>
+          <p class="pane-desc">像自选列表一样浏览接口，按分组和关键字定位具体查询方法。</p>
+        </div>
+        <div class="pane-body">
+          <div class="search-box">
+            <input id="methodSearch" type="search" placeholder="搜索接口 key / 分组 / 目标">
+          </div>
+          <div id="methodList"></div>
+        </div>
+      </aside>
+
+      <section class="pane">
+        <div class="pane-head">
+          <h2 class="pane-title">查询面板</h2>
+          <p class="pane-desc">选择接口后填写参数并发起查询，结果表格作为主屏展示。</p>
+        </div>
+        <div class="pane-body">
+          <div class="query-summary">
+            <div>
+              <h2 class="query-title" id="queryTitle">加载中…</h2>
+              <p class="query-desc" id="queryDesc"></p>
+            </div>
+            <div class="method-info" id="methodInfo"></div>
+          </div>
+
+          <form class="query-form" id="queryForm">
+            <div class="param-grid" id="paramGrid"></div>
+            <div class="actions">
+              <button class="run-btn" type="submit" id="runBtn">执行查询</button>
+              <div class="status" id="runStatus"><strong>空闲</strong> 等待发起请求。</div>
+            </div>
+          </form>
+
+          <div class="warning" id="warningBox"></div>
+
+          <div class="result-head">
+            <div class="stats" id="statsBar">
+              <span class="stat">尚未查询</span>
+            </div>
+            <input class="filter" id="tableFilter" type="search" placeholder="筛选当前表格">
+          </div>
+
+          <div class="table-wrap" id="tableWrap">
+            <div class="empty">选择接口并执行查询后，这里显示结构化表格。</div>
+          </div>
+        </div>
+      </section>
+
+      <aside class="pane">
+        <div class="pane-head">
+          <h2 class="pane-title">协议检查器</h2>
+          <p class="pane-desc">查看请求摘要和原始响应，方便做协议核对和异常排查。</p>
+        </div>
+        <div class="pane-body inspector">
+          <section class="raw-section">
+            <div class="raw-head">
+              <h3 class="raw-label">请求摘要</h3>
+            </div>
+            <pre id="requestView">暂无请求。</pre>
+          </section>
+          <section class="raw-section">
+            <div class="raw-head">
+              <h3 class="raw-label">原始响应</h3>
+            </div>
+            <pre id="rawView">暂无响应。</pre>
+          </section>
+        </div>
+      </aside>
+    </main>
+  </div>
+
+  <script>
+    const state = {
+      methods: [],
+      selected: null,
+      response: null,
+      rows: [],
+      methodFilter: '',
+    };
+
+    async function boot() {
+      try {
+        state.methods = await fetchJSON('/api/methods');
+        if (!Array.isArray(state.methods) || state.methods.length === 0) {
+          throw new Error('接口注册表为空');
+        }
+        state.selected = state.methods[0];
+        renderMethodList();
+        renderSelectedMethod();
+      } catch (err) {
+        document.getElementById('methodList').innerHTML = `<div class="empty">${escapeHTML(err.message)}</div>`;
+      }
+    }
+
+    function renderMethodList() {
+      const root = document.getElementById('methodList');
+      const query = state.methodFilter.trim().toLowerCase();
+      const filtered = state.methods.filter((method) => {
+        if (!query) return true;
+        return [method.key, method.label, method.group, method.target, method.description]
+          .join(' ')
+          .toLowerCase()
+          .includes(query);
+      });
+
+      if (!filtered.length) {
+        root.innerHTML = '<div class="empty">没有匹配的接口。</div>';
+        return;
+      }
+
+      const groups = new Map();
+      for (const method of filtered) {
+        if (!groups.has(method.group)) groups.set(method.group, []);
+        groups.get(method.group).push(method);
+      }
+
+      root.innerHTML = '';
+      for (const [group, methods] of groups.entries()) {
+        const box = document.createElement('section');
+        box.className = 'method-group';
+        box.innerHTML = `<h3 class="group-title">${escapeHTML(group)}</h3>`;
+
+        const list = document.createElement('div');
+        list.className = 'method-list';
+        methods.forEach((method) => {
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'method-btn' + (state.selected && state.selected.key === method.key ? ' active' : '');
+          button.innerHTML = `
+            <div class="method-meta">
+              <span class="method-name">${escapeHTML(method.key)}</span>
+              <span class="method-target">${escapeHTML(method.target)}</span>
+            </div>
+            <div class="method-label">${escapeHTML(method.label)}</div>
+            <div class="method-desc">${escapeHTML(method.description)}</div>
+          `;
+          button.addEventListener('click', () => {
+            state.selected = method;
+            state.response = null;
+            state.rows = [];
+            document.getElementById('tableFilter').value = '';
+            renderMethodList();
+            renderSelectedMethod();
+          });
+          list.appendChild(button);
+        });
+
+        box.appendChild(list);
+        root.appendChild(box);
+      }
+    }
+
+    function renderSelectedMethod() {
+      const method = state.selected;
+      document.getElementById('queryTitle').textContent = method.label;
+      document.getElementById('queryDesc').textContent = method.description;
+      document.getElementById('methodInfo').innerHTML = [
+        `<span class="info-chip">标识 ${escapeHTML(method.key)}</span>`,
+        `<span class="info-chip">分组 ${escapeHTML(method.group)}</span>`,
+        `<span class="info-chip">目标 ${escapeHTML(method.target)}</span>`,
+      ].join('');
+
+      const grid = document.getElementById('paramGrid');
+      grid.innerHTML = '';
+
+      const params = method.params || [];
+      if (params.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'empty';
+        empty.textContent = '这个接口不需要额外参数，直接执行即可。';
+        grid.appendChild(empty);
+      } else {
+        params.forEach((param) => {
+          const field = document.createElement('div');
+          field.className = 'field' + (param.type === 'textarea' ? ' full' : '');
+          const id = `param-${param.key}`;
+
+          const label = document.createElement('label');
+          label.setAttribute('for', id);
+          label.textContent = param.label;
+          field.appendChild(label);
+
+          let input;
+          if (param.type === 'textarea') {
+            input = document.createElement('textarea');
+          } else {
+            input = document.createElement('input');
+            input.type = param.type === 'number' ? 'number' : 'text';
+          }
+          input.id = id;
+          input.name = param.key;
+          input.value = param.default || '';
+          input.placeholder = param.placeholder || '';
+          field.appendChild(input);
+
+          if (param.help) {
+            const help = document.createElement('div');
+            help.className = 'field-help';
+            help.textContent = param.help;
+            field.appendChild(help);
+          }
+
+          grid.appendChild(field);
+        });
+      }
+
+      document.getElementById('requestView').textContent = JSON.stringify({
+        method: method.key,
+        target: method.target,
+        params: params.map((item) => ({ key: item.key, default: item.default || '' })),
+      }, null, 2);
+      document.getElementById('rawView').textContent = '暂无响应。';
+      document.getElementById('warningBox').classList.remove('show');
+      document.getElementById('warningBox').textContent = '';
+      document.getElementById('statsBar').innerHTML = '<span class="stat">尚未查询</span>';
+      document.getElementById('tableWrap').innerHTML = '<div class="empty">执行查询后，这里会显示表格结果。</div>';
+      document.getElementById('runStatus').innerHTML = '<strong>空闲</strong> 等待发起请求。';
+    }
+
+    document.getElementById('methodSearch').addEventListener('input', (event) => {
+      state.methodFilter = event.target.value || '';
+      renderMethodList();
+    });
+
+    document.getElementById('queryForm').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const method = state.selected;
+      const params = {};
+      for (const element of document.querySelectorAll('#paramGrid [name]')) {
+        params[element.name] = element.value;
+      }
+
+      document.getElementById('runBtn').disabled = true;
+      document.getElementById('runStatus').innerHTML = '<strong>执行中</strong> 正在请求远程主机...';
+
+      try {
+        const response = await fetchJSON('/api/query', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ method: method.key, params }),
+        });
+        state.response = response;
+        state.rows = response.rows || [];
+        renderResponse(response);
+      } catch (err) {
+        document.getElementById('runStatus').innerHTML = `<strong>失败</strong> ${escapeHTML(err.message)}`;
+        document.getElementById('tableWrap').innerHTML = `<div class="empty">${escapeHTML(err.message)}</div>`;
+        document.getElementById('rawView').textContent = err.stack || err.message;
+      } finally {
+        document.getElementById('runBtn').disabled = false;
+      }
+    });
+
+    document.getElementById('tableFilter').addEventListener('input', () => {
+      if (state.response) renderTable(state.response.columns, state.rows);
+    });
+
+    function renderResponse(response) {
+      document.getElementById('runStatus').innerHTML = `<strong>完成</strong> ${response.duration_ms}ms · 显示 ${response.displayed_rows}/${response.total_rows} 行`;
+      document.getElementById('requestView').textContent = JSON.stringify({
+        method: response.method,
+        target: response.target,
+        request: response.request,
+        duration_ms: response.duration_ms,
+      }, null, 2);
+      document.getElementById('rawView').textContent = JSON.stringify(response.raw, null, 2);
+
+      const stats = [
+        `目标 ${response.target}`,
+        `耗时 ${response.duration_ms}ms`,
+        `行数 ${response.displayed_rows}/${response.total_rows}`,
+        `分组 ${response.group}`,
+      ];
+      document.getElementById('statsBar').innerHTML = stats.map((item) => `<span class="stat">${escapeHTML(item)}</span>`).join('');
+
+      const warningBox = document.getElementById('warningBox');
+      if (response.warning) {
+        warningBox.textContent = response.warning;
+        warningBox.classList.add('show');
+      } else {
+        warningBox.textContent = '';
+        warningBox.classList.remove('show');
+      }
+
+      renderTable(response.columns || [], response.rows || []);
+    }
+
+    function renderTable(columns, rows) {
+      const filter = document.getElementById('tableFilter').value.trim().toLowerCase();
+      const filteredRows = filter
+        ? rows.filter((row) => row.some((cell) => String(cell).toLowerCase().includes(filter)))
+        : rows;
+
+      const wrap = document.getElementById('tableWrap');
+      if (!columns.length || !filteredRows.length) {
+        wrap.innerHTML = '<div class="empty">当前筛选条件下没有可显示的结果。</div>';
+        return;
+      }
+
+      const thead = columns.map((column) => `<th>${escapeHTML(column)}</th>`).join('');
+      const tbody = filteredRows.map((row) => {
+        const cells = row.map((cell, index) => {
+          const cellText = String(cell);
+          const klass = classifyCell(columns[index], cellText);
+          return `<td class="${klass}">${escapeHTML(cellText)}</td>`;
+        }).join('');
+        return `<tr>${cells}</tr>`;
+      }).join('');
+      wrap.innerHTML = `<table><thead><tr>${thead}</tr></thead><tbody>${tbody}</tbody></table>`;
+    }
+
+    function classifyCell(columnName, cellText) {
+      const name = (columnName || '').toLowerCase();
+      const value = cellText.trim().toLowerCase();
+      if (!value) return '';
+
+      if (name === 'type' || name === 'action' || name === 'bs' || name === 'flag') {
+        if (value.includes('buy') || value.includes('bid') || value.includes('up')) return 'cell-rise cell-flag';
+        if (value.includes('sell') || value.includes('ask') || value.includes('down')) return 'cell-fall cell-flag';
+      }
+
+      if (value === 'b' || value === 'buy') return 'cell-rise cell-flag';
+      if (value === 's' || value === 'sell') return 'cell-fall cell-flag';
+
+      if (name.includes('change') || name.includes('diff') || name.includes('rate') || name.includes('rise')) {
+        return signedClass(value);
+      }
+
+      if (value.startsWith('+')) return 'cell-rise';
+      if (value.startsWith('-')) return 'cell-fall';
+      return '';
+    }
+
+    function signedClass(value) {
+      const numeric = Number(value.replace(/[% ,]/g, ''));
+      if (Number.isNaN(numeric)) return '';
+      if (numeric > 0) return 'cell-rise';
+      if (numeric < 0) return 'cell-fall';
+      return '';
+    }
+
+    async function fetchJSON(url, options) {
+      const response = await fetch(url, options);
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.error || `HTTP ${response.status}`);
+      }
+      return data;
+    }
+
+    function escapeHTML(value) {
+      return value
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+    }
+
+    boot();
+  </script>
+</body>
+</html>

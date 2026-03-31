@@ -103,12 +103,17 @@ func main() {
 - `examples/stock_paged_list` 股票列表分页遍历
 - `examples/stock_batch_quotes` 批量快照行情
 - `examples/stock_quotes` 主行情报价
+- `examples/stock_lowlevel_quote` 直连主行情低层报价接口
 - `examples/stock_quotes_list` 排序行情
 - `examples/stock_kline` K 线
+- `examples/stock_index_tools` 指数和抽样图接口
 - `examples/stock_tick` 分时
 - `examples/stock_history` 历史分时和历史成交
+- `examples/stock_market_watch` 集合竞价、异动、成交分布
 - `examples/stock_transaction` 当日逐笔成交
 - `examples/stock_f10_block` F10 和板块文件
+- `examples/stock_company_raw` 公司/F10 原始接口
+- `examples/stock_block_raw` 板块文件原始接口
 - `examples/goods_count` 扩展市场数量
 - `examples/goods_quote` 单个扩展市场报价
 - `examples/goods_list` 扩展市场列表
@@ -119,6 +124,7 @@ func main() {
 - `examples/goods_kline` 扩展市场 K 线
 - `examples/goods_history` 扩展市场历史成交
 - `examples/goods_tick` 扩展市场分时
+- `examples/goods_server_info` 扩展市场连接和服务信息
 - `examples/goods_sampling` 扩展市场抽样图
 - `examples/goods_category_list` 扩展市场分类列表
 - `examples/goods_table` 扩展市场表格
@@ -135,4 +141,23 @@ func main() {
 
 ```bash
 GOTDX_INTEGRATION=1 go test ./...
+```
+
+## Web Viewer
+内置了一个轻量 web 查看器，可直接浏览 method、填写参数并以表格查看查询结果。
+
+界面截图：
+
+![gotdx Web Viewer 截图](docs/images/webviewer-screenshot.png)
+
+运行：
+
+```bash
+go run ./cmd/webviewer
+```
+
+默认地址：
+
+```bash
+http://127.0.0.1:8080
 ```

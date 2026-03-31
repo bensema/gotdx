@@ -2,8 +2,8 @@ package main
 
 import "testing"
 
-func TestParseGoodsTableRows(t *testing.T) {
-	rows := parseGoodsTableRows("42#IMCI|上期有色,42#T001|通达信商品,")
+func TestParseExTableRows(t *testing.T) {
+	rows := parseExTableRows("42#IMCI|上期有色,42#T001|通达信商品,")
 	if len(rows) != 2 {
 		t.Fatalf("unexpected rows len: %d", len(rows))
 	}
@@ -12,8 +12,8 @@ func TestParseGoodsTableRows(t *testing.T) {
 	}
 }
 
-func TestParseGoodsTableDetailRows(t *testing.T) {
-	columns, rows := parseGoodsTableDetailRows("42#IMCI|3|2,42#T001|4|5|6")
+func TestParseExTableDetailRows(t *testing.T) {
+	columns, rows := parseExTableDetailRows("42#IMCI|3|2,42#T001|4|5|6")
 	if len(columns) != 4 {
 		t.Fatalf("unexpected columns len: %d", len(columns))
 	}

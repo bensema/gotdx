@@ -31,24 +31,24 @@ func main() {
 		log.Printf("stock_kline time=%s close=%.2f vol=%.0f", item.DateTime, item.Close, item.Vol)
 	}
 
-	goodsItems, err := client.GoodsQuotes(
+	exItems, err := client.ExQuotes(
 		[]uint8{gotdx.ExCategoryUSStock, gotdx.ExCategoryHKStock},
 		[]string{"TSLA", "09988"},
 	)
 	if err != nil {
 		log.Fatalln(err)
 	}
-	for _, item := range goodsItems {
-		log.Printf("goods code=%s date=%s close=%.2f high=%.2f low=%.2f vol=%d",
+	for _, item := range exItems {
+		log.Printf("ex code=%s date=%s close=%.2f high=%.2f low=%.2f vol=%d",
 			item.Code, item.Date, item.Close, item.High, item.Low, item.Vol)
 	}
 
-	samples, err := client.GoodsChartSampling(gotdx.ExCategoryUSStock, "TSLA")
+	samples, err := client.ExChartSampling(gotdx.ExCategoryUSStock, "TSLA")
 	if err != nil {
 		log.Fatalln(err)
 	}
 	for i, price := range samples[:min(10, len(samples))] {
-		log.Printf("goods_sample index=%d price=%.2f", i, price)
+		log.Printf("ex_sample index=%d price=%.2f", i, price)
 	}
 }
 

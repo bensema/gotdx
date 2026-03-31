@@ -11,18 +11,17 @@ func main() {
 	client := exampleutil.NewExClient()
 	defer client.Disconnect()
 
-	content, err := client.GoodsTable()
+	content, err := client.ExTableDetail()
 	if err != nil {
 		log.Fatalln(err)
 	}
 
-	lines := strings.Split(content, "\n")
-	for _, line := range lines[:min(10, len(lines))] {
-		line = strings.TrimSpace(line)
-		if line == "" {
+	items := strings.Split(content, ",")
+	for _, item := range items[:min(20, len(items))] {
+		if item == "" {
 			continue
 		}
-		log.Println(line)
+		log.Println(item)
 	}
 }
 

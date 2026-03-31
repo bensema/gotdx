@@ -11,7 +11,7 @@ func main() {
 	client := exampleutil.NewExClient()
 	defer client.Disconnect()
 
-	items, err := client.GoodsKLine(gotdx.ExCategoryUSStock, "TSLA", gotdx.KLINE_TYPE_DAILY, 0, 10, 1)
+	items, err := client.ExKLine(gotdx.ExCategoryUSStock, "TSLA", gotdx.KLINE_TYPE_DAILY, 0, 10, 1)
 	if err != nil {
 		log.Fatalln(err)
 	}

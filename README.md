@@ -39,9 +39,9 @@
 - GetCSVFile 获取 CSV 文件
 - ConnectEx 连接扩展市场服务器
 - GetExServerInfo 获取扩展市场服务信息
-- ExGetCount 获取扩展市场商品数量
+- ExGetCount 获取扩展市场标的数量
 - ExGetCategoryList 获取扩展市场分类列表
-- ExGetList 获取扩展市场商品列表
+- ExGetList 获取扩展市场标的列表
 - ExGetQuotesList 获取扩展市场行情列表
 - ExGetQuote 获取单个扩展市场行情
 - ExGetQuotes 获取批量扩展市场行情
@@ -59,9 +59,9 @@
 - ExGetTableDetail 获取扩展市场详细表格
 - GetParsedBlockFile 获取解析后的板块文件
 - GetGroupedBlockFile 获取分组板块文件
-- GoodsQuotes2 统一 Client 扩展市场批量行情兼容入口
-- GoodsBoardList 统一 Client 扩展市场板块榜单入口
-- Stock* / Goods* 统一 Client 高阶入口
+- ExQuotes2 统一 Client 扩展市场批量行情兼容入口
+- ExBoardList 统一 Client 扩展市场板块榜单入口
+- Stock* / Ex* 统一 Client 高阶入口
 
 
 ## Example
@@ -89,11 +89,11 @@ func main() {
 		log.Printf("%+v", obj)
 	}
 
-	goods, err := client.GoodsQuotes([]uint8{gotdx.ExCategoryUSStock}, []string{"TSLA"})
+	exQuotes, err := client.ExQuotes([]uint8{gotdx.ExCategoryUSStock}, []string{"TSLA"})
 	if err != nil {
 		log.Fatal(err)
 	}
-	log.Printf("goods: %+v", goods[0])
+	log.Printf("ex: %+v", exQuotes[0])
 }
 ```
 
@@ -114,21 +114,21 @@ func main() {
 - `examples/stock_f10_block` F10 和板块文件
 - `examples/stock_company_raw` 公司/F10 原始接口
 - `examples/stock_block_raw` 板块文件原始接口
-- `examples/goods_count` 扩展市场数量
-- `examples/goods_quote` 单个扩展市场报价
-- `examples/goods_list` 扩展市场列表
-- `examples/goods_paged_list` 扩展市场列表分页遍历
-- `examples/goods_quotes` 扩展市场报价
-- `examples/goods_quotes2` 扩展市场批量行情兼容接口
-- `examples/goods_quotes_list` 扩展市场排序行情
-- `examples/goods_kline` 扩展市场 K 线
-- `examples/goods_history` 扩展市场历史成交
-- `examples/goods_tick` 扩展市场分时
-- `examples/goods_server_info` 扩展市场连接和服务信息
-- `examples/goods_sampling` 扩展市场抽样图
-- `examples/goods_category_list` 扩展市场分类列表
-- `examples/goods_table` 扩展市场表格
-- `examples/goods_table_detail` 扩展市场详细表格
+- `examples/ex_count` 扩展市场数量
+- `examples/ex_quote` 单个扩展市场报价
+- `examples/ex_list` 扩展市场列表
+- `examples/ex_paged_list` 扩展市场列表分页遍历
+- `examples/ex_quotes` 扩展市场报价
+- `examples/ex_quotes2` 扩展市场批量行情兼容接口
+- `examples/ex_quotes_list` 扩展市场排序行情
+- `examples/ex_kline` 扩展市场 K 线
+- `examples/ex_history` 扩展市场历史成交
+- `examples/ex_tick` 扩展市场分时
+- `examples/ex_server_info` 扩展市场连接和服务信息
+- `examples/ex_sampling` 扩展市场抽样图
+- `examples/ex_category_list` 扩展市场分类列表
+- `examples/ex_table` 扩展市场表格
+- `examples/ex_table_detail` 扩展市场详细表格
 - `examples/unified_watchlist` 统一 Client 组合监控示例
 
 

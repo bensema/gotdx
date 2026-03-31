@@ -11,13 +11,13 @@ func main() {
 	client := exampleutil.NewExClient()
 	defer client.Disconnect()
 
-	prices, err := client.GoodsChartSampling(gotdx.ExCategoryUSStock, "TSLA")
+	items, err := client.ExHistoryTransaction(20260330, gotdx.ExCategoryUSStock, "TSLA")
 	if err != nil {
 		log.Fatalln(err)
 	}
 
-	for i, price := range prices[:min(20, len(prices))] {
-		log.Printf("sample=%d price=%.2f", i, price)
+	for _, item := range items[:min(20, len(items))] {
+		log.Printf("time=%s price=%d vol=%d action=%s", item.Time, item.Price, item.Vol, item.Action)
 	}
 }
 

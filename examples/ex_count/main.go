@@ -10,10 +10,10 @@ func main() {
 	client := exampleutil.NewExClient()
 	defer client.Disconnect()
 
-	count, err := client.GoodsCount()
+	count, err := client.ExCount()
 	if err != nil {
 		log.Fatalln(err)
 	}
 
-	log.Printf("goods_count=%d", count)
+	log.Printf("ex_count=%d", count)
 }

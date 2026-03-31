@@ -11,13 +11,13 @@ func main() {
 	client := exampleutil.NewExClient()
 	defer client.Disconnect()
 
-	items, err := client.GoodsHistoryTransaction(20260330, gotdx.ExCategoryUSStock, "TSLA")
+	items, err := client.ExTickChart(gotdx.ExCategoryUSStock, "TSLA", 0)
 	if err != nil {
 		log.Fatalln(err)
 	}
 
 	for _, item := range items[:min(20, len(items))] {
-		log.Printf("time=%s price=%d vol=%d action=%s", item.Time, item.Price, item.Vol, item.Action)
+		log.Printf("time=%s price=%.2f avg=%.2f vol=%d", item.Time, item.Price, item.Avg, item.Vol)
 	}
 }
 

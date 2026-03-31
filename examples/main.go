@@ -20,12 +20,12 @@ func main() {
 		log.Printf("%+v", obj)
 	}
 
-	goods, err := client.GoodsQuotes([]uint8{gotdx.ExCategoryUSStock}, []string{"TSLA"})
+	exQuotes, err := client.ExQuotes([]uint8{gotdx.ExCategoryUSStock}, []string{"TSLA"})
 	if err != nil {
 		log.Fatalln(err)
 	}
 
-	for _, obj := range goods {
+	for _, obj := range exQuotes {
 		log.Printf("%+v", obj)
 	}
 }

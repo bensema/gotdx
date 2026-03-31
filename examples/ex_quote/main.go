@@ -11,7 +11,7 @@ func main() {
 	client := exampleutil.NewExClient()
 	defer client.Disconnect()
 
-	item, err := client.GoodsQuote(gotdx.ExCategoryUSStock, "TSLA")
+	item, err := client.ExQuote(gotdx.ExCategoryUSStock, "TSLA")
 	if err != nil {
 		log.Fatalln(err)
 	}

@@ -15,17 +15,17 @@ func main() {
 	client := exampleutil.NewExClient()
 	defer client.Disconnect()
 
-	total, err := client.GoodsCount()
+	total, err := client.ExCount()
 	if err != nil {
 		log.Fatalln(err)
 	}
 
-	log.Printf("goods_total=%d page_size=%d max_pages=%d", total, pageSize, maxPages)
+	log.Printf("ex_total=%d page_size=%d max_pages=%d", total, pageSize, maxPages)
 
 	var fetched int
 	for page := 0; page < maxPages; page++ {
 		start := uint32(page * pageSize)
-		items, err := client.GoodsList(start, pageSize)
+		items, err := client.ExList(start, pageSize)
 		if err != nil {
 			log.Fatalf("page=%d start=%d failed: %v", page, start, err)
 		}

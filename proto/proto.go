@@ -49,7 +49,7 @@ const (
 	KMSG_EXSERVERINFO           = 0x2455 // 扩展市场服务信息
 	KMSG_EXCOUNT                = 0x23f0 // 扩展市场数量
 	KMSG_EXCATEGORYLIST         = 0x23f4 // 扩展市场分类列表
-	KMSG_EXLIST                 = 0x23f5 // 扩展市场商品列表
+	KMSG_EXLIST                 = 0x23f5 // 扩展市场标的列表
 	KMSG_EXKLINE                = 0x23ff // 扩展市场K线
 	KMSG_EXHISTORYTRANSACTION   = 0x2412 // 扩展市场历史成交
 	KMSG_EXTABLE                = 0x2422 // 扩展市场表格

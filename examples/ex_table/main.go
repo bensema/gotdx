@@ -2,8 +2,8 @@ package main
 
 import (
 	"log"
+	"strings"
 
-	"github.com/bensema/gotdx"
 	"github.com/bensema/gotdx/examples/internal/exampleutil"
 )
 
@@ -11,13 +11,18 @@ func main() {
 	client := exampleutil.NewExClient()
 	defer client.Disconnect()
 
-	items, err := client.GoodsTickChart(gotdx.ExCategoryUSStock, "TSLA", 0)
+	content, err := client.ExTable()
 	if err != nil {
 		log.Fatalln(err)
 	}
 
-	for _, item := range items[:min(20, len(items))] {
-		log.Printf("time=%s price=%.2f avg=%.2f vol=%d", item.Time, item.Price, item.Avg, item.Vol)
+	lines := strings.Split(content, "\n")
+	for _, line := range lines[:min(10, len(lines))] {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		log.Println(line)
 	}
 }
 

@@ -10,7 +10,7 @@ func main() {
 	client := exampleutil.NewExClient()
 	defer client.Disconnect()
 
-	items, err := client.GoodsCategoryList()
+	items, err := client.ExCategoryList()
 	if err != nil {
 		log.Fatalln(err)
 	}

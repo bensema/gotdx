@@ -335,32 +335,32 @@ var methodDefs = []methodDef{
 		},
 	},
 	{
-		Key:         "goods_count",
+		Key:         "ex_count",
 		Label:       "扩展市场数量",
 		Group:       "扩展快照",
 		Target:      "ex",
-		Description: "扩展市场商品总数。",
+		Description: "扩展市场标的总数。",
 	},
 	{
-		Key:         "goods_category_list",
+		Key:         "ex_category_list",
 		Label:       "扩展分类列表",
 		Group:       "扩展快照",
 		Target:      "ex",
 		Description: "扩展市场分类列表。",
 	},
 	{
-		Key:         "goods_list",
-		Label:       "扩展商品列表",
+		Key:         "ex_list",
+		Label:       "扩展标的列表",
 		Group:       "扩展快照",
 		Target:      "ex",
-		Description: "扩展市场商品分页列表。",
+		Description: "扩展市场标的分页列表。",
 		Params: []methodParam{
 			{Key: "start", Label: "起始", Type: "number", Default: "0"},
 			{Key: "count", Label: "数量", Type: "number", Default: "30"},
 		},
 	},
 	{
-		Key:         "goods_quote",
+		Key:         "ex_quote",
 		Label:       "扩展单条行情",
 		Group:       "扩展快照",
 		Target:      "ex",
@@ -371,7 +371,7 @@ var methodDefs = []methodDef{
 		},
 	},
 	{
-		Key:         "goods_quotes",
+		Key:         "ex_quotes",
 		Label:       "扩展批量行情",
 		Group:       "扩展快照",
 		Target:      "ex",
@@ -382,7 +382,7 @@ var methodDefs = []methodDef{
 		},
 	},
 	{
-		Key:         "goods_quotes2",
+		Key:         "ex_quotes2",
 		Label:       "扩展批量行情2",
 		Group:       "扩展快照",
 		Target:      "ex",
@@ -393,7 +393,7 @@ var methodDefs = []methodDef{
 		},
 	},
 	{
-		Key:         "goods_quotes_list",
+		Key:         "ex_quotes_list",
 		Label:       "扩展排序行情",
 		Group:       "扩展快照",
 		Target:      "ex",
@@ -407,7 +407,7 @@ var methodDefs = []methodDef{
 		},
 	},
 	{
-		Key:         "goods_kline",
+		Key:         "ex_kline",
 		Label:       "扩展 K 线",
 		Group:       "扩展快照",
 		Target:      "ex",
@@ -422,7 +422,7 @@ var methodDefs = []methodDef{
 		},
 	},
 	{
-		Key:         "goods_tick_chart",
+		Key:         "ex_tick_chart",
 		Label:       "扩展分时图",
 		Group:       "扩展分时",
 		Target:      "ex",
@@ -434,7 +434,7 @@ var methodDefs = []methodDef{
 		},
 	},
 	{
-		Key:         "goods_history_transaction",
+		Key:         "ex_history_transaction",
 		Label:       "扩展历史成交",
 		Group:       "扩展分时",
 		Target:      "ex",
@@ -446,7 +446,7 @@ var methodDefs = []methodDef{
 		},
 	},
 	{
-		Key:         "goods_chart_sampling",
+		Key:         "ex_chart_sampling",
 		Label:       "扩展抽样图",
 		Group:       "扩展分时",
 		Target:      "ex",
@@ -457,7 +457,7 @@ var methodDefs = []methodDef{
 		},
 	},
 	{
-		Key:         "goods_board_list",
+		Key:         "ex_board_list",
 		Label:       "扩展榜单",
 		Group:       "扩展分时",
 		Target:      "ex",
@@ -469,14 +469,14 @@ var methodDefs = []methodDef{
 		},
 	},
 	{
-		Key:         "goods_table",
+		Key:         "ex_table",
 		Label:       "扩展总表",
 		Group:       "扩展表格",
 		Target:      "ex",
 		Description: "扩展市场总表，自动拆成表格行。",
 	},
 	{
-		Key:         "goods_table_detail",
+		Key:         "ex_table_detail",
 		Label:       "扩展详细表",
 		Group:       "扩展表格",
 		Target:      "ex",
@@ -1183,7 +1183,7 @@ func runMethod(def methodDef, params map[string]string) (queryPayload, map[strin
 			}, nil
 		})
 		return payload, request, err
-	case "goods_count":
+	case "ex_count":
 		payload, err := withExClient(func(client *gotdx.Client) (queryPayload, error) {
 			reply, err := client.ExGetCount()
 			if err != nil {
@@ -1196,7 +1196,7 @@ func runMethod(def methodDef, params map[string]string) (queryPayload, map[strin
 			}, nil
 		})
 		return payload, map[string]any{}, err
-	case "goods_category_list":
+	case "ex_category_list":
 		payload, err := withExClient(func(client *gotdx.Client) (queryPayload, error) {
 			reply, err := client.ExGetCategoryList()
 			if err != nil {
@@ -1209,7 +1209,7 @@ func runMethod(def methodDef, params map[string]string) (queryPayload, map[strin
 			}, nil
 		})
 		return payload, map[string]any{}, err
-	case "goods_list":
+	case "ex_list":
 		start, err := parseUint32Value(params, "start", 0)
 		if err != nil {
 			return queryPayload{}, nil, err
@@ -1257,7 +1257,7 @@ func runMethod(def methodDef, params map[string]string) (queryPayload, map[strin
 			rows:    rows,
 			raw:     map[string]any{"login": login, "info": info},
 		}, map[string]any{}, nil
-	case "goods_quote":
+	case "ex_quote":
 		category, err := parseUint8Value(params, "category", 74)
 		if err != nil {
 			return queryPayload{}, nil, err
@@ -1276,7 +1276,7 @@ func runMethod(def methodDef, params map[string]string) (queryPayload, map[strin
 			}, nil
 		})
 		return payload, request, err
-	case "goods_quotes":
+	case "ex_quotes":
 		categories, err := parseUint8List(valueOrDefault(params, "categories", "74,71"))
 		if err != nil {
 			return queryPayload{}, nil, err
@@ -1299,7 +1299,7 @@ func runMethod(def methodDef, params map[string]string) (queryPayload, map[strin
 			}, nil
 		})
 		return payload, request, err
-	case "goods_quotes2":
+	case "ex_quotes2":
 		categories, err := parseUint8List(valueOrDefault(params, "categories", "74,71"))
 		if err != nil {
 			return queryPayload{}, nil, err
@@ -1322,7 +1322,7 @@ func runMethod(def methodDef, params map[string]string) (queryPayload, map[strin
 			}, nil
 		})
 		return payload, request, err
-	case "goods_quotes_list":
+	case "ex_quotes_list":
 		category, err := parseUint8Value(params, "category", 74)
 		if err != nil {
 			return queryPayload{}, nil, err
@@ -1356,7 +1356,7 @@ func runMethod(def methodDef, params map[string]string) (queryPayload, map[strin
 			}, nil
 		})
 		return payload, request, err
-	case "goods_kline":
+	case "ex_kline":
 		category, err := parseUint8Value(params, "category", 74)
 		if err != nil {
 			return queryPayload{}, nil, err
@@ -1391,7 +1391,7 @@ func runMethod(def methodDef, params map[string]string) (queryPayload, map[strin
 			}, nil
 		})
 		return payload, request, err
-	case "goods_tick_chart":
+	case "ex_tick_chart":
 		category, err := parseUint8Value(params, "category", 74)
 		if err != nil {
 			return queryPayload{}, nil, err
@@ -1427,7 +1427,7 @@ func runMethod(def methodDef, params map[string]string) (queryPayload, map[strin
 			}, nil
 		})
 		return payload, request, err
-	case "goods_history_transaction":
+	case "ex_history_transaction":
 		date, err := parseUint32Value(params, "date", 20260330)
 		if err != nil {
 			return queryPayload{}, nil, err
@@ -1450,7 +1450,7 @@ func runMethod(def methodDef, params map[string]string) (queryPayload, map[strin
 			}, nil
 		})
 		return payload, request, err
-	case "goods_chart_sampling":
+	case "ex_chart_sampling":
 		category, err := parseUint8Value(params, "category", 74)
 		if err != nil {
 			return queryPayload{}, nil, err
@@ -1469,7 +1469,7 @@ func runMethod(def methodDef, params map[string]string) (queryPayload, map[strin
 			}, nil
 		})
 		return payload, request, err
-	case "goods_board_list":
+	case "ex_board_list":
 		boardType, err := parseUint16Value(params, "board_type", 0)
 		if err != nil {
 			return queryPayload{}, nil, err
@@ -1496,13 +1496,13 @@ func runMethod(def methodDef, params map[string]string) (queryPayload, map[strin
 			}, nil
 		})
 		return payload, request, err
-	case "goods_table":
+	case "ex_table":
 		payload, err := withExClient(func(client *gotdx.Client) (queryPayload, error) {
 			content, err := client.ExGetTable()
 			if err != nil {
 				return queryPayload{}, err
 			}
-			rows := parseGoodsTableRows(content)
+			rows := parseExTableRows(content)
 			return queryPayload{
 				columns: []string{"key", "category", "code", "name"},
 				rows:    rows,
@@ -1510,13 +1510,13 @@ func runMethod(def methodDef, params map[string]string) (queryPayload, map[strin
 			}, nil
 		})
 		return payload, map[string]any{}, err
-	case "goods_table_detail":
+	case "ex_table_detail":
 		payload, err := withExClient(func(client *gotdx.Client) (queryPayload, error) {
 			content, err := client.ExGetTableDetail()
 			if err != nil {
 				return queryPayload{}, err
 			}
-			columns, rows := parseGoodsTableDetailRows(content)
+			columns, rows := parseExTableDetailRows(content)
 			return queryPayload{
 				columns: columns,
 				rows:    rows,
@@ -2099,7 +2099,7 @@ func rowsFromSampling(preClose float64, prices []float64) [][]string {
 	return rows
 }
 
-func parseGoodsTableRows(content string) [][]string {
+func parseExTableRows(content string) [][]string {
 	rows := make([][]string, 0)
 	for _, entry := range strings.Split(content, ",") {
 		entry = strings.TrimSpace(entry)
@@ -2123,7 +2123,7 @@ func parseGoodsTableRows(content string) [][]string {
 	return rows
 }
 
-func parseGoodsTableDetailRows(content string) ([]string, [][]string) {
+func parseExTableDetailRows(content string) ([]string, [][]string) {
 	rows := make([][]string, 0)
 	maxCols := 0
 	for _, entry := range strings.Split(content, ",") {

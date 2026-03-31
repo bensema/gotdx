@@ -188,7 +188,7 @@ func (client *Client) StockBlock(filename string) ([]BlockFlatItem, error) {
 	return qc.GetParsedBlockFile(filename)
 }
 
-func (client *Client) GoodsCount() (uint32, error) {
+func (client *Client) ExCount() (uint32, error) {
 	eqc, err := client.exQuotationClient()
 	if err != nil {
 		return 0, err
@@ -200,7 +200,7 @@ func (client *Client) GoodsCount() (uint32, error) {
 	return reply.Count, nil
 }
 
-func (client *Client) GoodsCategoryList() ([]proto.ExCategoryItem, error) {
+func (client *Client) ExCategoryList() ([]proto.ExCategoryItem, error) {
 	eqc, err := client.exQuotationClient()
 	if err != nil {
 		return nil, err
@@ -212,7 +212,7 @@ func (client *Client) GoodsCategoryList() ([]proto.ExCategoryItem, error) {
 	return reply.List, nil
 }
 
-func (client *Client) GoodsList(start uint32, count uint16) ([]proto.ExListItem, error) {
+func (client *Client) ExList(start uint32, count uint16) ([]proto.ExListItem, error) {
 	eqc, err := client.exQuotationClient()
 	if err != nil {
 		return nil, err
@@ -224,7 +224,7 @@ func (client *Client) GoodsList(start uint32, count uint16) ([]proto.ExListItem,
 	return reply.List, nil
 }
 
-func (client *Client) GoodsQuotesList(category uint8, start uint16, count uint16, sortType uint16, reverse bool) ([]proto.ExQuoteItem, error) {
+func (client *Client) ExQuotesList(category uint8, start uint16, count uint16, sortType uint16, reverse bool) ([]proto.ExQuoteItem, error) {
 	eqc, err := client.exQuotationClient()
 	if err != nil {
 		return nil, err
@@ -236,7 +236,7 @@ func (client *Client) GoodsQuotesList(category uint8, start uint16, count uint16
 	return reply.List, nil
 }
 
-func (client *Client) GoodsQuote(category uint8, code string) (*proto.ExQuoteItem, error) {
+func (client *Client) ExQuote(category uint8, code string) (*proto.ExQuoteItem, error) {
 	eqc, err := client.exQuotationClient()
 	if err != nil {
 		return nil, err
@@ -248,7 +248,7 @@ func (client *Client) GoodsQuote(category uint8, code string) (*proto.ExQuoteIte
 	return &reply.Item, nil
 }
 
-func (client *Client) GoodsQuotes(categories []uint8, codes []string) ([]proto.ExQuoteItem, error) {
+func (client *Client) ExQuotes(categories []uint8, codes []string) ([]proto.ExQuoteItem, error) {
 	eqc, err := client.exQuotationClient()
 	if err != nil {
 		return nil, err
@@ -260,7 +260,7 @@ func (client *Client) GoodsQuotes(categories []uint8, codes []string) ([]proto.E
 	return reply.List, nil
 }
 
-func (client *Client) GoodsQuotes2(categories []uint8, codes []string) ([]proto.ExQuoteItem, error) {
+func (client *Client) ExQuotes2(categories []uint8, codes []string) ([]proto.ExQuoteItem, error) {
 	eqc, err := client.exQuotationClient()
 	if err != nil {
 		return nil, err
@@ -272,7 +272,7 @@ func (client *Client) GoodsQuotes2(categories []uint8, codes []string) ([]proto.
 	return reply.List, nil
 }
 
-func (client *Client) GoodsKLine(category uint8, code string, period uint16, start uint32, count uint16, times uint16) ([]proto.ExKLineItem, error) {
+func (client *Client) ExKLine(category uint8, code string, period uint16, start uint32, count uint16, times uint16) ([]proto.ExKLineItem, error) {
 	eqc, err := client.exQuotationClient()
 	if err != nil {
 		return nil, err
@@ -284,7 +284,7 @@ func (client *Client) GoodsKLine(category uint8, code string, period uint16, sta
 	return reply.List, nil
 }
 
-func (client *Client) GoodsHistoryTransaction(date uint32, category uint8, code string) ([]proto.ExHistoryTransactionItem, error) {
+func (client *Client) ExHistoryTransaction(date uint32, category uint8, code string) ([]proto.ExHistoryTransactionItem, error) {
 	eqc, err := client.exQuotationClient()
 	if err != nil {
 		return nil, err
@@ -296,7 +296,7 @@ func (client *Client) GoodsHistoryTransaction(date uint32, category uint8, code 
 	return reply.List, nil
 }
 
-func (client *Client) GoodsTickChart(category uint8, code string, date uint32) ([]proto.ExTickChartData, error) {
+func (client *Client) ExTickChart(category uint8, code string, date uint32) ([]proto.ExTickChartData, error) {
 	eqc, err := client.exQuotationClient()
 	if err != nil {
 		return nil, err
@@ -315,7 +315,7 @@ func (client *Client) GoodsTickChart(category uint8, code string, date uint32) (
 	return reply.List, nil
 }
 
-func (client *Client) GoodsChartSampling(category uint8, code string) ([]float64, error) {
+func (client *Client) ExChartSampling(category uint8, code string) ([]float64, error) {
 	eqc, err := client.exQuotationClient()
 	if err != nil {
 		return nil, err
@@ -327,7 +327,7 @@ func (client *Client) GoodsChartSampling(category uint8, code string) ([]float64
 	return reply.Prices, nil
 }
 
-func (client *Client) GoodsBoardList(boardType uint16, start uint16, pageSize uint16) ([]proto.ExBoardListItem, error) {
+func (client *Client) ExBoardList(boardType uint16, start uint16, pageSize uint16) ([]proto.ExBoardListItem, error) {
 	eqc, err := client.exQuotationClient()
 	if err != nil {
 		return nil, err
@@ -339,7 +339,7 @@ func (client *Client) GoodsBoardList(boardType uint16, start uint16, pageSize ui
 	return reply.List, nil
 }
 
-func (client *Client) GoodsTable() (string, error) {
+func (client *Client) ExTable() (string, error) {
 	eqc, err := client.exQuotationClient()
 	if err != nil {
 		return "", err
@@ -347,7 +347,7 @@ func (client *Client) GoodsTable() (string, error) {
 	return eqc.ExGetTable()
 }
 
-func (client *Client) GoodsTableDetail() (string, error) {
+func (client *Client) ExTableDetail() (string, error) {
 	eqc, err := client.exQuotationClient()
 	if err != nil {
 		return "", err

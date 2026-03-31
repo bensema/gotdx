@@ -8,7 +8,7 @@ func (client *Client) GetExServerInfo() (*proto.ExServerInfoReply, error) {
 	return executeMsg(client, obj, obj.Reply)
 }
 
-// ExGetCount 获取扩展市场商品数量
+// ExGetCount 获取扩展市场标的数量
 func (client *Client) ExGetCount() (*proto.ExGetCountReply, error) {
 	obj := proto.NewExGetCount()
 	return executeMsg(client, obj, obj.Reply)
@@ -20,7 +20,7 @@ func (client *Client) ExGetCategoryList() (*proto.ExGetCategoryListReply, error)
 	return executeMsg(client, obj, obj.Reply)
 }
 
-// ExGetList 获取扩展市场商品列表
+// ExGetList 获取扩展市场标的列表
 func (client *Client) ExGetList(start uint32, count uint16) (*proto.ExGetListReply, error) {
 	if count == 0 {
 		count = DefaultExListCount

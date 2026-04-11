@@ -1110,6 +1110,50 @@ func TestGetCompanyCategorySerializeAndDeserialize(t *testing.T) {
 	}
 }
 
+func TestGetCompanyCategoryTrimsFixedStringGarbage(t *testing.T) {
+	msg := NewGetCompanyCategory()
+
+	buf := new(bytes.Buffer)
+	if err := binary.Write(buf, binary.LittleEndian, uint16(1)); err != nil {
+		t.Fatal(err)
+	}
+
+	name := make([]byte, 64)
+	copy(name, []byte{0xd7, 0xca, 0xbd, 0xf0, 0xb6, 0xaf, 0xcf, 0xf2})
+	name[8] = 0x00
+	copy(name[9:], []byte{0xff, 0xfe, '8'})
+
+	file := make([]byte, 80)
+	copy(file, []byte("000001.txt"))
+	file[10] = 0x00
+	copy(file[11:], []byte{0x80, 0x81, 'O', 0xa4})
+
+	if _, err := buf.Write(name); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := buf.Write(file); err != nil {
+		t.Fatal(err)
+	}
+	if err := binary.Write(buf, binary.LittleEndian, uint32(12)); err != nil {
+		t.Fatal(err)
+	}
+	if err := binary.Write(buf, binary.LittleEndian, uint32(34)); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := msg.UnSerialize(&RespHeader{}, buf.Bytes()); err != nil {
+		t.Fatalf("deserialize failed: %v", err)
+	}
+
+	reply := msg.Reply()
+	if got := reply.Categories[0].Name; got != "资金动向" {
+		t.Fatalf("unexpected category name: %q", got)
+	}
+	if got := reply.Categories[0].Filename; got != "000001.txt" {
+		t.Fatalf("unexpected category filename: %q", got)
+	}
+}
+
 func TestGetCompanyContentSerializeAndDeserialize(t *testing.T) {
 	msg := NewGetCompanyContent()
 	req := GetCompanyContentRequest{

@@ -14,8 +14,11 @@ const (
 )
 
 const (
+	KMSG_EXCHANGEANNOUNCE       = 0x0002 // 交易所公告
 	KMSG_CMD1                   = 0x000d // 建立链接
 	KMSG_CMD2                   = 0x0fdb // 建立链接
+	KMSG_ANNOUNCEMENT           = 0x000a // 服务商公告
+	KMSG_TODOB                  = 0x000b // 未知协议B
 	KMSG_PING                   = 0x0015 // 测试连接
 	KMSG_HEARTBEAT              = 0x0004 // 心跳
 	KMSG_SECURITYCOUNT          = 0x044e // 证券数量
@@ -35,8 +38,10 @@ const (
 	KMSG_MINUTETIMEDATA         = 0x0537 // 分时数据
 	KMSG_SECURITYLIST           = 0x044d // 证券列表
 	KMSG_SECURITYLIST_OLD       = 0x0450 // 旧版证券列表
+	KMSG_SECURITYFEATURE452     = 0x0452 // 证券扩展信息
 	KMSG_QUOTESLIST             = 0x054b // 排序行情列表
 	KMSG_QUOTES                 = 0x054c // 批量行情
+	KMSG_QUOTESENCRYPT          = 0x0547 // 加密行情
 	KMSG_SECURITYQUOTES         = 0x053e // 行情信息
 	KMSG_TOPBOARD               = 0x053f // 排行榜
 	KMSG_UNUSUAL                = 0x0563 // 主力监控
@@ -44,12 +49,15 @@ const (
 	KMSG_CHARTSAMPLING          = 0x0fd1 // 抽样图
 	KMSG_HISTORYORDERS          = 0x0fb4 // 历史委托
 	KMSG_TRANSACTIONDATA        = 0x0fc5 // 分笔成交信息
+	KMSG_TRANSACTIONDATA_TRANS  = 0x0fc6 // 分笔成交信息(带方向)
+	KMSG_TODOFDE                = 0x0fde // 未知协议FDE
 	KMSG_XDXRINFO               = 0x000f // 除权除息信息
 	KMSG_EXLOGIN                = 0x2454 // 扩展市场登录
 	KMSG_EXSERVERINFO           = 0x2455 // 扩展市场服务信息
 	KMSG_EXCOUNT                = 0x23f0 // 扩展市场数量
 	KMSG_EXCATEGORYLIST         = 0x23f4 // 扩展市场分类列表
 	KMSG_EXLIST                 = 0x23f5 // 扩展市场标的列表
+	KMSG_EXLIST_EXTRA           = 0x23f6 // 扩展市场试验列表
 	KMSG_EXKLINE                = 0x23ff // 扩展市场K线
 	KMSG_EXHISTORYTRANSACTION   = 0x2412 // 扩展市场历史成交
 	KMSG_EXTABLE                = 0x2422 // 扩展市场表格
@@ -57,13 +65,25 @@ const (
 	KMSG_EXFILEMETA             = 0x2458 // 扩展市场文件元信息
 	KMSG_EXFILEDOWNLOAD         = 0x2459 // 扩展市场文件下载
 	KMSG_EXQUOTESLIST           = 0x2484 // 扩展市场行情列表
+	KMSG_EXQUOTES_EXPERIMENT1   = 0x2487 // 扩展市场试验报价1
+	KMSG_EXQUOTES_EXPERIMENT2   = 0x2488 // 扩展市场试验报价2
+	KMSG_EXKLINE2               = 0x2489 // 扩展市场K线2
 	KMSG_EXQUOTESINGLE          = 0x23fa // 扩展市场单个行情
 	KMSG_EXQUOTES               = 0x248a // 扩展市场批量行情
 	KMSG_EXQUOTES2              = 0x23fb // 扩展市场批量行情2
 	KMSG_EXTICKCHART            = 0x248b // 扩展市场分时图
 	KMSG_EXHISTORYTICKCHART     = 0x248c // 扩展市场历史分时图
 	KMSG_EXCHARTSAMPLING        = 0x254d // 扩展市场抽样图
+	KMSG_EXMAPPING2562          = 0x2562 // 扩展市场映射信息
 	KMSG_EXBOARDLIST            = 0x1231 // 扩展市场板块榜单
+	KMSG_MACSYMBOLBELONGBOARD   = 0x1218 // MAC: 股票所属板块
+	KMSG_MACBOARDMEMBERS        = 0x122c // MAC: 板块成员
+	KMSG_MACSYMBOLBARS          = 0x122e // MAC: 统一K线
+	KMSG_CLIENT264B             = 0x264b // 客户端信息264B
+	KMSG_CLIENT26AC             = 0x26ac // 客户端信息26AC
+	KMSG_CLIENT26AD             = 0x26ad // 客户端信息26AD
+	KMSG_CLIENT26AE             = 0x26ae // 客户端信息26AE
+	KMSG_CLIENT26B1             = 0x26b1 // 客户端信息26B1
 
 )
 
@@ -103,6 +123,14 @@ type ReqHeader struct {
 	Method     uint16 // method 请求方法
 }
 
+type genericReqHeader struct {
+	Head       uint8
+	Customize  uint32
+	PacketType uint8
+	PkgLen1    uint16
+	PkgLen2    uint16
+}
+
 type RespHeader struct {
 	I1        uint32
 	I2        uint8
@@ -116,6 +144,33 @@ type RespHeader struct {
 func seqID() uint32 {
 	atomic.AddUint32(&_seqId, 1)
 	return _seqId
+}
+
+func serializeGenericRequest(head uint8, customize uint32, packetType uint8, method uint16, payload []byte) ([]byte, error) {
+	body := new(bytes.Buffer)
+	if err := binary.Write(body, binary.LittleEndian, method); err != nil {
+		return nil, err
+	}
+	if _, err := body.Write(payload); err != nil {
+		return nil, err
+	}
+
+	header := genericReqHeader{
+		Head:       head,
+		Customize:  customize,
+		PacketType: packetType,
+		PkgLen1:    uint16(body.Len()),
+		PkgLen2:    uint16(body.Len()),
+	}
+
+	buf := new(bytes.Buffer)
+	if err := binary.Write(buf, binary.LittleEndian, header); err != nil {
+		return nil, err
+	}
+	if _, err := buf.Write(body.Bytes()); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }
 
 func todayDate() uint32 {

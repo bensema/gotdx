@@ -56,13 +56,11 @@ func (obj *GetChartSampling) SetParams(req *GetChartSamplingRequest) {
 }
 
 func (obj *GetChartSampling) Serialize() ([]byte, error) {
-	obj.reqHeader.PkgLen1 = 0x26
-	obj.reqHeader.PkgLen2 = 0x26
-
 	buf := new(bytes.Buffer)
-	err := binary.Write(buf, binary.LittleEndian, obj.reqHeader)
-	err = binary.Write(buf, binary.LittleEndian, obj.request)
-	return buf.Bytes(), err
+	if err := binary.Write(buf, binary.LittleEndian, obj.request); err != nil {
+		return nil, err
+	}
+	return serializeGenericRequest(0x0c, 0, 0x01, KMSG_CHARTSAMPLING, buf.Bytes())
 }
 
 func (obj *GetChartSampling) UnSerialize(header interface{}, data []byte) error {

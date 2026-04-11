@@ -76,12 +76,48 @@ func (client *Client) StockList(market uint8, start uint32, count uint32) ([]pro
 	return reply.List, nil
 }
 
+func (client *Client) StockListOld(market uint8, start uint16) ([]proto.Security, error) {
+	qc, err := client.quotationClient()
+	if err != nil {
+		return nil, err
+	}
+	reply, err := qc.GetSecurityListOld(market, start)
+	if err != nil {
+		return nil, err
+	}
+	return reply.List, nil
+}
+
+func (client *Client) StockFeature452(start uint32, count uint32) ([]proto.SecurityFeature452Item, error) {
+	qc, err := client.quotationClient()
+	if err != nil {
+		return nil, err
+	}
+	reply, err := qc.GetSecurityFeature452(start, count)
+	if err != nil {
+		return nil, err
+	}
+	return reply.List, nil
+}
+
 func (client *Client) StockKLine(category uint16, market uint8, code string, start uint16, count uint16, times uint16, adjust uint16) ([]proto.SecurityBar, error) {
 	qc, err := client.quotationClient()
 	if err != nil {
 		return nil, err
 	}
 	reply, err := qc.GetKLine(category, market, code, start, count, times, adjust)
+	if err != nil {
+		return nil, err
+	}
+	return reply.List, nil
+}
+
+func (client *Client) StockKLineOffset(category uint16, market uint8, code string, start uint16, count uint16, times uint16, adjust uint16) ([]proto.SecurityBar, error) {
+	qc, err := client.quotationClient()
+	if err != nil {
+		return nil, err
+	}
+	reply, err := qc.GetSecurityBarsOffset(category, market, code, start, count, times, adjust)
 	if err != nil {
 		return nil, err
 	}
@@ -148,6 +184,18 @@ func (client *Client) StockQuotes(markets []uint8, codes []string) ([]proto.Quot
 	return reply.List, nil
 }
 
+func (client *Client) StockQuotesEncrypt(markets []uint8, codes []string) ([]proto.EncryptedQuoteItem, error) {
+	qc, err := client.quotationClient()
+	if err != nil {
+		return nil, err
+	}
+	reply, err := qc.GetQuotesEncrypt(markets, codes)
+	if err != nil {
+		return nil, err
+	}
+	return reply.List, nil
+}
+
 func (client *Client) StockTransaction(market uint8, code string, start uint16, count uint16) ([]proto.TransactionData, error) {
 	qc, err := client.quotationClient()
 	if err != nil {
@@ -172,6 +220,18 @@ func (client *Client) StockHistoryTransaction(date uint32, market uint8, code st
 	return reply.List, nil
 }
 
+func (client *Client) StockHistoryTransactionWithTrans(date uint32, market uint8, code string, start uint16, count uint16) ([]proto.HistoryTransactionDataWithTrans, error) {
+	qc, err := client.quotationClient()
+	if err != nil {
+		return nil, err
+	}
+	reply, err := qc.GetHistoryTransactionDataWithTrans(date, market, code, start, count)
+	if err != nil {
+		return nil, err
+	}
+	return reply.List, nil
+}
+
 func (client *Client) StockF10(market uint8, code string) (*CompanyInfoBundle, error) {
 	qc, err := client.quotationClient()
 	if err != nil {
@@ -186,6 +246,62 @@ func (client *Client) StockBlock(filename string) ([]BlockFlatItem, error) {
 		return nil, err
 	}
 	return qc.GetParsedBlockFile(filename)
+}
+
+func (client *Client) MainTodoB() (*proto.RawDataReply, error) {
+	qc, err := client.quotationClient()
+	if err != nil {
+		return nil, err
+	}
+	return qc.GetTodoB()
+}
+
+func (client *Client) MainTodoFDE() (*proto.RawDataReply, error) {
+	qc, err := client.quotationClient()
+	if err != nil {
+		return nil, err
+	}
+	return qc.GetTodoFDE()
+}
+
+func (client *Client) MainClient264B() (*proto.RawDataReply, error) {
+	qc, err := client.quotationClient()
+	if err != nil {
+		return nil, err
+	}
+	return qc.GetClient264B()
+}
+
+func (client *Client) MainClient26AC() (*proto.RawDataReply, error) {
+	qc, err := client.quotationClient()
+	if err != nil {
+		return nil, err
+	}
+	return qc.GetClient26AC()
+}
+
+func (client *Client) MainClient26AD() (*proto.RawDataReply, error) {
+	qc, err := client.quotationClient()
+	if err != nil {
+		return nil, err
+	}
+	return qc.GetClient26AD()
+}
+
+func (client *Client) MainClient26AE() (*proto.RawDataReply, error) {
+	qc, err := client.quotationClient()
+	if err != nil {
+		return nil, err
+	}
+	return qc.GetClient26AE()
+}
+
+func (client *Client) MainClient26B1() (*proto.RawDataReply, error) {
+	qc, err := client.quotationClient()
+	if err != nil {
+		return nil, err
+	}
+	return qc.GetClient26B1()
 }
 
 func (client *Client) ExCount() (uint32, error) {
@@ -218,6 +334,18 @@ func (client *Client) ExList(start uint32, count uint16) ([]proto.ExListItem, er
 		return nil, err
 	}
 	reply, err := eqc.ExGetList(start, count)
+	if err != nil {
+		return nil, err
+	}
+	return reply.List, nil
+}
+
+func (client *Client) ExListExtra(a uint16, b uint16, count uint16) ([]proto.ExExtraListItem, error) {
+	eqc, err := client.exQuotationClient()
+	if err != nil {
+		return nil, err
+	}
+	reply, err := eqc.ExGetListExtra(a, b, count)
 	if err != nil {
 		return nil, err
 	}
@@ -284,6 +412,38 @@ func (client *Client) ExKLine(category uint8, code string, period uint16, start 
 	return reply.List, nil
 }
 
+func (client *Client) ExExperiment2487(category uint8, code string) (*proto.ExExperiment2487Reply, error) {
+	eqc, err := client.exQuotationClient()
+	if err != nil {
+		return nil, err
+	}
+	return eqc.ExGetExperiment2487(category, code)
+}
+
+func (client *Client) ExExperiment2488(category uint8, code string, mode uint16) ([]proto.ExExperiment2488Item, error) {
+	eqc, err := client.exQuotationClient()
+	if err != nil {
+		return nil, err
+	}
+	reply, err := eqc.ExGetExperiment2488(category, code, mode)
+	if err != nil {
+		return nil, err
+	}
+	return reply.List, nil
+}
+
+func (client *Client) ExKLine2(category uint8, code string, period uint16, start uint32, count uint32, times uint16) ([]proto.ExKLineItem, error) {
+	eqc, err := client.exQuotationClient()
+	if err != nil {
+		return nil, err
+	}
+	reply, err := eqc.ExGetKLine2(category, code, period, start, count, times)
+	if err != nil {
+		return nil, err
+	}
+	return reply.List, nil
+}
+
 func (client *Client) ExHistoryTransaction(date uint32, category uint8, code string) ([]proto.ExHistoryTransactionItem, error) {
 	eqc, err := client.exQuotationClient()
 	if err != nil {
@@ -333,6 +493,18 @@ func (client *Client) ExBoardList(boardType uint16, start uint16, pageSize uint1
 		return nil, err
 	}
 	reply, err := eqc.ExGetBoardList(boardType, start, pageSize)
+	if err != nil {
+		return nil, err
+	}
+	return reply.List, nil
+}
+
+func (client *Client) ExMapping2562(market uint16, start uint32, count uint32) ([]proto.ExMapping2562Item, error) {
+	eqc, err := client.exQuotationClient()
+	if err != nil {
+		return nil, err
+	}
+	reply, err := eqc.ExGetMapping2562(market, start, count)
 	if err != nil {
 		return nil, err
 	}

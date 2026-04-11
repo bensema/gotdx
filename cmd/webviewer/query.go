@@ -118,6 +118,28 @@ var methodDefs = []methodDef{
 		},
 	},
 	{
+		Key:         "stock_list_old",
+		Label:       "旧版股票列表",
+		Group:       "股票快照",
+		Target:      "main",
+		Description: "兼容旧协议 0x0450 的证券列表。",
+		Params: []methodParam{
+			{Key: "market", Label: "市场", Type: "number", Default: "0"},
+			{Key: "start", Label: "起始", Type: "number", Default: "0"},
+		},
+	},
+	{
+		Key:         "stock_feature_452",
+		Label:       "证券扩展信息",
+		Group:       "股票快照",
+		Target:      "main",
+		Description: "主行情试验协议 0x0452。",
+		Params: []methodParam{
+			{Key: "start", Label: "起始", Type: "number", Default: "0"},
+			{Key: "count", Label: "数量", Type: "number", Default: "30"},
+		},
+	},
+	{
 		Key:         "stock_kline",
 		Label:       "股票 K 线",
 		Group:       "股票快照",
@@ -131,6 +153,33 @@ var methodDefs = []methodDef{
 			{Key: "count", Label: "数量", Type: "number", Default: "20"},
 			{Key: "times", Label: "倍数", Type: "number", Default: "1"},
 			{Key: "adjust", Label: "复权", Type: "number", Default: "0"},
+		},
+	},
+	{
+		Key:         "stock_kline_offset",
+		Label:       "偏移 K 线",
+		Group:       "股票快照",
+		Target:      "main",
+		Description: "主行情增强协议 0x052d 的偏移 K 线。",
+		Params: []methodParam{
+			{Key: "category", Label: "K线类型", Type: "number", Default: "4"},
+			{Key: "market", Label: "市场", Type: "number", Default: "0"},
+			{Key: "code", Label: "代码", Type: "text", Default: "000001"},
+			{Key: "start", Label: "起始", Type: "number", Default: "0"},
+			{Key: "count", Label: "数量", Type: "number", Default: "20"},
+			{Key: "times", Label: "倍数", Type: "number", Default: "1"},
+			{Key: "adjust", Label: "复权", Type: "number", Default: "0"},
+		},
+	},
+	{
+		Key:         "stock_quotes_encrypt",
+		Label:       "加密行情",
+		Group:       "股票快照",
+		Target:      "main",
+		Description: "主行情增强协议 0x0547 的加密行情。",
+		Params: []methodParam{
+			{Key: "markets", Label: "市场列表", Type: "text", Default: "1,0", Help: "可只填一个市场，多个代码时会自动复用"},
+			{Key: "codes", Label: "代码列表", Type: "textarea", Default: "999999,399001", Help: "逗号或换行分隔证券代码"},
 		},
 	},
 	{
@@ -177,6 +226,20 @@ var methodDefs = []methodDef{
 		Group:       "股票分时",
 		Target:      "main",
 		Description: "历史成交回放。",
+		Params: []methodParam{
+			{Key: "date", Label: "日期", Type: "number", Default: "20260316"},
+			{Key: "market", Label: "市场", Type: "number", Default: "0"},
+			{Key: "code", Label: "代码", Type: "text", Default: "000001"},
+			{Key: "start", Label: "起始", Type: "number", Default: "0"},
+			{Key: "count", Label: "数量", Type: "number", Default: "20"},
+		},
+	},
+	{
+		Key:         "stock_history_transaction_trans",
+		Label:       "历史成交带方向",
+		Group:       "股票分时",
+		Target:      "main",
+		Description: "主行情增强协议 0x0fc6，返回 BUY/SELL/NEUTRAL。",
 		Params: []methodParam{
 			{Key: "date", Label: "日期", Type: "number", Default: "20260316"},
 			{Key: "market", Label: "市场", Type: "number", Default: "0"},
@@ -360,6 +423,18 @@ var methodDefs = []methodDef{
 		},
 	},
 	{
+		Key:         "ex_list_extra",
+		Label:       "扩展试验列表",
+		Group:       "扩展试验",
+		Target:      "ex",
+		Description: "扩展市场试验协议 0x23f6。",
+		Params: []methodParam{
+			{Key: "a", Label: "参数 A", Type: "number", Default: "0"},
+			{Key: "b", Label: "参数 B", Type: "number", Default: "0"},
+			{Key: "count", Label: "数量", Type: "number", Default: "30"},
+		},
+	},
+	{
 		Key:         "ex_quote",
 		Label:       "扩展单条行情",
 		Group:       "扩展快照",
@@ -422,6 +497,44 @@ var methodDefs = []methodDef{
 		},
 	},
 	{
+		Key:         "ex_experiment_2487",
+		Label:       "扩展试验报价 2487",
+		Group:       "扩展试验",
+		Target:      "ex",
+		Description: "扩展市场试验协议 0x2487。",
+		Params: []methodParam{
+			{Key: "category", Label: "分类", Type: "number", Default: "74"},
+			{Key: "code", Label: "代码", Type: "text", Default: "TSLA"},
+		},
+	},
+	{
+		Key:         "ex_experiment_2488",
+		Label:       "扩展试验报价 2488",
+		Group:       "扩展试验",
+		Target:      "ex",
+		Description: "扩展市场试验协议 0x2488。",
+		Params: []methodParam{
+			{Key: "category", Label: "分类", Type: "number", Default: "74"},
+			{Key: "code", Label: "代码", Type: "text", Default: "TSLA"},
+			{Key: "mode", Label: "模式", Type: "number", Default: "55"},
+		},
+	},
+	{
+		Key:         "ex_kline2",
+		Label:       "扩展 K 线 2",
+		Group:       "扩展试验",
+		Target:      "ex",
+		Description: "扩展市场 K 线协议 0x2489。",
+		Params: []methodParam{
+			{Key: "category", Label: "分类", Type: "number", Default: "74"},
+			{Key: "code", Label: "代码", Type: "text", Default: "TSLA"},
+			{Key: "period", Label: "周期", Type: "number", Default: "4"},
+			{Key: "start", Label: "起始", Type: "number", Default: "0"},
+			{Key: "count", Label: "数量", Type: "number", Default: "20"},
+			{Key: "times", Label: "倍数", Type: "number", Default: "1"},
+		},
+	},
+	{
 		Key:         "ex_tick_chart",
 		Label:       "扩展分时图",
 		Group:       "扩展分时",
@@ -469,6 +582,18 @@ var methodDefs = []methodDef{
 		},
 	},
 	{
+		Key:         "ex_mapping_2562",
+		Label:       "扩展映射 2562",
+		Group:       "扩展试验",
+		Target:      "ex",
+		Description: "扩展市场映射试验协议 0x2562。",
+		Params: []methodParam{
+			{Key: "market", Label: "市场", Type: "number", Default: "47"},
+			{Key: "start", Label: "起始", Type: "number", Default: "0"},
+			{Key: "count", Label: "数量", Type: "number", Default: "30"},
+		},
+	},
+	{
 		Key:         "ex_table",
 		Label:       "扩展总表",
 		Group:       "扩展表格",
@@ -483,11 +608,175 @@ var methodDefs = []methodDef{
 		Description: "扩展市场详细表，自动拆成表格行。",
 	},
 	{
+		Key:         "mac_board_list",
+		Label:       "MAC 板块列表",
+		Group:       "MAC 协议",
+		Target:      "mac",
+		Description: "MAC 主站板块分页列表。",
+		Params: []methodParam{
+			{Key: "board_type", Label: "板块类型", Type: "number", Default: "0"},
+			{Key: "count", Label: "总量", Type: "number", Default: "50"},
+		},
+	},
+	{
+		Key:         "mac_board_members",
+		Label:       "MAC 板块成员",
+		Group:       "MAC 协议",
+		Target:      "mac",
+		Description: "按板块代码查询成分股。",
+		Params: []methodParam{
+			{Key: "board_symbol", Label: "板块代码", Type: "text", Default: "880761"},
+			{Key: "count", Label: "总量", Type: "number", Default: "50"},
+		},
+	},
+	{
+		Key:         "mac_board_members_quotes",
+		Label:       "MAC 成分报价",
+		Group:       "MAC 协议",
+		Target:      "mac",
+		Description: "按板块代码查询成分报价。",
+		Params: []methodParam{
+			{Key: "board_symbol", Label: "板块代码", Type: "text", Default: "880761"},
+			{Key: "count", Label: "总量", Type: "number", Default: "50"},
+		},
+	},
+	{
+		Key:         "mac_symbol_belong_board",
+		Label:       "股票所属板块",
+		Group:       "MAC 协议",
+		Target:      "mac",
+		Description: "查询单只股票所属板块。",
+		Params: []methodParam{
+			{Key: "market", Label: "市场", Type: "number", Default: "0"},
+			{Key: "code", Label: "代码", Type: "text", Default: "000100"},
+		},
+	},
+	{
+		Key:         "mac_symbol_bars",
+		Label:       "MAC 统一 K 线",
+		Group:       "MAC 协议",
+		Target:      "mac",
+		Description: "MAC 主站统一 K 线。",
+		Params: []methodParam{
+			{Key: "market", Label: "市场", Type: "number", Default: "0"},
+			{Key: "code", Label: "代码", Type: "text", Default: "000100"},
+			{Key: "period", Label: "周期", Type: "number", Default: "4"},
+			{Key: "times", Label: "倍数", Type: "number", Default: "1"},
+			{Key: "start", Label: "起始", Type: "number", Default: "0"},
+			{Key: "count", Label: "总量", Type: "number", Default: "20"},
+			{Key: "adjust", Label: "复权", Type: "number", Default: "0"},
+		},
+	},
+	{
+		Key:         "mac_ex_board_list",
+		Label:       "MAC 港美板块",
+		Group:       "MAC 协议",
+		Target:      "mac-ex",
+		Description: "MAC 扩展站板块列表，例如港股/美股板块。",
+		Params: []methodParam{
+			{Key: "board_type", Label: "板块类型", Type: "number", Default: "0", Help: "0=HK_ALL 3=US_ALL"},
+			{Key: "count", Label: "总量", Type: "number", Default: "50"},
+		},
+	},
+	{
+		Key:         "mac_ex_symbol_bars",
+		Label:       "MAC 扩展 K 线",
+		Group:       "MAC 协议",
+		Target:      "mac-ex",
+		Description: "MAC 扩展站统一 K 线。",
+		Params: []methodParam{
+			{Key: "market", Label: "分类", Type: "number", Default: "74"},
+			{Key: "code", Label: "代码", Type: "text", Default: "TSLA"},
+			{Key: "period", Label: "周期", Type: "number", Default: "4"},
+			{Key: "times", Label: "倍数", Type: "number", Default: "1"},
+			{Key: "start", Label: "起始", Type: "number", Default: "0"},
+			{Key: "count", Label: "总量", Type: "number", Default: "20"},
+			{Key: "adjust", Label: "复权", Type: "number", Default: "0"},
+		},
+	},
+	{
 		Key:         "main_connect_info",
 		Label:       "主站连接信息",
 		Group:       "连接状态",
 		Target:      "main",
 		Description: "连接主行情服务器并显示欢迎信息。",
+	},
+	{
+		Key:         "main_heartbeat",
+		Label:       "主站心跳",
+		Group:       "连接状态",
+		Target:      "main",
+		Description: "主站服务心跳包。",
+	},
+	{
+		Key:         "main_server_info",
+		Label:       "主站服务信息",
+		Group:       "连接状态",
+		Target:      "main",
+		Description: "主站服务信息 0x0015。",
+	},
+	{
+		Key:         "main_exchange_announcement",
+		Label:       "交易所公告",
+		Group:       "连接状态",
+		Target:      "main",
+		Description: "主站交易所公告 0x0002。",
+	},
+	{
+		Key:         "main_announcement",
+		Label:       "服务商公告",
+		Group:       "连接状态",
+		Target:      "main",
+		Description: "主站服务商公告 0x000a。",
+	},
+	{
+		Key:         "main_todo_b",
+		Label:       "主站试验 000b",
+		Group:       "主站试验",
+		Target:      "main",
+		Description: "主站试验协议 0x000b，返回原始字节。",
+	},
+	{
+		Key:         "main_todo_fde",
+		Label:       "主站试验 0fde",
+		Group:       "主站试验",
+		Target:      "main",
+		Description: "主站试验协议 0x0fde，返回原始字节。",
+	},
+	{
+		Key:         "main_client_264b",
+		Label:       "客户端信息 264b",
+		Group:       "主站试验",
+		Target:      "main",
+		Description: "客户端信息协议 0x264b，返回原始字节。",
+	},
+	{
+		Key:         "main_client_26ac",
+		Label:       "客户端信息 26ac",
+		Group:       "主站试验",
+		Target:      "main",
+		Description: "客户端信息协议 0x26ac，返回原始字节。",
+	},
+	{
+		Key:         "main_client_26ad",
+		Label:       "客户端信息 26ad",
+		Group:       "主站试验",
+		Target:      "main",
+		Description: "客户端信息协议 0x26ad，返回原始字节。",
+	},
+	{
+		Key:         "main_client_26ae",
+		Label:       "客户端信息 26ae",
+		Group:       "主站试验",
+		Target:      "main",
+		Description: "客户端信息协议 0x26ae，返回原始字节。",
+	},
+	{
+		Key:         "main_client_26b1",
+		Label:       "客户端信息 26b1",
+		Group:       "主站试验",
+		Target:      "main",
+		Description: "客户端信息协议 0x26b1，返回原始字节。",
 	},
 	{
 		Key:         "ex_server_info",
@@ -496,28 +785,78 @@ var methodDefs = []methodDef{
 		Target:      "ex",
 		Description: "扩展市场登录信息和服务器信息。",
 	},
+	{
+		Key:         "mac_connect_info",
+		Label:       "MAC 主站连接",
+		Group:       "连接状态",
+		Target:      "mac",
+		Description: "连接 MAC 主站并显示当前主机。",
+	},
+	{
+		Key:         "mac_ex_connect_info",
+		Label:       "MAC 扩展站连接",
+		Group:       "连接状态",
+		Target:      "mac-ex",
+		Description: "连接 MAC 扩展站并显示当前主机。",
+	},
+	{
+		Key:         "main_host_probe",
+		Label:       "主站测速",
+		Group:       "连接状态",
+		Target:      "main",
+		Description: "对内置主行情 host 列表做 TCP 测速并排序。",
+		Params: []methodParam{
+			{Key: "timeout_ms", Label: "超时毫秒", Type: "number", Default: "1000"},
+		},
+	},
+	{
+		Key:         "ex_host_probe",
+		Label:       "扩展站测速",
+		Group:       "连接状态",
+		Target:      "ex",
+		Description: "对内置扩展市场 host 列表做 TCP 测速并排序。",
+		Params: []methodParam{
+			{Key: "timeout_ms", Label: "超时毫秒", Type: "number", Default: "1000"},
+		},
+	},
+	{
+		Key:         "mac_host_probe",
+		Label:       "MAC 主站测速",
+		Group:       "连接状态",
+		Target:      "mac",
+		Description: "对内置 MAC 主站 host 列表做 TCP 测速并排序。",
+		Params: []methodParam{
+			{Key: "timeout_ms", Label: "超时毫秒", Type: "number", Default: "1000"},
+		},
+	},
+	{
+		Key:         "mac_ex_host_probe",
+		Label:       "MAC 扩展测速",
+		Group:       "连接状态",
+		Target:      "mac-ex",
+		Description: "对内置 MAC 扩展站 host 列表做 TCP 测速并排序。",
+		Params: []methodParam{
+			{Key: "timeout_ms", Label: "超时毫秒", Type: "number", Default: "1000"},
+		},
+	},
+	{
+		Key:         "broker_host_list",
+		Label:       "券商地址列表",
+		Group:       "连接状态",
+		Target:      "main",
+		Description: "显示从 opentdx 搬运的券商行情 host 列表。",
+	},
 }
 
 var methodMap = makeMethodMap(methodDefs)
 
-var mainHosts = []string{
-	"124.71.187.122:7709",
-	"124.71.187.72:7709",
-	"124.70.133.119:7709",
-	"123.60.73.44:7709",
-	"123.60.84.66:7709",
-}
+var mainHosts = gotdx.MainHostAddresses()
 
-var exHosts = []string{
-	"112.74.214.43:7727",
-	"120.25.218.6:7727",
-	"43.139.173.246:7727",
-	"159.75.90.107:7727",
-	"106.52.170.195:7727",
-	"175.24.47.69:7727",
-	"139.9.191.175:7727",
-	"150.158.9.199:7727",
-}
+var exHosts = gotdx.ExHostAddresses()
+
+var macHosts = gotdx.MACHostAddresses()
+
+var macExHosts = gotdx.MACExHostAddresses()
 
 func makeMethodMap(defs []methodDef) map[string]methodDef {
 	out := make(map[string]methodDef, len(defs))
@@ -580,6 +919,229 @@ func runMethod(def methodDef, params map[string]string) (queryPayload, map[strin
 			columns: []string{"field", "value"},
 			rows:    rows,
 			raw:     reply,
+		}, map[string]any{}, nil
+	case "main_heartbeat":
+		payload, err := withMainClient(func(client *gotdx.Client) (queryPayload, error) {
+			reply, err := client.GetServerHeartbeat()
+			if err != nil {
+				return queryPayload{}, err
+			}
+			return queryPayload{
+				columns: []string{"field", "value"},
+				rows:    [][]string{{"date", fmt.Sprintf("%d", reply.Date)}},
+				raw:     reply,
+			}, nil
+		})
+		return payload, map[string]any{}, err
+	case "main_server_info":
+		payload, err := withMainClient(func(client *gotdx.Client) (queryPayload, error) {
+			reply, err := client.GetServerInfo()
+			if err != nil {
+				return queryPayload{}, err
+			}
+			return queryPayload{
+				columns: []string{"field", "value"},
+				rows:    rowsFromServerInfo(reply),
+				raw:     reply,
+			}, nil
+		})
+		return payload, map[string]any{}, err
+	case "main_exchange_announcement":
+		payload, err := withMainClient(func(client *gotdx.Client) (queryPayload, error) {
+			reply, err := client.GetExchangeAnnouncement()
+			if err != nil {
+				return queryPayload{}, err
+			}
+			return queryPayload{
+				columns: []string{"field", "value"},
+				rows:    [][]string{{"version", fmt.Sprintf("%d", reply.Version)}, {"content", reply.Content}},
+				raw:     reply,
+			}, nil
+		})
+		return payload, map[string]any{}, err
+	case "main_announcement":
+		payload, err := withMainClient(func(client *gotdx.Client) (queryPayload, error) {
+			reply, err := client.GetAnnouncement()
+			if err != nil {
+				return queryPayload{}, err
+			}
+			return queryPayload{
+				columns: []string{"field", "value"},
+				rows:    rowsFromAnnouncement(reply),
+				raw:     reply,
+			}, nil
+		})
+		return payload, map[string]any{}, err
+	case "main_todo_b":
+		payload, err := withMainClient(func(client *gotdx.Client) (queryPayload, error) {
+			reply, err := client.GetTodoB()
+			if err != nil {
+				return queryPayload{}, err
+			}
+			return queryPayload{
+				columns: []string{"field", "value"},
+				rows:    rowsFromRawReply(reply),
+				raw:     reply,
+				warning: "原始实验协议，仅展示长度和十六进制预览。",
+			}, nil
+		})
+		return payload, map[string]any{}, err
+	case "main_todo_fde":
+		payload, err := withMainClient(func(client *gotdx.Client) (queryPayload, error) {
+			reply, err := client.GetTodoFDE()
+			if err != nil {
+				return queryPayload{}, err
+			}
+			return queryPayload{
+				columns: []string{"field", "value"},
+				rows:    rowsFromRawReply(reply),
+				raw:     reply,
+				warning: "原始实验协议，仅展示长度和十六进制预览。",
+			}, nil
+		})
+		return payload, map[string]any{}, err
+	case "main_client_264b":
+		payload, err := withMainClient(func(client *gotdx.Client) (queryPayload, error) {
+			reply, err := client.GetClient264B()
+			if err != nil {
+				return queryPayload{}, err
+			}
+			return queryPayload{
+				columns: []string{"field", "value"},
+				rows:    rowsFromRawReply(reply),
+				raw:     reply,
+				warning: "客户端信息协议暂以原始响应方式展示。",
+			}, nil
+		})
+		return payload, map[string]any{}, err
+	case "main_client_26ac":
+		payload, err := withMainClient(func(client *gotdx.Client) (queryPayload, error) {
+			reply, err := client.GetClient26AC()
+			if err != nil {
+				return queryPayload{}, err
+			}
+			return queryPayload{
+				columns: []string{"field", "value"},
+				rows:    rowsFromRawReply(reply),
+				raw:     reply,
+				warning: "客户端信息协议暂以原始响应方式展示。",
+			}, nil
+		})
+		return payload, map[string]any{}, err
+	case "main_client_26ad":
+		payload, err := withMainClient(func(client *gotdx.Client) (queryPayload, error) {
+			reply, err := client.GetClient26AD()
+			if err != nil {
+				return queryPayload{}, err
+			}
+			return queryPayload{
+				columns: []string{"field", "value"},
+				rows:    rowsFromRawReply(reply),
+				raw:     reply,
+				warning: "客户端信息协议暂以原始响应方式展示。",
+			}, nil
+		})
+		return payload, map[string]any{}, err
+	case "main_client_26ae":
+		payload, err := withMainClient(func(client *gotdx.Client) (queryPayload, error) {
+			reply, err := client.GetClient26AE()
+			if err != nil {
+				return queryPayload{}, err
+			}
+			return queryPayload{
+				columns: []string{"field", "value"},
+				rows:    rowsFromRawReply(reply),
+				raw:     reply,
+				warning: "客户端信息协议暂以原始响应方式展示。",
+			}, nil
+		})
+		return payload, map[string]any{}, err
+	case "main_client_26b1":
+		payload, err := withMainClient(func(client *gotdx.Client) (queryPayload, error) {
+			reply, err := client.GetClient26B1()
+			if err != nil {
+				return queryPayload{}, err
+			}
+			return queryPayload{
+				columns: []string{"field", "value"},
+				rows:    rowsFromRawReply(reply),
+				raw:     reply,
+				warning: "客户端信息协议暂以原始响应方式展示。",
+			}, nil
+		})
+		return payload, map[string]any{}, err
+	case "mac_connect_info":
+		client := newMACClient()
+		defer client.Disconnect()
+		if err := client.ConnectMAC(); err != nil {
+			return queryPayload{}, nil, err
+		}
+		return queryPayload{
+			columns: []string{"field", "value"},
+			rows:    [][]string{{"host", currentMACHost(client)}},
+			raw:     map[string]any{"host": currentMACHost(client)},
+		}, map[string]any{}, nil
+	case "mac_ex_connect_info":
+		client := newMACExClient()
+		defer client.Disconnect()
+		if err := client.ConnectMAC(); err != nil {
+			return queryPayload{}, nil, err
+		}
+		return queryPayload{
+			columns: []string{"field", "value"},
+			rows:    [][]string{{"host", currentMACExHost(client)}},
+			raw:     map[string]any{"host": currentMACExHost(client)},
+		}, map[string]any{}, nil
+	case "main_host_probe":
+		timeoutMS, err := parseUint32Value(params, "timeout_ms", 1000)
+		if err != nil {
+			return queryPayload{}, nil, err
+		}
+		results := gotdx.ProbeHosts(gotdx.MainHosts(), time.Duration(timeoutMS)*time.Millisecond)
+		return queryPayload{
+			columns: []string{"name", "address", "latency_ms", "reachable", "error"},
+			rows:    rowsFromHostProbeResults(results),
+			raw:     results,
+		}, map[string]any{"timeout_ms": timeoutMS}, nil
+	case "ex_host_probe":
+		timeoutMS, err := parseUint32Value(params, "timeout_ms", 1000)
+		if err != nil {
+			return queryPayload{}, nil, err
+		}
+		results := gotdx.ProbeHosts(gotdx.ExHosts(), time.Duration(timeoutMS)*time.Millisecond)
+		return queryPayload{
+			columns: []string{"name", "address", "latency_ms", "reachable", "error"},
+			rows:    rowsFromHostProbeResults(results),
+			raw:     results,
+		}, map[string]any{"timeout_ms": timeoutMS}, nil
+	case "mac_host_probe":
+		timeoutMS, err := parseUint32Value(params, "timeout_ms", 1000)
+		if err != nil {
+			return queryPayload{}, nil, err
+		}
+		results := gotdx.ProbeHosts(gotdx.MACHosts(), time.Duration(timeoutMS)*time.Millisecond)
+		return queryPayload{
+			columns: []string{"name", "address", "latency_ms", "reachable", "error"},
+			rows:    rowsFromHostProbeResults(results),
+			raw:     results,
+		}, map[string]any{"timeout_ms": timeoutMS}, nil
+	case "mac_ex_host_probe":
+		timeoutMS, err := parseUint32Value(params, "timeout_ms", 1000)
+		if err != nil {
+			return queryPayload{}, nil, err
+		}
+		results := gotdx.ProbeHosts(gotdx.MACExHosts(), time.Duration(timeoutMS)*time.Millisecond)
+		return queryPayload{
+			columns: []string{"name", "address", "latency_ms", "reachable", "error"},
+			rows:    rowsFromHostProbeResults(results),
+			raw:     results,
+		}, map[string]any{"timeout_ms": timeoutMS}, nil
+	case "broker_host_list":
+		hosts := gotdx.BrokerHosts()
+		return queryPayload{
+			columns: []string{"name", "ip", "port", "address"},
+			rows:    rowsFromHostInfos(hosts),
+			raw:     hosts,
 		}, map[string]any{}, nil
 	case "stock_count":
 		market, err := parseUint8Value(params, "market", 0)
@@ -709,6 +1271,50 @@ func runMethod(def methodDef, params map[string]string) (queryPayload, map[strin
 			}, nil
 		})
 		return payload, request, err
+	case "stock_list_old":
+		market, err := parseUint8Value(params, "market", 0)
+		if err != nil {
+			return queryPayload{}, nil, err
+		}
+		start, err := parseUint16Value(params, "start", 0)
+		if err != nil {
+			return queryPayload{}, nil, err
+		}
+		request := map[string]any{"market": market, "start": start}
+		payload, err := withMainClient(func(client *gotdx.Client) (queryPayload, error) {
+			reply, err := client.GetSecurityListOld(market, start)
+			if err != nil {
+				return queryPayload{}, err
+			}
+			return queryPayload{
+				columns: []string{"code", "name", "pre_close", "vol_unit", "decimal_point"},
+				rows:    rowsFromSecurityList(reply.List),
+				raw:     reply.List,
+			}, nil
+		})
+		return payload, request, err
+	case "stock_feature_452":
+		start, err := parseUint32Value(params, "start", 0)
+		if err != nil {
+			return queryPayload{}, nil, err
+		}
+		count, err := parseUint32Value(params, "count", 30)
+		if err != nil {
+			return queryPayload{}, nil, err
+		}
+		request := map[string]any{"start": start, "count": count}
+		payload, err := withMainClient(func(client *gotdx.Client) (queryPayload, error) {
+			reply, err := client.GetSecurityFeature452(start, count)
+			if err != nil {
+				return queryPayload{}, err
+			}
+			return queryPayload{
+				columns: []string{"market", "code", "p1", "p2"},
+				rows:    rowsFromSecurityFeature452(reply.List),
+				raw:     reply.List,
+			}, nil
+		})
+		return payload, request, err
 	case "stock_kline":
 		category, err := parseUint16Value(params, "category", 4)
 		if err != nil {
@@ -744,6 +1350,68 @@ func runMethod(def methodDef, params map[string]string) (queryPayload, map[strin
 			return queryPayload{
 				columns: []string{"datetime", "open", "high", "low", "close", "vol", "amount"},
 				rows:    rowsFromSecurityBars(reply.List),
+				raw:     reply.List,
+			}, nil
+		})
+		return payload, request, err
+	case "stock_kline_offset":
+		category, err := parseUint16Value(params, "category", 4)
+		if err != nil {
+			return queryPayload{}, nil, err
+		}
+		market, err := parseUint8Value(params, "market", 0)
+		if err != nil {
+			return queryPayload{}, nil, err
+		}
+		code := valueOrDefault(params, "code", "000001")
+		start, err := parseUint16Value(params, "start", 0)
+		if err != nil {
+			return queryPayload{}, nil, err
+		}
+		count, err := parseUint16Value(params, "count", 20)
+		if err != nil {
+			return queryPayload{}, nil, err
+		}
+		times, err := parseUint16Value(params, "times", 1)
+		if err != nil {
+			return queryPayload{}, nil, err
+		}
+		adjust, err := parseUint16Value(params, "adjust", 0)
+		if err != nil {
+			return queryPayload{}, nil, err
+		}
+		request := map[string]any{"category": category, "market": market, "code": code, "start": start, "count": count, "times": times, "adjust": adjust}
+		payload, err := withMainClient(func(client *gotdx.Client) (queryPayload, error) {
+			reply, err := client.GetSecurityBarsOffset(category, market, code, start, count, times, adjust)
+			if err != nil {
+				return queryPayload{}, err
+			}
+			return queryPayload{
+				columns: []string{"datetime", "open", "high", "low", "close", "vol", "amount"},
+				rows:    rowsFromSecurityBars(reply.List),
+				raw:     reply.List,
+			}, nil
+		})
+		return payload, request, err
+	case "stock_quotes_encrypt":
+		markets, err := parseUint8List(valueOrDefault(params, "markets", "1,0"))
+		if err != nil {
+			return queryPayload{}, nil, err
+		}
+		codes := parseCodeList(valueOrDefault(params, "codes", "999999,399001"))
+		markets, err = expandUint8List(markets, len(codes), "markets")
+		if err != nil {
+			return queryPayload{}, nil, err
+		}
+		request := map[string]any{"markets": markets, "codes": codes}
+		payload, err := withMainClient(func(client *gotdx.Client) (queryPayload, error) {
+			reply, err := client.GetQuotesEncrypt(markets, codes)
+			if err != nil {
+				return queryPayload{}, err
+			}
+			return queryPayload{
+				columns: []string{"market", "code", "time", "close", "pre_close", "open", "high", "low", "vol", "amount"},
+				rows:    rowsFromEncryptedQuotes(reply.List),
 				raw:     reply.List,
 			}, nil
 		})
@@ -852,6 +1520,37 @@ func runMethod(def methodDef, params map[string]string) (queryPayload, map[strin
 			return queryPayload{
 				columns: []string{"time", "price", "vol", "num", "action"},
 				rows:    rowsFromHistoryTransaction(reply.List),
+				raw:     reply.List,
+			}, nil
+		})
+		return payload, request, err
+	case "stock_history_transaction_trans":
+		date, err := parseUint32Value(params, "date", 20260316)
+		if err != nil {
+			return queryPayload{}, nil, err
+		}
+		market, err := parseUint8Value(params, "market", 0)
+		if err != nil {
+			return queryPayload{}, nil, err
+		}
+		code := valueOrDefault(params, "code", "000001")
+		start, err := parseUint16Value(params, "start", 0)
+		if err != nil {
+			return queryPayload{}, nil, err
+		}
+		count, err := parseUint16Value(params, "count", 20)
+		if err != nil {
+			return queryPayload{}, nil, err
+		}
+		request := map[string]any{"date": date, "market": market, "code": code, "start": start, "count": count}
+		payload, err := withMainClient(func(client *gotdx.Client) (queryPayload, error) {
+			reply, err := client.GetHistoryTransactionDataWithTrans(date, market, code, start, count)
+			if err != nil {
+				return queryPayload{}, err
+			}
+			return queryPayload{
+				columns: []string{"time", "price", "vol", "num", "action"},
+				rows:    rowsFromHistoryTransactionWithTrans(reply.List),
 				raw:     reply.List,
 			}, nil
 		})
@@ -1231,6 +1930,32 @@ func runMethod(def methodDef, params map[string]string) (queryPayload, map[strin
 			}, nil
 		})
 		return payload, request, err
+	case "ex_list_extra":
+		a, err := parseUint16Value(params, "a", 0)
+		if err != nil {
+			return queryPayload{}, nil, err
+		}
+		b, err := parseUint16Value(params, "b", 0)
+		if err != nil {
+			return queryPayload{}, nil, err
+		}
+		count, err := parseUint16Value(params, "count", 30)
+		if err != nil {
+			return queryPayload{}, nil, err
+		}
+		request := map[string]any{"a": a, "b": b, "count": count}
+		payload, err := withExClient(func(client *gotdx.Client) (queryPayload, error) {
+			reply, err := client.ExGetListExtra(a, b, count)
+			if err != nil {
+				return queryPayload{}, err
+			}
+			return queryPayload{
+				columns: []string{"category", "code", "flag", "values"},
+				rows:    rowsFromExListExtra(reply.List),
+				raw:     reply.List,
+			}, nil
+		})
+		return payload, request, err
 	case "ex_server_info":
 		client := newExClient()
 		defer client.Disconnect()
@@ -1243,6 +1968,7 @@ func runMethod(def methodDef, params map[string]string) (queryPayload, map[strin
 			return queryPayload{}, nil, err
 		}
 		rows := [][]string{
+			{"host", currentExHost(client)},
 			{"login_time", login.DateTime},
 			{"login_server", login.ServerName},
 			{"login_ip", login.IP},
@@ -1391,6 +2117,83 @@ func runMethod(def methodDef, params map[string]string) (queryPayload, map[strin
 			}, nil
 		})
 		return payload, request, err
+	case "ex_experiment_2487":
+		category, err := parseUint8Value(params, "category", 74)
+		if err != nil {
+			return queryPayload{}, nil, err
+		}
+		code := valueOrDefault(params, "code", "TSLA")
+		request := map[string]any{"category": category, "code": code}
+		payload, err := withExClient(func(client *gotdx.Client) (queryPayload, error) {
+			reply, err := client.ExGetExperiment2487(category, code)
+			if err != nil {
+				return queryPayload{}, err
+			}
+			return queryPayload{
+				columns: []string{"field", "value"},
+				rows:    rowsFromExExperiment2487(reply),
+				raw:     reply,
+			}, nil
+		})
+		return payload, request, err
+	case "ex_experiment_2488":
+		category, err := parseUint8Value(params, "category", 74)
+		if err != nil {
+			return queryPayload{}, nil, err
+		}
+		code := valueOrDefault(params, "code", "TSLA")
+		mode, err := parseUint16Value(params, "mode", 55)
+		if err != nil {
+			return queryPayload{}, nil, err
+		}
+		request := map[string]any{"category": category, "code": code, "mode": mode}
+		payload, err := withExClient(func(client *gotdx.Client) (queryPayload, error) {
+			reply, err := client.ExGetExperiment2488(category, code, mode)
+			if err != nil {
+				return queryPayload{}, err
+			}
+			return queryPayload{
+				columns: []string{"id", "values"},
+				rows:    rowsFromExExperiment2488(reply.List),
+				raw:     reply,
+			}, nil
+		})
+		return payload, request, err
+	case "ex_kline2":
+		category, err := parseUint8Value(params, "category", 74)
+		if err != nil {
+			return queryPayload{}, nil, err
+		}
+		code := valueOrDefault(params, "code", "TSLA")
+		period, err := parseUint16Value(params, "period", 4)
+		if err != nil {
+			return queryPayload{}, nil, err
+		}
+		start, err := parseUint32Value(params, "start", 0)
+		if err != nil {
+			return queryPayload{}, nil, err
+		}
+		count, err := parseUint32Value(params, "count", 20)
+		if err != nil {
+			return queryPayload{}, nil, err
+		}
+		times, err := parseUint16Value(params, "times", 1)
+		if err != nil {
+			return queryPayload{}, nil, err
+		}
+		request := map[string]any{"category": category, "code": code, "period": period, "start": start, "count": count, "times": times}
+		payload, err := withExClient(func(client *gotdx.Client) (queryPayload, error) {
+			reply, err := client.ExGetKLine2(category, code, period, start, count, times)
+			if err != nil {
+				return queryPayload{}, err
+			}
+			return queryPayload{
+				columns: []string{"datetime", "open", "high", "low", "close", "vol", "amount"},
+				rows:    rowsFromExKLine(reply.List),
+				raw:     reply,
+			}, nil
+		})
+		return payload, request, err
 	case "ex_tick_chart":
 		category, err := parseUint8Value(params, "category", 74)
 		if err != nil {
@@ -1496,6 +2299,32 @@ func runMethod(def methodDef, params map[string]string) (queryPayload, map[strin
 			}, nil
 		})
 		return payload, request, err
+	case "ex_mapping_2562":
+		market, err := parseUint16Value(params, "market", 47)
+		if err != nil {
+			return queryPayload{}, nil, err
+		}
+		start, err := parseUint32Value(params, "start", 0)
+		if err != nil {
+			return queryPayload{}, nil, err
+		}
+		count, err := parseUint32Value(params, "count", 30)
+		if err != nil {
+			return queryPayload{}, nil, err
+		}
+		request := map[string]any{"market": market, "start": start, "count": count}
+		payload, err := withExClient(func(client *gotdx.Client) (queryPayload, error) {
+			reply, err := client.ExGetMapping2562(market, start, count)
+			if err != nil {
+				return queryPayload{}, err
+			}
+			return queryPayload{
+				columns: []string{"category", "name", "unknown", "index", "switch", "codes"},
+				rows:    rowsFromExMapping2562(reply.List),
+				raw:     reply.List,
+			}, nil
+		})
+		return payload, request, err
 	case "ex_table":
 		payload, err := withExClient(func(client *gotdx.Client) (queryPayload, error) {
 			content, err := client.ExGetTable()
@@ -1524,6 +2353,185 @@ func runMethod(def methodDef, params map[string]string) (queryPayload, map[strin
 			}, nil
 		})
 		return payload, map[string]any{}, err
+	case "mac_board_list":
+		boardType, err := parseUint16Value(params, "board_type", 0)
+		if err != nil {
+			return queryPayload{}, nil, err
+		}
+		count, err := parseUint32Value(params, "count", 50)
+		if err != nil {
+			return queryPayload{}, nil, err
+		}
+		request := map[string]any{"board_type": boardType, "count": count}
+		payload, err := withMACClient(func(client *gotdx.Client) (queryPayload, error) {
+			list, err := client.MACBoardList(boardType, count)
+			if err != nil {
+				return queryPayload{}, err
+			}
+			return queryPayload{
+				columns: []string{"market", "code", "name", "price", "rise_speed", "symbol_code", "symbol_name", "symbol_price"},
+				rows:    rowsFromMACBoardList(list),
+				raw:     list,
+			}, nil
+		})
+		return payload, request, err
+	case "mac_ex_board_list":
+		boardType, err := parseUint16Value(params, "board_type", 0)
+		if err != nil {
+			return queryPayload{}, nil, err
+		}
+		count, err := parseUint32Value(params, "count", 50)
+		if err != nil {
+			return queryPayload{}, nil, err
+		}
+		request := map[string]any{"board_type": boardType, "count": count}
+		payload, err := withMACExClient(func(client *gotdx.Client) (queryPayload, error) {
+			list, err := client.MACBoardList(boardType, count)
+			if err != nil {
+				return queryPayload{}, err
+			}
+			return queryPayload{
+				columns: []string{"market", "code", "name", "price", "rise_speed", "symbol_code", "symbol_name", "symbol_price"},
+				rows:    rowsFromMACBoardList(list),
+				raw:     list,
+			}, nil
+		})
+		return payload, request, err
+	case "mac_board_members":
+		boardSymbol := valueOrDefault(params, "board_symbol", "880761")
+		count, err := parseUint32Value(params, "count", 50)
+		if err != nil {
+			return queryPayload{}, nil, err
+		}
+		request := map[string]any{"board_symbol": boardSymbol, "count": count}
+		payload, err := withMACClient(func(client *gotdx.Client) (queryPayload, error) {
+			list, err := client.MACBoardMembers(boardSymbol, count)
+			if err != nil {
+				return queryPayload{}, err
+			}
+			return queryPayload{
+				columns: []string{"market", "symbol", "name"},
+				rows:    rowsFromMACBoardMembers(list),
+				raw:     list,
+			}, nil
+		})
+		return payload, request, err
+	case "mac_board_members_quotes":
+		boardSymbol := valueOrDefault(params, "board_symbol", "880761")
+		count, err := parseUint32Value(params, "count", 50)
+		if err != nil {
+			return queryPayload{}, nil, err
+		}
+		request := map[string]any{"board_symbol": boardSymbol, "count": count}
+		payload, err := withMACClient(func(client *gotdx.Client) (queryPayload, error) {
+			list, err := client.MACBoardMembersQuotes(boardSymbol, count)
+			if err != nil {
+				return queryPayload{}, err
+			}
+			return queryPayload{
+				columns: []string{"market", "symbol", "name", "close", "pre_close", "rise_speed", "turnover_rate", "pe_ttm"},
+				rows:    rowsFromMACBoardMemberQuotes(list),
+				raw:     list,
+			}, nil
+		})
+		return payload, request, err
+	case "mac_symbol_belong_board":
+		market, err := parseUint8Value(params, "market", 0)
+		if err != nil {
+			return queryPayload{}, nil, err
+		}
+		code := valueOrDefault(params, "code", "000100")
+		request := map[string]any{"market": market, "code": code}
+		payload, err := withMACClient(func(client *gotdx.Client) (queryPayload, error) {
+			list, err := client.MACSymbolBelongBoard(code, market)
+			if err != nil {
+				return queryPayload{}, err
+			}
+			return queryPayload{
+				columns: []string{"board_type", "status_code", "board_code", "board_name", "price", "pre_close", "metric1", "metric2", "metric3"},
+				rows:    rowsFromMACBelongBoards(list),
+				raw:     list,
+			}, nil
+		})
+		return payload, request, err
+	case "mac_symbol_bars":
+		market, err := parseUint8Value(params, "market", 0)
+		if err != nil {
+			return queryPayload{}, nil, err
+		}
+		code := valueOrDefault(params, "code", "000100")
+		period, err := parseUint16Value(params, "period", 4)
+		if err != nil {
+			return queryPayload{}, nil, err
+		}
+		times, err := parseUint16Value(params, "times", 1)
+		if err != nil {
+			return queryPayload{}, nil, err
+		}
+		start, err := parseUint32Value(params, "start", 0)
+		if err != nil {
+			return queryPayload{}, nil, err
+		}
+		count, err := parseUint32Value(params, "count", 20)
+		if err != nil {
+			return queryPayload{}, nil, err
+		}
+		adjust, err := parseUint16Value(params, "adjust", 0)
+		if err != nil {
+			return queryPayload{}, nil, err
+		}
+		request := map[string]any{"market": market, "code": code, "period": period, "times": times, "start": start, "count": count, "adjust": adjust}
+		payload, err := withMACClient(func(client *gotdx.Client) (queryPayload, error) {
+			list, err := client.MACSymbolBars(market, code, period, times, start, count, adjust)
+			if err != nil {
+				return queryPayload{}, err
+			}
+			return queryPayload{
+				columns: []string{"datetime", "open", "high", "low", "close", "vol", "amount", "float_shares"},
+				rows:    rowsFromMACSymbolBars(list),
+				raw:     list,
+			}, nil
+		})
+		return payload, request, err
+	case "mac_ex_symbol_bars":
+		market, err := parseUint8Value(params, "market", 74)
+		if err != nil {
+			return queryPayload{}, nil, err
+		}
+		code := valueOrDefault(params, "code", "TSLA")
+		period, err := parseUint16Value(params, "period", 4)
+		if err != nil {
+			return queryPayload{}, nil, err
+		}
+		times, err := parseUint16Value(params, "times", 1)
+		if err != nil {
+			return queryPayload{}, nil, err
+		}
+		start, err := parseUint32Value(params, "start", 0)
+		if err != nil {
+			return queryPayload{}, nil, err
+		}
+		count, err := parseUint32Value(params, "count", 20)
+		if err != nil {
+			return queryPayload{}, nil, err
+		}
+		adjust, err := parseUint16Value(params, "adjust", 0)
+		if err != nil {
+			return queryPayload{}, nil, err
+		}
+		request := map[string]any{"market": market, "code": code, "period": period, "times": times, "start": start, "count": count, "adjust": adjust}
+		payload, err := withMACExClient(func(client *gotdx.Client) (queryPayload, error) {
+			list, err := client.MACSymbolBars(market, code, period, times, start, count, adjust)
+			if err != nil {
+				return queryPayload{}, err
+			}
+			return queryPayload{
+				columns: []string{"datetime", "open", "high", "low", "close", "vol", "amount", "float_shares"},
+				rows:    rowsFromMACSymbolBars(list),
+				raw:     list,
+			}, nil
+		})
+		return payload, request, err
 	default:
 		return queryPayload{}, nil, fmt.Errorf("暂不支持的方法: %s", def.Key)
 	}
@@ -1541,6 +2549,22 @@ func newExClient() *gotdx.Client {
 	return gotdx.NewEx(
 		gotdx.WithExTCPAddress(exHosts[0]),
 		gotdx.WithExTCPAddressPool(exHosts[1:]...),
+		gotdx.WithTimeoutSec(6),
+	)
+}
+
+func newMACClient() *gotdx.Client {
+	return gotdx.NewMAC(
+		gotdx.WithMacTCPAddress(macHosts[0]),
+		gotdx.WithMacTCPAddressPool(macHosts[1:]...),
+		gotdx.WithTimeoutSec(6),
+	)
+}
+
+func newMACExClient() *gotdx.Client {
+	return gotdx.NewMACEx(
+		gotdx.WithMacExTCPAddress(macExHosts[0]),
+		gotdx.WithMacExTCPAddressPool(macExHosts[1:]...),
 		gotdx.WithTimeoutSec(6),
 	)
 }
@@ -1563,11 +2587,81 @@ func withExClient(fn func(*gotdx.Client) (queryPayload, error)) (queryPayload, e
 	return fn(client)
 }
 
+func withMACClient(fn func(*gotdx.Client) (queryPayload, error)) (queryPayload, error) {
+	client := newMACClient()
+	defer client.Disconnect()
+	if err := client.ConnectMAC(); err != nil {
+		return queryPayload{}, err
+	}
+	return fn(client)
+}
+
+func withMACExClient(fn func(*gotdx.Client) (queryPayload, error)) (queryPayload, error) {
+	client := newMACExClient()
+	defer client.Disconnect()
+	if err := client.ConnectMAC(); err != nil {
+		return queryPayload{}, err
+	}
+	return fn(client)
+}
+
 func currentMainHost(client *gotdx.Client) string {
 	if client == nil {
 		return ""
 	}
-	return mainHosts[0]
+	return client.CurrentAddress()
+}
+
+func currentExHost(client *gotdx.Client) string {
+	if client == nil {
+		return ""
+	}
+	return client.CurrentAddress()
+}
+
+func currentMACHost(client *gotdx.Client) string {
+	if client == nil {
+		return ""
+	}
+	return client.CurrentAddress()
+}
+
+func currentMACExHost(client *gotdx.Client) string {
+	if client == nil {
+		return ""
+	}
+	return client.CurrentAddress()
+}
+
+func rowsFromHostInfos(items []gotdx.HostInfo) [][]string {
+	rows := make([][]string, 0, len(items))
+	for _, item := range items {
+		rows = append(rows, []string{
+			item.Name,
+			item.IP,
+			strconv.Itoa(item.Port),
+			item.Address(),
+		})
+	}
+	return rows
+}
+
+func rowsFromHostProbeResults(items []gotdx.HostProbeResult) [][]string {
+	rows := make([][]string, 0, len(items))
+	for _, item := range items {
+		latencyMS := ""
+		if item.Reachable {
+			latencyMS = strconv.FormatInt(item.Latency.Milliseconds(), 10)
+		}
+		rows = append(rows, []string{
+			item.Name,
+			item.Address,
+			latencyMS,
+			strconv.FormatBool(item.Reachable),
+			item.Error,
+		})
+	}
+	return rows
 }
 
 func parseCodeList(value string) []string {
@@ -1684,6 +2778,16 @@ func rawTextPreview(content string) map[string]any {
 	}
 }
 
+func rowsFromRawReply(reply *proto.RawDataReply) [][]string {
+	if reply == nil {
+		return nil
+	}
+	return [][]string{
+		{"length", fmt.Sprintf("%d", reply.Length)},
+		{"hex_preview", preview(reply.Hex, 512)},
+	}
+}
+
 func rowsFromQuoteDetail(items []proto.SecurityQuote) [][]string {
 	rows := make([][]string, 0, len(items))
 	for _, item := range items {
@@ -1728,6 +2832,19 @@ func rowsFromSecurityList(items []proto.Security) [][]string {
 			formatFloat(item.PreClose),
 			fmt.Sprintf("%d", item.VolUnit),
 			fmt.Sprintf("%d", item.DecimalPoint),
+		})
+	}
+	return rows
+}
+
+func rowsFromSecurityFeature452(items []proto.SecurityFeature452Item) [][]string {
+	rows := make([][]string, 0, len(items))
+	for _, item := range items {
+		rows = append(rows, []string{
+			fmt.Sprintf("%d", item.Market),
+			item.Code,
+			formatFloat(item.P1),
+			formatFloat(item.P2),
 		})
 	}
 	return rows
@@ -1801,6 +2918,70 @@ func rowsFromHistoryTransaction(items []proto.HistoryTransactionData) [][]string
 		})
 	}
 	return rows
+}
+
+func rowsFromHistoryTransactionWithTrans(items []proto.HistoryTransactionDataWithTrans) [][]string {
+	rows := make([][]string, 0, len(items))
+	for _, item := range items {
+		rows = append(rows, []string{
+			item.Time,
+			formatFloat(item.Price),
+			fmt.Sprintf("%d", item.Vol),
+			fmt.Sprintf("%d", item.Num),
+			item.Action,
+		})
+	}
+	return rows
+}
+
+func rowsFromEncryptedQuotes(items []proto.EncryptedQuoteItem) [][]string {
+	rows := make([][]string, 0, len(items))
+	for _, item := range items {
+		rows = append(rows, []string{
+			fmt.Sprintf("%d", item.Market),
+			item.Code,
+			item.Time,
+			formatFloat(item.Close),
+			formatFloat(item.PreClose),
+			formatFloat(item.Open),
+			formatFloat(item.High),
+			formatFloat(item.Low),
+			fmt.Sprintf("%d", item.Vol),
+			formatFloat(item.Amount),
+		})
+	}
+	return rows
+}
+
+func rowsFromAnnouncement(item *proto.AnnouncementReply) [][]string {
+	if item == nil {
+		return nil
+	}
+	rows := [][]string{{"has_content", strconv.FormatBool(item.HasContent)}}
+	if item.HasContent {
+		rows = append(rows,
+			[]string{"expire_date", item.ExpireDate},
+			[]string{"title", item.Title},
+			[]string{"author", item.Author},
+			[]string{"content", item.Content},
+		)
+	}
+	return rows
+}
+
+func rowsFromServerInfo(item *proto.InfoReply) [][]string {
+	if item == nil {
+		return nil
+	}
+	return [][]string{
+		{"delay", fmt.Sprintf("%d", item.Delay)},
+		{"info", item.Info},
+		{"content", item.Content},
+		{"server_sign", item.ServerSign},
+		{"time_now", item.TimeNow},
+		{"region", fmt.Sprintf("%d", item.Region)},
+		{"switch", fmt.Sprintf("%d", item.MaybeSwitch)},
+	}
 }
 
 func rowsFromHistoryOrders(items []proto.HistoryOrderData) [][]string {
@@ -2023,6 +3204,23 @@ func rowsFromExList(items []proto.ExListItem) [][]string {
 	return rows
 }
 
+func rowsFromExListExtra(items []proto.ExExtraListItem) [][]string {
+	rows := make([][]string, 0, len(items))
+	for _, item := range items {
+		values := make([]string, 0, len(item.Values))
+		for _, value := range item.Values {
+			values = append(values, fmt.Sprintf("%d", value))
+		}
+		rows = append(rows, []string{
+			fmt.Sprintf("%d", item.Category),
+			item.Code,
+			fmt.Sprintf("%d", item.Flag),
+			strings.Join(values, ","),
+		})
+	}
+	return rows
+}
+
 func rowsFromExKLine(items []proto.ExKLineItem) [][]string {
 	rows := make([][]string, 0, len(items))
 	for _, item := range items {
@@ -2034,6 +3232,43 @@ func rowsFromExKLine(items []proto.ExKLineItem) [][]string {
 			formatFloat(item.Close),
 			fmt.Sprintf("%d", item.Vol),
 			formatFloat(item.Amount),
+		})
+	}
+	return rows
+}
+
+func rowsFromExExperiment2487(item *proto.ExExperiment2487Reply) [][]string {
+	if item == nil {
+		return nil
+	}
+	return [][]string{
+		{"category", fmt.Sprintf("%d", item.Category)},
+		{"code", item.Code},
+		{"active", fmt.Sprintf("%d", item.Active)},
+		{"pre_close", formatFloat(item.PreClose)},
+		{"open", formatFloat(item.Open)},
+		{"high", formatFloat(item.High)},
+		{"low", formatFloat(item.Low)},
+		{"close", formatFloat(item.Close)},
+		{"u1", formatFloat(item.U1)},
+		{"price", formatFloat(item.Price)},
+		{"vol", fmt.Sprintf("%d", item.Vol)},
+		{"cur_vol", fmt.Sprintf("%d", item.CurVol)},
+		{"amount", formatFloat(item.Amount)},
+		{"tail_hex", preview(item.TailHex, 256)},
+	}
+}
+
+func rowsFromExExperiment2488(items []proto.ExExperiment2488Item) [][]string {
+	rows := make([][]string, 0, len(items))
+	for _, item := range items {
+		values := make([]string, 0, len(item.Values))
+		for _, value := range item.Values {
+			values = append(values, fmt.Sprintf("%d", value))
+		}
+		rows = append(rows, []string{
+			fmt.Sprintf("%d", item.ID),
+			strings.Join(values, ","),
 		})
 	}
 	return rows
@@ -2077,6 +3312,109 @@ func rowsFromExBoardList(items []proto.ExBoardListItem) [][]string {
 			item.SymbolCode,
 			item.SymbolName,
 			formatFloat(item.SymbolPrice),
+		})
+	}
+	return rows
+}
+
+func rowsFromExMapping2562(items []proto.ExMapping2562Item) [][]string {
+	rows := make([][]string, 0, len(items))
+	for _, item := range items {
+		codes := []string{
+			formatFloat(item.Code1),
+			formatFloat(item.Code2),
+			formatFloat(item.Code3),
+			fmt.Sprintf("%d", item.Code4),
+			fmt.Sprintf("%d", item.Code5),
+		}
+		rows = append(rows, []string{
+			fmt.Sprintf("%d", item.Category),
+			item.Name,
+			fmt.Sprintf("%d", item.Unknown),
+			fmt.Sprintf("%d", item.Index),
+			fmt.Sprintf("%d", item.Switch),
+			strings.Join(codes, ","),
+		})
+	}
+	return rows
+}
+
+func rowsFromMACBoardList(items []proto.MACBoardListItem) [][]string {
+	rows := make([][]string, 0, len(items))
+	for _, item := range items {
+		rows = append(rows, []string{
+			fmt.Sprintf("%d", item.Market),
+			item.Code,
+			item.Name,
+			formatFloat(item.Price),
+			formatFloat(item.RiseSpeed),
+			item.SymbolCode,
+			item.SymbolName,
+			formatFloat(item.SymbolPrice),
+		})
+	}
+	return rows
+}
+
+func rowsFromMACBoardMembers(items []proto.MACBoardMemberItem) [][]string {
+	rows := make([][]string, 0, len(items))
+	for _, item := range items {
+		rows = append(rows, []string{
+			fmt.Sprintf("%d", item.Market),
+			item.Symbol,
+			item.Name,
+		})
+	}
+	return rows
+}
+
+func rowsFromMACBoardMemberQuotes(items []proto.MACBoardMemberQuoteItem) [][]string {
+	rows := make([][]string, 0, len(items))
+	for _, item := range items {
+		rows = append(rows, []string{
+			fmt.Sprintf("%d", item.Market),
+			item.Symbol,
+			item.Name,
+			formatFloat(item.Close),
+			formatFloat(item.PreClose),
+			formatFloat(item.RiseSpeed),
+			formatFloat(item.TurnoverRate),
+			formatFloat(item.PETTM),
+		})
+	}
+	return rows
+}
+
+func rowsFromMACBelongBoards(items []proto.MACBelongBoardItem) [][]string {
+	rows := make([][]string, 0, len(items))
+	for _, item := range items {
+		rows = append(rows, []string{
+			item.BoardType,
+			fmt.Sprintf("%d", item.StatusCode),
+			item.BoardCode,
+			item.BoardName,
+			formatFloat(item.Price),
+			formatFloat(item.PreClose),
+			formatFloat(item.Metric1),
+			formatFloat(item.Metric2),
+			formatFloat(item.Metric3),
+		})
+	}
+	return rows
+}
+
+func rowsFromMACSymbolBars(items []proto.MACSymbolBar) [][]string {
+	rows := make([][]string, 0, len(items))
+	for _, item := range items {
+		rows = append(rows, []string{
+			item.DateTime,
+			formatFloat(item.Open),
+			formatFloat(item.High),
+			formatFloat(item.Low),
+			formatFloat(item.Close),
+			formatFloat(item.Vol),
+			formatFloat(item.Amount),
+			formatFloat(item.FloatShares),
 		})
 	}
 	return rows
@@ -2219,12 +3557,18 @@ func methodGroupRank(group string) int {
 		return 3
 	case "股票资料":
 		return 4
+	case "主站试验":
+		return 5
 	case "扩展快照":
 		return 10
 	case "扩展分时":
 		return 11
 	case "扩展表格":
 		return 12
+	case "扩展试验":
+		return 13
+	case "MAC 协议":
+		return 15
 	case "连接状态":
 		return 20
 	default:

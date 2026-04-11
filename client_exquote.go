@@ -30,6 +30,13 @@ func (client *Client) ExGetList(start uint32, count uint16) (*proto.ExGetListRep
 	return executeMsg(client, obj, obj.Reply)
 }
 
+// ExGetListExtra 获取扩展市场试验列表
+func (client *Client) ExGetListExtra(a uint16, b uint16, count uint16) (*proto.ExGetListExtraReply, error) {
+	obj := proto.NewExGetListExtra()
+	obj.SetParams(&proto.ExGetListExtraRequest{A: a, B: b, Count: count})
+	return executeMsg(client, obj, obj.Reply)
+}
+
 // ExGetQuotesList 获取扩展市场行情列表
 func (client *Client) ExGetQuotesList(category uint8, start uint16, count uint16, sortType uint16, reverse bool) (*proto.ExGetQuotesListReply, error) {
 	if count == 0 {
@@ -91,6 +98,38 @@ func (client *Client) ExGetKLine(category uint8, code string, period uint16, sta
 	return executeMsg(client, obj, obj.Reply)
 }
 
+// ExGetExperiment2487 获取扩展市场试验报价 0x2487
+func (client *Client) ExGetExperiment2487(category uint8, code string) (*proto.ExExperiment2487Reply, error) {
+	obj := proto.NewExExperiment2487()
+	obj.SetParams(&proto.ExExperiment2487Request{Category: category, Code: makeCode23(code)})
+	return executeMsg(client, obj, obj.Reply)
+}
+
+// ExGetExperiment2488 获取扩展市场试验报价 0x2488
+func (client *Client) ExGetExperiment2488(category uint8, code string, mode uint16) (*proto.ExExperiment2488Reply, error) {
+	obj := proto.NewExExperiment2488()
+	obj.SetParams(&proto.ExExperiment2488Request{
+		Category: category,
+		Code:     makeCode23(code),
+		Mode:     mode,
+	})
+	return executeMsg(client, obj, obj.Reply)
+}
+
+// ExGetKLine2 获取扩展市场 K 线协议 0x2489
+func (client *Client) ExGetKLine2(category uint8, code string, period uint16, start uint32, count uint32, times uint16) (*proto.ExGetKLine2Reply, error) {
+	obj := proto.NewExGetKLine2()
+	obj.SetParams(&proto.ExGetKLine2Request{
+		Category: category,
+		Code:     makeCode23(code),
+		Period:   period,
+		Times:    times,
+		Start:    start,
+		Count:    count,
+	})
+	return executeMsg(client, obj, obj.Reply)
+}
+
 // ExGetHistoryTransaction 获取扩展市场历史成交
 func (client *Client) ExGetHistoryTransaction(date uint32, category uint8, code string) (*proto.ExGetHistoryTransactionReply, error) {
 	obj := proto.NewExGetHistoryTransaction()
@@ -141,6 +180,13 @@ func (client *Client) ExGetBoardList(boardType uint16, start uint16, pageSize ui
 		BoardType: boardType,
 		Start:     start,
 	})
+	return executeMsg(client, obj, obj.Reply)
+}
+
+// ExGetMapping2562 获取扩展市场映射信息
+func (client *Client) ExGetMapping2562(market uint16, start uint32, count uint32) (*proto.ExMapping2562Reply, error) {
+	obj := proto.NewExMapping2562()
+	obj.SetParams(&proto.ExMapping2562Request{Market: market, Start: start, Count: count})
 	return executeMsg(client, obj, obj.Reply)
 }
 

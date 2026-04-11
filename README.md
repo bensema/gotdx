@@ -1,47 +1,46 @@
-<h1 align="center">🐍 gotdx</h1>
+# gotdx
+
+<p align="center">通达信行情协议的 Go 客户端，覆盖主行情、扩展市场、MAC 板块/统一行情、F10/文件接口，以及一个可直接运行的 Web Viewer。</p>
 
 <p align="center">
-  📈 通达信行情协议的 Go 客户端。<br>
-  覆盖主行情、扩展市场、F10 / 文件接口、板块文件解析，以及一个可直接运行的 Web Viewer。
-</p>
-
-<p align="center">
-  <a href="#quickstart">🚀 快速开始</a> ·
-  <a href="#examples">🧪 示例</a> ·
-  <a href="#viewer">🖥️ Web Viewer</a> ·
-  <a href="#api-surface">📚 API 范围</a> ·
-  <a href="TdxProtocol.md">📄 协议文档</a>
+  <a href="#quickstart">快速开始</a> ·
+  <a href="#capabilities">能力概览</a> ·
+  <a href="#examples">示例</a> ·
+  <a href="#viewer">Web Viewer</a> ·
+  <a href="#api">API 速览</a> ·
+  <a href="#testing">测试</a> ·
+  <a href="TdxProtocol.md">协议文档</a>
 </p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/Go-1.26%2B-00ADD8?logo=go&logoColor=white" alt="Go 1.26+">
   <img src="https://img.shields.io/badge/Markets-Main%20%2F%20Extended-123B67" alt="Markets">
-  <img src="https://img.shields.io/badge/Examples-30%2B-1D1F23" alt="Examples">
-  <img src="https://img.shields.io/badge/Web%20Viewer-Built--in-C86B36" alt="Web Viewer">
+  <img src="https://img.shields.io/badge/MAC-Supported-0F766E" alt="MAC">
+  <img src="https://img.shields.io/badge/WebViewer-Built--in-C86B36" alt="Web Viewer">
 </p>
 
+`gotdx` 把通达信协议里常用的查询能力整理成更偏 Go 的调用方式。你可以直接查主行情和扩展市场的快照、K 线、分时、逐笔，也可以继续往下钻到 F10、财务、板块文件、扩展表格和 MAC 板块协议；如果只是想先看接口返回长什么样，仓库里还带了一个可以直接打开的网页查看器。
 
+## 为什么用 gotdx
 
-gotdx 把通达信协议里常用的查询能力整理成一个偏 Go 风格的包：你可以直接做主行情和扩展市场的实时查询，也可以往下钻到 F10、财务、板块、文件下载和表格接口；如果只是想先把协议跑起来，仓库还自带了一个能直接浏览方法和参数的网页查看器。
-
-## ✨ 为什么用 gotdx
-
-- 一个 `Client` 同时管理主行情与扩展市场，适合做组合监控和跨市场抓取。
-- 提供地址池与超时配置，适合对接不稳定的真实行情站点。
-- 既有 `Stock* / Ex*` 高阶统一入口，也保留底层原始接口，方便封装和排查协议细节。
-- 仓库内置 30+ 可直接运行的示例，覆盖从证券列表、K 线、分时到 F10、板块、扩展市场表格。
-- 附带 `cmd/webviewer`，可以不写代码先看协议返回什么。
+- 一个 `Client` 同时管理主站和扩展市场，适合做统一监控和跨市场抓取。
+- 提供两套入口：高阶统一接口 `Stock* / Ex* / MAC*`，以及面向协议细节的底层 `Get* / ExGet*`。
+- 地址池、超时、重试都可配，适合对接不稳定的真实行情站点。
+- 内置从 `opentdx` 搬运的主站、扩展、MAC、券商 host/IP 列表，并支持 TCP 测速选最快节点。
+- 自带 30+ 个示例，覆盖从列表、快照、K 线、分时到 F10、板块、扩展表格。
+- 自带 `cmd/webviewer`，不写代码也能直接调方法、填参数、看返回字段。
+- 已整理 `opentdx` 对照文档，便于继续补协议、核字段和排查差异。
 
 <a id="quickstart"></a>
-## 🚀 快速开始
+## 快速开始
 
-安装：
+### 安装
 
 ```bash
 go get github.com/bensema/gotdx
 ```
 
-最小可运行示例：
+### 最小示例
 
 ```go
 package main
@@ -53,17 +52,15 @@ import (
 )
 
 func main() {
+	mainHosts := gotdx.MainHostAddresses()
+	exHosts := gotdx.ExHostAddresses()
+
 	client := gotdx.New(
-		gotdx.WithTCPAddress("124.71.187.122:7709"),
-		gotdx.WithTCPAddressPool(
-			"124.71.187.72:7709",
-			"124.70.133.119:7709",
-		),
-		gotdx.WithExTCPAddress("112.74.214.43:7727"),
-		gotdx.WithExTCPAddressPool(
-			"120.25.218.6:7727",
-			"43.139.173.246:7727",
-		),
+		gotdx.WithTCPAddress(mainHosts[0]),
+		gotdx.WithTCPAddressPool(mainHosts[1:]...),
+		gotdx.WithExTCPAddress(exHosts[0]),
+		gotdx.WithExTCPAddressPool(exHosts[1:]...),
+		gotdx.WithAutoSelectFastest(true),
 		gotdx.WithTimeoutSec(6),
 	)
 	defer client.Disconnect()
@@ -73,7 +70,7 @@ func main() {
 		[]string{"000001", "600519"},
 	)
 	if err != nil {
-		log.Fatalln(err)
+		log.Fatal(err)
 	}
 	for _, item := range stocks {
 		log.Printf("stock: %+v", item)
@@ -84,7 +81,7 @@ func main() {
 		[]string{"TSLA"},
 	)
 	if err != nil {
-		log.Fatalln(err)
+		log.Fatal(err)
 	}
 	for _, item := range exQuotes {
 		log.Printf("ex: %+v", item)
@@ -92,81 +89,152 @@ func main() {
 }
 ```
 
-## 🧭 能力分层
+### 从哪套 API 开始
 
-| 能力层 | 你会用它做什么 | 代表接口 |
+- 想尽快拿到业务数据：优先用 `Stock* / Ex* / MAC*` 统一高阶入口。
+- 想逐个协议排查字段：用 `Get* / ExGet* / GetMAC*` 底层接口。
+- 想先确认请求参数和返回格式：直接运行 `go run ./cmd/webviewer`。
+
+### 内置 Host 列表与测速
+
+```go
+results := gotdx.ProbeHosts(gotdx.MainHosts(), time.Second)
+for _, item := range results[:3] {
+	log.Printf("main host=%s addr=%s reachable=%v latency=%s",
+		item.Name, item.Address, item.Reachable, item.Latency)
+}
+
+fastest, err := gotdx.FastestHost(gotdx.ExHosts(), time.Second)
+if err != nil {
+	log.Fatal(err)
+}
+log.Printf("fastest ex host: %s %s", fastest.Name, fastest.Address)
+
+client := gotdx.New(
+	gotdx.WithAutoSelectFastest(true),
+	gotdx.WithTimeoutSec(6),
+)
+```
+
+可用列表包括：`MainHosts`、`BrokerHosts`、`ExHosts`、`MACHosts`、`MACExHosts`，以及对应的 `*HostAddresses` 便捷函数。
+
+<a id="capabilities"></a>
+## 能力概览
+
+| 模块 | 典型能力 | 代表接口 |
 | --- | --- | --- |
-| 连接与容错 | 指定主站、扩展站、地址池、超时和重试 | `New`, `WithTCPAddressPool`, `WithExTCPAddressPool`, `WithTimeoutSec` |
-| 主行情 | A 股/指数列表、快照、K 线、分时、逐笔、异动 | `StockQuotesDetail`, `GetSecurityList`, `GetSecurityBars`, `GetMinuteTimeData`, `GetTransactionData` |
-| 扩展市场 | 美股/港股/期货等扩展市场列表、报价、K 线、表格 | `ExQuotes`, `ExQuotes2`, `ExGetKLine`, `ExGetTable`, `ExGetTableDetail` |
-| 文件与 F10 | 公司资料、财务、除权除息、文件下载 | `GetCompanyInfo`, `GetFinanceInfo`, `GetXDXRInfo`, `DownloadFullFile` |
-| 板块与聚合 | 板块文件、分组板块、统一高阶入口 | `GetBlockFile`, `GetParsedBlockFile`, `GetGroupedBlockFile`, `ExBoardList` |
-| 浏览与调试 | 直接在浏览器里调方法、填参数、看表格结果 | `go run ./cmd/webviewer` |
+| 主行情 | 股票/指数列表、快照、K 线、分时、逐笔、异动、集合竞价 | `StockQuotesDetail`, `StockKLine`, `StockTickChart`, `StockTransaction` |
+| 扩展市场 | 美股/港股/期货等扩展标的列表、报价、K 线、历史成交、表格 | `ExQuotes`, `ExKLine`, `ExHistoryTransaction`, `ExTable` |
+| F10 与文件 | 公司信息分类、正文、财务、除权除息、文件下载、板块文件 | `GetCompanyInfo`, `GetFinanceInfo`, `GetXDXRInfo`, `DownloadFullFile` |
+| MAC 协议 | 板块列表、成分股、成分报价、所属板块、统一 K 线 | `MACBoardList`, `MACBoardMembers`, `MACBoardMembersQuotes`, `MACSymbolBars` |
+| 协议调试 | 原始协议响应、扩展实验接口、网页查看器 | `MainTodoB`, `MainClient26AD`, `ExExperiment2487`, `cmd/webviewer` |
+
+## 项目结构
+
+- `proto/`: 各协议的请求/响应序列化与反序列化实现。
+- `client_quote.go`: 主行情底层接口。
+- `client_exquote.go`: 扩展市场底层接口。
+- `client_mac.go`: MAC 协议接口。
+- `client_unified.go`: `Stock* / Ex* / MAC*` 高阶统一入口。
+- `cmd/webviewer/`: 浏览器调试界面。
+- `examples/`: 可直接运行的示例。
+- `docs/opentdx_protocol_compare.md`: 与 `opentdx` 的协议对照说明。
 
 <a id="examples"></a>
-## 🧪 示例
+## 示例
 
-下面这些示例都可以直接运行：
+下面这些命令可以直接运行：
 
 | 场景 | 命令 |
 | --- | --- |
 | 主行情快照 | `go run ./examples/stock_quotes` |
 | 批量主行情 | `go run ./examples/stock_batch_quotes` |
+| 列表与分页遍历 | `go run ./examples/stock_list` / `go run ./examples/stock_paged_list` |
 | K 线与指数工具 | `go run ./examples/stock_kline` / `go run ./examples/stock_index_tools` |
 | 分时、历史分时、逐笔 | `go run ./examples/stock_tick` / `go run ./examples/stock_history` / `go run ./examples/stock_transaction` |
 | F10、公司资料、板块文件 | `go run ./examples/stock_f10_block` / `go run ./examples/stock_company_raw` / `go run ./examples/stock_block_raw` |
-| 扩展市场报价 | `go run ./examples/ex_quote` / `go run ./examples/ex_quotes` / `go run ./examples/ex_quotes2` |
-| 扩展市场列表与分类 | `go run ./examples/ex_list` / `go run ./examples/ex_paged_list` / `go run ./examples/ex_category_list` |
+| 市场监控 | `go run ./examples/stock_market_watch` |
+| 主机测速与地址池 | `go run ./examples/host_probe` |
+| 主站服务与试验协议 | `go run ./examples/stock_server_info` / `go run ./examples/main_experimental` |
+| 主行情兼容协议 | `go run ./examples/stock_list_old` / `go run ./examples/stock_feature_452` / `go run ./examples/stock_quotes_encrypt` / `go run ./examples/stock_kline_offset` / `go run ./examples/stock_history_transaction_with_trans` |
+| 扩展市场单只/批量报价 | `go run ./examples/ex_quote` / `go run ./examples/ex_quotes` / `go run ./examples/ex_quotes2` |
+| 扩展市场列表与分类 | `go run ./examples/ex_count` / `go run ./examples/ex_list` / `go run ./examples/ex_paged_list` / `go run ./examples/ex_category_list` |
 | 扩展市场 K 线、分时、历史成交 | `go run ./examples/ex_kline` / `go run ./examples/ex_tick` / `go run ./examples/ex_history` |
+| 扩展试验与补充协议 | `go run ./examples/ex_list_extra` / `go run ./examples/ex_board_list` / `go run ./examples/ex_experiment_2487` / `go run ./examples/ex_experiment_2488` / `go run ./examples/ex_kline2` / `go run ./examples/ex_mapping_2562` |
 | 扩展市场表格 | `go run ./examples/ex_table` / `go run ./examples/ex_table_detail` |
+| MAC 协议 | `go run ./examples/mac_board_list` / `go run ./examples/mac_board_members` / `go run ./examples/mac_board_members_quotes` / `go run ./examples/mac_symbol_belong_board` / `go run ./examples/mac_symbol_bars` |
 | 统一监控示例 | `go run ./examples/unified_watchlist` |
 
 <details>
 <summary>查看完整示例目录</summary>
 
-- `examples/stock_count` 市场证券数量
-- `examples/stock_list` 股票列表
-- `examples/stock_paged_list` 股票列表分页遍历
-- `examples/stock_batch_quotes` 批量快照行情
-- `examples/stock_quotes` 主行情报价
-- `examples/stock_lowlevel_quote` 直连主行情低层报价接口
-- `examples/stock_quotes_list` 排序行情
-- `examples/stock_kline` K 线
-- `examples/stock_index_tools` 指数和抽样图接口
-- `examples/stock_tick` 分时
-- `examples/stock_history` 历史分时和历史成交
-- `examples/stock_market_watch` 集合竞价、异动、成交分布
-- `examples/stock_transaction` 当日逐笔成交
-- `examples/stock_f10_block` F10 和板块文件
-- `examples/stock_company_raw` 公司/F10 原始接口
-- `examples/stock_block_raw` 板块文件原始接口
-- `examples/ex_count` 扩展市场数量
-- `examples/ex_quote` 单个扩展市场报价
-- `examples/ex_list` 扩展市场列表
-- `examples/ex_paged_list` 扩展市场列表分页遍历
-- `examples/ex_quotes` 扩展市场报价
-- `examples/ex_quotes2` 扩展市场批量行情兼容接口
-- `examples/ex_quotes_list` 扩展市场排序行情
-- `examples/ex_kline` 扩展市场 K 线
-- `examples/ex_history` 扩展市场历史成交
-- `examples/ex_tick` 扩展市场分时
-- `examples/ex_server_info` 扩展市场连接和服务信息
-- `examples/ex_sampling` 扩展市场抽样图
-- `examples/ex_category_list` 扩展市场分类列表
-- `examples/ex_table` 扩展市场表格
-- `examples/ex_table_detail` 扩展市场详细表格
-- `examples/unified_watchlist` 统一 Client 组合监控示例
+- `examples/stock_count`
+- `examples/stock_server_info`
+- `examples/stock_list`
+- `examples/stock_list_old`
+- `examples/stock_paged_list`
+- `examples/stock_batch_quotes`
+- `examples/stock_quotes`
+- `examples/stock_quotes_encrypt`
+- `examples/stock_lowlevel_quote`
+- `examples/stock_quotes_list`
+- `examples/stock_kline`
+- `examples/stock_kline_offset`
+- `examples/stock_feature_452`
+- `examples/stock_index_tools`
+- `examples/stock_tick`
+- `examples/stock_history`
+- `examples/stock_history_transaction_with_trans`
+- `examples/stock_market_watch`
+- `examples/host_probe`
+- `examples/stock_transaction`
+- `examples/stock_f10_block`
+- `examples/stock_company_raw`
+- `examples/stock_block_raw`
+- `examples/main_experimental`
+- `examples/ex_count`
+- `examples/ex_quote`
+- `examples/ex_list`
+- `examples/ex_list_extra`
+- `examples/ex_paged_list`
+- `examples/ex_quotes`
+- `examples/ex_quotes2`
+- `examples/ex_quotes_list`
+- `examples/ex_kline`
+- `examples/ex_kline2`
+- `examples/ex_board_list`
+- `examples/ex_experiment_2487`
+- `examples/ex_experiment_2488`
+- `examples/ex_mapping_2562`
+- `examples/ex_history`
+- `examples/ex_tick`
+- `examples/ex_server_info`
+- `examples/ex_sampling`
+- `examples/ex_category_list`
+- `examples/ex_table`
+- `examples/ex_table_detail`
+- `examples/mac_board_list`
+- `examples/mac_board_members`
+- `examples/mac_board_members_quotes`
+- `examples/mac_symbol_belong_board`
+- `examples/mac_symbol_bars`
+- `examples/unified_watchlist`
 
 </details>
 
 <a id="viewer"></a>
-## 🖥️ Web Viewer
+## Web Viewer
 
-仓库内置了一个轻量 viewer，可以直接浏览 method、填写参数并以表格查看结果，适合快速验证协议字段和接口行为。
+仓库内置了一个轻量的网页查看器，适合在这些场景下使用：
+
+- 先确认某个方法应该填哪些参数。
+- 快速查看返回字段，而不是先写一段测试代码。
+- 对比不同主机返回的数据差异。
+- 调试实验协议或原始接口。
 
 ![gotdx Web Viewer 截图](docs/images/webviewer-screenshot.png)
 
-运行：
+启动：
 
 ```bash
 go run ./cmd/webviewer
@@ -178,86 +246,77 @@ go run ./cmd/webviewer
 http://127.0.0.1:8080
 ```
 
-<a id="api-surface"></a>
-## 📚 API 范围
+<a id="api"></a>
+## API 速览
+
+### 高阶统一入口
+
+- 主行情：`StockCount`, `StockList`, `StockQuotesDetail`, `StockKLine`, `StockTickChart`, `StockHistoryTransaction`, `StockF10`
+- 扩展市场：`ExCount`, `ExList`, `ExQuote`, `ExQuotes`, `ExKLine`, `ExTickChart`, `ExHistoryTransaction`, `ExTable`
+- MAC：`MACBoardList`, `MACBoardMembers`, `MACBoardMembersQuotes`, `MACSymbolBelongBoard`, `MACSymbolBars`
+
+### 常用底层接口
+
+- 主行情：`GetSecurityCount`, `GetSecurityListRange`, `GetQuotesDetail`, `GetMinuteTimeData`, `GetTransactionData`
+- F10/文件：`GetCompanyCategories`, `GetCompanyContent`, `GetFinanceInfo`, `GetXDXRInfo`, `DownloadFile`, `GetBlockFile`
+- 扩展市场：`ExGetCategoryList`, `ExGetQuotesList`, `ExGetQuote`, `ExGetChartSampling`, `ExGetFileMeta`, `ExDownloadFile`
+
+### 地址池与测速
+
+- 内置列表：`MainHosts`, `BrokerHosts`, `ExHosts`, `MACHosts`, `MACExHosts`
+- 地址便捷函数：`MainHostAddresses`, `BrokerHostAddresses`, `ExHostAddresses`, `MACHostAddresses`, `MACExHostAddresses`
+- 测速函数：`ProbeHosts`, `ProbeAddresses`, `FastestHost`, `FastestAddress`
+- 客户端能力：`Client.ProbeHosts`, `Client.FastestHost`, `WithAutoSelectFastest`
+
+### 试验与兼容协议
+
+- 主站试验：`MainTodoB`, `MainTodoFDE`, `MainClient264B`, `MainClient26AC`, `MainClient26AD`, `MainClient26AE`, `MainClient26B1`
+- 主站兼容：`StockListOld`, `StockFeature452`, `StockQuotesEncrypt`, `StockKLineOffset`, `StockHistoryTransactionWithTrans`
+- 扩展试验：`ExListExtra`, `ExExperiment2487`, `ExExperiment2488`, `ExKLine2`, `ExMapping2562`
 
 <details>
-<summary>查看完整 API 清单</summary>
+<summary>查看更完整的接口分组</summary>
 
-### 主行情与通用接口
+#### 主行情与通用接口
 
-- `Connect` 连接券商行情服务器
-- `Disconnect` 断开服务器
-- `GetSecurityCount` 获取指定市场内的证券数目
-- `GetSecurityQuotes` 获取盘口五档报价
-- `GetQuotesDetail` 获取详细行情报价
-- `GetSecurityList` 获取市场内指定范围内的所有证券代码
-- `GetSecurityListRange` 获取市场内指定范围内的证券代码
-- `GetKLine` 获取 K 线
-- `GetSecurityBars` 获取股票 K 线
-- `GetIndexBars` 获取指数 K 线
-- `GetIndexMomentum` 获取指数动量
-- `GetIndexInfo` 获取指数概况
-- `GetMinuteTimeData` 获取分时图数据
-- `GetTickChart` 获取当日分时图数据
-- `GetHistoryMinuteTimeData` 获取历史分时图数据
-- `GetHistoryTickChart` 获取历史分时图数据
-- `GetChartSampling` 获取抽样图数据
-- `GetAuction` 获取集合竞价
-- `GetTopBoard` 获取排行榜
-- `GetUnusual` 获取主力监控
-- `GetTransactionData` 获取分时成交
-- `GetHistoryOrders` 获取历史委托
-- `GetHistoryTransactionData` 获取历史分时成交
+- `Connect`, `Disconnect`
+- `GetExchangeAnnouncement`, `GetServerHeartbeat`, `GetAnnouncement`, `GetServerInfo`
+- `GetSecurityCount`, `GetSecurityQuotes`, `GetQuotesDetail`, `GetQuotesEncrypt`
+- `GetSecurityList`, `GetSecurityListOld`, `GetSecurityListRange`
+- `GetKLine`, `GetSecurityBars`, `GetSecurityBarsOffset`, `GetIndexBars`
+- `GetIndexMomentum`, `GetIndexInfo`, `GetMinuteTimeData`, `GetTickChart`, `GetHistoryMinuteTimeData`, `GetHistoryTickChart`
+- `GetChartSampling`, `GetAuction`, `GetTopBoard`, `GetUnusual`
+- `GetTransactionData`, `GetHistoryOrders`, `GetHistoryTransactionData`, `GetHistoryTransactionDataWithTrans`
 
-### F10、公司资料与文件
+#### F10、公司资料与文件
 
-- `GetCompanyCategories` 获取公司信息分类
-- `GetCompanyContent` 获取公司信息内容
-- `GetFinanceInfo` 获取财务信息
-- `GetXDXRInfo` 获取除权除息信息
-- `GetCompanyInfo` 获取公司信息聚合结果
-- `GetFileMeta` 获取文件元信息
-- `DownloadFile` 下载文件片段
-- `DownloadFullFile` 下载完整文件
-- `GetBlockFile` 获取完整板块文件
-- `GetTableFile` 获取表格文件
-- `GetCSVFile` 获取 CSV 文件
-- `GetParsedBlockFile` 获取解析后的板块文件
-- `GetGroupedBlockFile` 获取分组板块文件
+- `GetCompanyCategories`, `GetCompanyContent`, `GetFinanceInfo`, `GetXDXRInfo`, `GetCompanyInfo`
+- `GetFileMeta`, `DownloadFile`, `DownloadFullFile`
+- `GetBlockFile`, `GetTableFile`, `GetCSVFile`, `GetParsedBlockFile`, `GetGroupedBlockFile`
 
-### 扩展市场
+#### 扩展市场
 
-- `ConnectEx` 连接扩展市场服务器并完成登录
-- `GetExServerInfo` 获取扩展市场服务信息
-- `ExGetCount` 获取扩展市场标的数量
-- `ExGetCategoryList` 获取扩展市场分类列表
-- `ExGetList` 获取扩展市场标的列表
-- `ExGetQuotesList` 获取扩展市场行情列表
-- `ExGetQuote` 获取单个扩展市场行情
-- `ExGetQuotes` 获取批量扩展市场行情
-- `ExGetQuotes2` 获取批量扩展市场行情兼容接口
-- `ExGetKLine` 获取扩展市场 K 线
-- `ExGetHistoryTransaction` 获取扩展市场历史成交
-- `ExGetTickChart` 获取扩展市场当日分时图
-- `ExGetHistoryTickChart` 获取扩展市场历史分时图
-- `ExGetChartSampling` 获取扩展市场抽样图
-- `ExGetBoardList` 获取扩展市场板块榜单
-- `ExGetFileMeta` 获取扩展市场文件元信息
-- `ExDownloadFile` 下载扩展市场文件片段
-- `ExDownloadFullFile` 下载完整扩展市场文件
-- `ExGetTable` 获取扩展市场表格
-- `ExGetTableDetail` 获取扩展市场详细表格
+- `ConnectEx`, `GetExServerInfo`
+- `ExGetCount`, `ExGetCategoryList`, `ExGetList`, `ExGetListExtra`
+- `ExGetQuotesList`, `ExGetQuote`, `ExGetQuotes`, `ExGetQuotes2`
+- `ExGetKLine`, `ExGetKLine2`
+- `ExGetHistoryTransaction`, `ExGetTickChart`, `ExGetHistoryTickChart`, `ExGetChartSampling`
+- `ExGetBoardList`, `ExGetMapping2562`
+- `ExGetFileMeta`, `ExDownloadFile`, `ExDownloadFullFile`
+- `ExGetTable`, `ExGetTableDetail`
 
-### 统一高阶入口
+#### MAC 协议
 
-- `ExQuotes2` 统一 Client 扩展市场批量行情兼容入口
-- `ExBoardList` 统一 Client 扩展市场板块榜单入口
-- `Stock* / Ex*` 统一 Client 高阶入口
+- `NewMAC`, `NewMACEx`, `ConnectMAC`
+- `GetMACBoardCount`, `GetMACBoardList`, `GetMACBoardMembers`, `GetMACBoardMembersQuotes`
+- `GetMACSymbolBelongBoard`, `GetMACSymbolBars`
+- `MACBoardCount`, `MACBoardList`, `MACBoardMembers`, `MACBoardMembersQuotes`
+- `MACSymbolBelongBoard`, `MACSymbolBars`
 
 </details>
 
-## ✅ 测试
+<a id="testing"></a>
+## 测试
 
 单元测试：
 
@@ -265,13 +324,14 @@ http://127.0.0.1:8080
 go test ./...
 ```
 
-集成测试默认跳过；如需连接真实站点：
+连接真实站点的集成测试默认跳过；如需开启：
 
 ```bash
 GOTDX_INTEGRATION=1 go test ./...
 ```
 
-## 🔗 相关文档
+## 相关文档
 
 - [TdxProtocol.md](TdxProtocol.md): 协议分析笔记
+- [docs/opentdx_protocol_compare.md](docs/opentdx_protocol_compare.md): 与 `opentdx` 的协议对照说明
 - [docs/images/webviewer-screenshot.png](docs/images/webviewer-screenshot.png): Web Viewer 截图

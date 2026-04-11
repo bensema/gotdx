@@ -1,0 +1,254 @@
+package gotdx
+
+import "github.com/bensema/gotdx/proto"
+
+const (
+	DefaultMACBoardListCount         = 10000
+	DefaultMACBoardPageSize   uint16 = 150
+	DefaultMACBoardStockCount uint32 = 10000
+	DefaultMACBoardStockPage  uint8  = 80
+	DefaultMACSymbolBarsCount uint32 = 800
+	DefaultMACSymbolBarsPage  uint16 = 700
+)
+
+func (client *Client) ConnectMAC() error {
+	client.mu.Lock()
+	defer client.mu.Unlock()
+
+	if client.conn != nil {
+		return nil
+	}
+	return client.connect()
+}
+
+func (client *Client) GetMACBoardCount(boardType uint16) (*proto.MACBoardCountReply, error) {
+	obj := proto.NewMACBoardCount()
+	obj.SetParams(&proto.MACBoardListRequest{BoardType: boardType})
+	return executeMsg(client, obj, obj.Reply)
+}
+
+func (client *Client) GetMACBoardList(boardType uint16, start uint16, pageSize uint16) (*proto.MACBoardListReply, error) {
+	obj := proto.NewMACBoardList()
+	obj.SetParams(&proto.MACBoardListRequest{
+		BoardType: boardType,
+		Start:     start,
+		PageSize:  pageSize,
+	})
+	return executeMsg(client, obj, obj.Reply)
+}
+
+func (client *Client) GetMACBoardMembers(boardSymbol string, sortType uint16, start uint32, pageSize uint8, sortOrder uint16) (*proto.MACBoardMembersReply, error) {
+	boardCode, err := protoExchangeBoardCode(boardSymbol)
+	if err != nil {
+		return nil, err
+	}
+	obj := proto.NewMACBoardMembers()
+	obj.SetParams(&proto.MACBoardMembersRequest{
+		BoardCode: boardCode,
+		SortType:  sortType,
+		Start:     start,
+		PageSize:  pageSize,
+		SortOrder: sortOrder,
+	})
+	return executeMsg(client, obj, obj.Reply)
+}
+
+func (client *Client) GetMACBoardMembersQuotes(boardSymbol string, sortType uint16, start uint32, pageSize uint8, sortOrder uint8) (*proto.MACBoardMembersQuotesReply, error) {
+	boardCode, err := protoExchangeBoardCode(boardSymbol)
+	if err != nil {
+		return nil, err
+	}
+	obj := proto.NewMACBoardMembersQuotes()
+	obj.SetParams(&proto.MACBoardMembersQuotesRequest{
+		BoardCode: boardCode,
+		SortType:  sortType,
+		Start:     start,
+		PageSize:  pageSize,
+		SortOrder: sortOrder,
+	})
+	return executeMsg(client, obj, obj.Reply)
+}
+
+func (client *Client) GetMACSymbolBelongBoard(market uint8, symbol string) (*proto.MACSymbolBelongBoardReply, error) {
+	obj := proto.NewMACSymbolBelongBoard()
+	obj.SetParams(&proto.MACSymbolBelongBoardRequest{
+		Market: uint16(market),
+		Symbol: makeMACCode8Client(symbol),
+	})
+	return executeMsg(client, obj, obj.Reply)
+}
+
+func (client *Client) GetMACSymbolBars(market uint8, code string, period uint16, times uint16, start uint32, count uint16, adjust uint16) (*proto.MACSymbolBarsReply, error) {
+	obj := proto.NewMACSymbolBars()
+	obj.SetParams(&proto.MACSymbolBarsRequest{
+		Market: uint16(market),
+		Code:   makeMACCode22Client(code),
+		Period: period,
+		Times:  times,
+		Start:  start,
+		Count:  count,
+		Adjust: adjust,
+	})
+	return executeMsg(client, obj, obj.Reply)
+}
+
+func (client *Client) MACBoardCount(boardType uint16) (uint16, error) {
+	if err := client.ConnectMAC(); err != nil {
+		return 0, err
+	}
+	reply, err := client.GetMACBoardCount(boardType)
+	if err != nil {
+		return 0, err
+	}
+	return reply.Total, nil
+}
+
+func (client *Client) MACBoardList(boardType uint16, count uint32) ([]proto.MACBoardListItem, error) {
+	if count == 0 {
+		count = DefaultMACBoardListCount
+	}
+	if err := client.ConnectMAC(); err != nil {
+		return nil, err
+	}
+
+	result := make([]proto.MACBoardListItem, 0)
+	for start := uint32(0); start < count; start += uint32(DefaultMACBoardPageSize) {
+		pageSize := DefaultMACBoardPageSize
+		remaining := count - start
+		if remaining < uint32(pageSize) {
+			pageSize = uint16(remaining)
+		}
+		reply, err := client.GetMACBoardList(boardType, uint16(start), pageSize)
+		if err != nil {
+			return nil, err
+		}
+		if len(reply.List) == 0 {
+			break
+		}
+		result = append(result, reply.List...)
+		if uint32(len(reply.List)) < uint32(pageSize) {
+			break
+		}
+	}
+	return result, nil
+}
+
+func (client *Client) MACBoardMembers(boardSymbol string, count uint32) ([]proto.MACBoardMemberItem, error) {
+	if count == 0 {
+		count = DefaultMACBoardStockCount
+	}
+	if err := client.ConnectMAC(); err != nil {
+		return nil, err
+	}
+
+	result := make([]proto.MACBoardMemberItem, 0)
+	for start := uint32(0); start < count; start += uint32(DefaultMACBoardStockPage) {
+		pageSize := DefaultMACBoardStockPage
+		remaining := count - start
+		if remaining < uint32(pageSize) {
+			pageSize = uint8(remaining)
+		}
+		reply, err := client.GetMACBoardMembers(boardSymbol, 14, start, pageSize, 1)
+		if err != nil {
+			return nil, err
+		}
+		if len(reply.Stocks) == 0 {
+			break
+		}
+		result = append(result, reply.Stocks...)
+		if uint32(len(reply.Stocks)) < uint32(pageSize) {
+			break
+		}
+	}
+	return result, nil
+}
+
+func (client *Client) MACBoardMembersQuotes(boardSymbol string, count uint32) ([]proto.MACBoardMemberQuoteItem, error) {
+	if count == 0 {
+		count = DefaultMACBoardStockCount
+	}
+	if err := client.ConnectMAC(); err != nil {
+		return nil, err
+	}
+
+	result := make([]proto.MACBoardMemberQuoteItem, 0)
+	for start := uint32(0); start < count; start += uint32(DefaultMACBoardStockPage) {
+		pageSize := DefaultMACBoardStockPage
+		remaining := count - start
+		if remaining < uint32(pageSize) {
+			pageSize = uint8(remaining)
+		}
+		reply, err := client.GetMACBoardMembersQuotes(boardSymbol, 14, start, pageSize, 1)
+		if err != nil {
+			return nil, err
+		}
+		if len(reply.Stocks) == 0 {
+			break
+		}
+		result = append(result, reply.Stocks...)
+		if uint32(len(reply.Stocks)) < uint32(pageSize) {
+			break
+		}
+	}
+	return result, nil
+}
+
+func (client *Client) MACSymbolBelongBoard(symbol string, market uint8) ([]proto.MACBelongBoardItem, error) {
+	if err := client.ConnectMAC(); err != nil {
+		return nil, err
+	}
+	reply, err := client.GetMACSymbolBelongBoard(market, symbol)
+	if err != nil {
+		return nil, err
+	}
+	return reply.List, nil
+}
+
+func (client *Client) MACSymbolBars(market uint8, code string, period uint16, times uint16, start uint32, count uint32, adjust uint16) ([]proto.MACSymbolBar, error) {
+	if count == 0 {
+		count = DefaultMACSymbolBarsCount
+	}
+	if err := client.ConnectMAC(); err != nil {
+		return nil, err
+	}
+
+	result := make([]proto.MACSymbolBar, 0)
+	currentStart := start
+	remaining := count
+	for remaining > 0 {
+		pageSize := DefaultMACSymbolBarsPage
+		if remaining < uint32(pageSize) {
+			pageSize = uint16(remaining)
+		}
+		reply, err := client.GetMACSymbolBars(market, code, period, times, currentStart, pageSize, adjust)
+		if err != nil {
+			return nil, err
+		}
+		if len(reply.List) == 0 {
+			break
+		}
+		result = append(result, reply.List...)
+		if uint32(len(reply.List)) < uint32(pageSize) {
+			break
+		}
+		currentStart += uint32(pageSize)
+		remaining -= uint32(pageSize)
+	}
+	return result, nil
+}
+
+func makeMACCode8Client(code string) [8]byte {
+	var out [8]byte
+	copy(out[:], code)
+	return out
+}
+
+func makeMACCode22Client(code string) [22]byte {
+	var out [22]byte
+	copy(out[:], code)
+	return out
+}
+
+func protoExchangeBoardCode(boardSymbol string) (uint32, error) {
+	return proto.ExchangeMACBoardCode(boardSymbol)
+}

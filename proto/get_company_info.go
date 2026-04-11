@@ -422,7 +422,10 @@ func (obj *GetXDXRInfo) Reply() *GetXDXRInfoReply {
 }
 
 func decodeFixedGBK(data []byte) string {
-	return strings.TrimRight(Utf8ToGbk(data), "\x00")
+	if idx := bytes.IndexByte(data, 0x00); idx >= 0 {
+		data = data[:idx]
+	}
+	return strings.TrimSpace(Utf8ToGbk(data))
 }
 
 func float32FromBytes(data []byte) float32 {

@@ -2,6 +2,72 @@ package gotdx
 
 import "github.com/bensema/gotdx/proto"
 
+// GetExchangeAnnouncement 获取交易所公告
+func (client *Client) GetExchangeAnnouncement() (*proto.ExchangeAnnouncementReply, error) {
+	obj := proto.NewExchangeAnnouncement()
+	return executeMsg(client, obj, obj.Reply)
+}
+
+// GetServerHeartbeat 获取服务端心跳返回
+func (client *Client) GetServerHeartbeat() (*proto.HeartBeatReply, error) {
+	obj := proto.NewHeartBeat()
+	return executeMsg(client, obj, obj.Reply)
+}
+
+// GetAnnouncement 获取服务商公告
+func (client *Client) GetAnnouncement() (*proto.AnnouncementReply, error) {
+	obj := proto.NewAnnouncement()
+	return executeMsg(client, obj, obj.Reply)
+}
+
+// GetServerInfo 获取主站服务信息
+func (client *Client) GetServerInfo() (*proto.InfoReply, error) {
+	obj := proto.NewInfo()
+	return executeMsg(client, obj, obj.Reply)
+}
+
+// GetTodoB 获取主站试验协议 0x000b 的原始响应
+func (client *Client) GetTodoB() (*proto.RawDataReply, error) {
+	obj := proto.NewTodoB()
+	return executeMsg(client, obj, obj.Reply)
+}
+
+// GetTodoFDE 获取主站试验协议 0x0fde 的原始响应
+func (client *Client) GetTodoFDE() (*proto.RawDataReply, error) {
+	obj := proto.NewTodoFDE()
+	return executeMsg(client, obj, obj.Reply)
+}
+
+// GetClient264B 获取客户端信息协议 0x264b 的原始响应
+func (client *Client) GetClient264B() (*proto.RawDataReply, error) {
+	obj := proto.NewClient264B()
+	return executeMsg(client, obj, obj.Reply)
+}
+
+// GetClient26AC 获取客户端信息协议 0x26ac 的原始响应
+func (client *Client) GetClient26AC() (*proto.RawDataReply, error) {
+	obj := proto.NewClient26AC()
+	return executeMsg(client, obj, obj.Reply)
+}
+
+// GetClient26AD 获取客户端信息协议 0x26ad 的原始响应
+func (client *Client) GetClient26AD() (*proto.RawDataReply, error) {
+	obj := proto.NewClient26AD()
+	return executeMsg(client, obj, obj.Reply)
+}
+
+// GetClient26AE 获取客户端信息协议 0x26ae 的原始响应
+func (client *Client) GetClient26AE() (*proto.RawDataReply, error) {
+	obj := proto.NewClient26AE()
+	return executeMsg(client, obj, obj.Reply)
+}
+
+// GetClient26B1 获取客户端信息协议 0x26b1 的原始响应
+func (client *Client) GetClient26B1() (*proto.RawDataReply, error) {
+	obj := proto.NewClient26B1()
+	return executeMsg(client, obj, obj.Reply)
+}
+
 // GetSecurityCount 获取指定市场内的证券数目
 func (client *Client) GetSecurityCount(market uint8) (*proto.GetSecurityCountReply, error) {
 	obj := proto.NewGetSecurityCount()
@@ -30,6 +96,20 @@ func (client *Client) GetSecurityList(market uint8, start uint16) (*proto.GetSec
 	return client.GetSecurityListRange(market, uint32(start), DefaultSecurityListCount)
 }
 
+// GetSecurityListOld 获取旧版证券列表
+func (client *Client) GetSecurityListOld(market uint8, start uint16) (*proto.GetSecurityListOldReply, error) {
+	obj := proto.NewGetSecurityListOld()
+	obj.SetParams(&proto.GetSecurityListOldRequest{Market: uint16(market), Start: start})
+	return executeMsg(client, obj, obj.Reply)
+}
+
+// GetSecurityFeature452 获取证券扩展信息
+func (client *Client) GetSecurityFeature452(start uint32, count uint32) (*proto.GetSecurityFeature452Reply, error) {
+	obj := proto.NewGetSecurityFeature452()
+	obj.SetParams(&proto.GetSecurityFeature452Request{Start: start, Count: count})
+	return executeMsg(client, obj, obj.Reply)
+}
+
 // GetSecurityListRange 获取市场内指定范围内的证券代码
 func (client *Client) GetSecurityListRange(market uint8, start uint32, count uint32) (*proto.GetSecurityListReply, error) {
 	obj := proto.NewGetSecurityList()
@@ -55,6 +135,21 @@ func (client *Client) GetKLine(category uint16, market uint8, code string, start
 // GetSecurityBars 获取股票K线
 func (client *Client) GetSecurityBars(category uint16, market uint8, code string, start uint16, count uint16) (*proto.GetSecurityBarsReply, error) {
 	return client.GetKLine(category, market, code, start, count, 1, AdjustNone)
+}
+
+// GetSecurityBarsOffset 获取偏移K线
+func (client *Client) GetSecurityBarsOffset(category uint16, market uint8, code string, start uint16, count uint16, times uint16, adjust uint16) (*proto.GetSecurityBarsOffsetReply, error) {
+	obj := proto.NewGetSecurityBarsOffset()
+	obj.SetParams(&proto.GetSecurityBarsOffsetRequest{
+		Market:   uint16(market),
+		Code:     makeCode6(code),
+		Category: category,
+		Times:    times,
+		Start:    start,
+		Count:    count,
+		Adjust:   adjust,
+	})
+	return executeMsg(client, obj, obj.Reply)
 }
 
 // GetIndexBars 获取指数K线
@@ -115,6 +210,17 @@ func (client *Client) GetQuotes(markets []uint8, codes []string) (*proto.GetQuot
 	}
 	obj := proto.NewGetQuotes()
 	obj.SetParams(&proto.GetQuotesRequest{Stocks: stocks})
+	return executeMsg(client, obj, obj.Reply)
+}
+
+// GetQuotesEncrypt 获取加密行情
+func (client *Client) GetQuotesEncrypt(markets []uint8, codes []string) (*proto.GetQuotesEncryptReply, error) {
+	stocks, err := makeStocks(markets, codes)
+	if err != nil {
+		return nil, err
+	}
+	obj := proto.NewGetQuotesEncrypt()
+	obj.SetParams(&proto.GetQuotesEncryptRequest{Stocks: stocks})
 	return executeMsg(client, obj, obj.Reply)
 }
 
@@ -210,6 +316,19 @@ func (client *Client) GetHistoryOrders(date uint32, market uint8, code string) (
 // GetHistoryTransactionData 获取历史分时成交
 func (client *Client) GetHistoryTransactionData(date uint32, market uint8, code string, start uint16, count uint16) (*proto.GetHistoryTransactionDataReply, error) {
 	obj := proto.NewGetHistoryTransactionData()
+	obj.SetParams(&proto.GetHistoryTransactionDataRequest{
+		Date:   date,
+		Market: uint16(market),
+		Code:   makeCode6(code),
+		Start:  start,
+		Count:  count,
+	})
+	return executeMsg(client, obj, obj.Reply)
+}
+
+// GetHistoryTransactionDataWithTrans 获取带方向的历史分时成交
+func (client *Client) GetHistoryTransactionDataWithTrans(date uint32, market uint8, code string, start uint16, count uint16) (*proto.GetHistoryTransactionDataWithTransReply, error) {
+	obj := proto.NewGetHistoryTransactionDataWithTrans()
 	obj.SetParams(&proto.GetHistoryTransactionDataRequest{
 		Date:   date,
 		Market: uint16(market),

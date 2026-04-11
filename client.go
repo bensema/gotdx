@@ -19,6 +19,8 @@ type clientMode uint8
 const (
 	clientModeMain clientMode = iota
 	clientModeEx
+	clientModeMacMain
+	clientModeMacEx
 )
 
 func New(opts ...Option) *Client {
@@ -27,6 +29,14 @@ func New(opts ...Option) *Client {
 
 func NewEx(opts ...Option) *Client {
 	return newClientWithOptions(applyOptions(opts...), clientModeEx)
+}
+
+func NewMAC(opts ...Option) *Client {
+	return newClientWithOptions(applyOptions(opts...), clientModeMacMain)
+}
+
+func NewMACEx(opts ...Option) *Client {
+	return newClientWithOptions(applyOptions(opts...), clientModeMacEx)
 }
 
 type Client struct {
@@ -38,6 +48,30 @@ type Client struct {
 	mode     clientMode
 	main     *Client
 	ex       *Client
+}
+
+func (client *Client) CurrentAddress() string {
+	if client == nil || client.opt == nil {
+		return ""
+	}
+	return client.opt.TCPAddress
+}
+
+// ProbeHosts probes the client's configured address list and returns the
+// results sorted by reachability and latency.
+func (client *Client) ProbeHosts() []HostProbeResult {
+	if client == nil || client.opt == nil {
+		return nil
+	}
+	return ProbeAddresses(client.addresses(), client.timeout())
+}
+
+// FastestHost returns the fastest reachable configured address.
+func (client *Client) FastestHost() (HostProbeResult, error) {
+	if client == nil || client.opt == nil {
+		return HostProbeResult{}, ErrNoReachableHosts
+	}
+	return FastestAddress(client.addresses(), client.timeout())
 }
 
 func newClientWithOptions(opt *Options, mode clientMode) *Client {
@@ -52,6 +86,14 @@ func newClientWithOptions(opt *Options, mode clientMode) *Client {
 		client.opt.TCPAddress = client.opt.ExTCPAddress
 		client.opt.TCPAddressPool = append([]string(nil), client.opt.ExTCPAddressPool...)
 	}
+	if mode == clientModeMacMain {
+		client.opt.TCPAddress = client.opt.MacTCPAddress
+		client.opt.TCPAddressPool = append([]string(nil), client.opt.MacTCPAddressPool...)
+	}
+	if mode == clientModeMacEx {
+		client.opt.TCPAddress = client.opt.MacExTCPAddress
+		client.opt.TCPAddressPool = append([]string(nil), client.opt.MacExTCPAddressPool...)
+	}
 
 	return client
 }
@@ -63,20 +105,33 @@ func cloneOptions(opt *Options) *Options {
 	clone := *opt
 	clone.TCPAddressPool = append([]string(nil), opt.TCPAddressPool...)
 	clone.ExTCPAddressPool = append([]string(nil), opt.ExTCPAddressPool...)
+	clone.MacTCPAddressPool = append([]string(nil), opt.MacTCPAddressPool...)
+	clone.MacExTCPAddressPool = append([]string(nil), opt.MacExTCPAddressPool...)
 	return &clone
 }
 
 func (client *Client) connect() error {
-	return client.connectToAddress(client.opt.TCPAddress)
+	addresses := client.connectionOrder()
+	if len(addresses) == 0 {
+		return errors.New("no tcp address configured")
+	}
+
+	var lastErr error
+	for _, address := range addresses {
+		if err := client.connectToAddress(address); err != nil {
+			lastErr = err
+			continue
+		}
+		return nil
+	}
+	if lastErr == nil {
+		lastErr = errors.New("no available tcp address")
+	}
+	return lastErr
 }
 
 func (client *Client) connectToAddress(address string) error {
-	timeout := time.Duration(client.opt.TimeoutSec) * time.Second
-	if timeout <= 0 {
-		timeout = time.Duration(_defaultTimeoutSec) * time.Second
-	}
-
-	conn, err := net.DialTimeout("tcp", address, timeout)
+	conn, err := net.DialTimeout("tcp", address, client.timeout())
 	if err != nil {
 		return err
 	}
@@ -94,6 +149,55 @@ func (client *Client) addresses() []string {
 	return addresses
 }
 
+func (client *Client) connectionOrder() []string {
+	if client == nil || client.opt == nil {
+		return nil
+	}
+	addresses := client.addresses()
+	if len(addresses) == 0 {
+		return nil
+	}
+	if !client.opt.AutoSelectFastest {
+		return addresses
+	}
+
+	results := ProbeAddresses(addresses, client.timeout())
+	if len(results) == 0 {
+		return addresses
+	}
+
+	ordered := make([]string, 0, len(addresses))
+	seen := make(map[string]struct{}, len(addresses))
+	for _, result := range results {
+		if !result.Reachable {
+			continue
+		}
+		if _, ok := seen[result.Address]; ok {
+			continue
+		}
+		ordered = append(ordered, result.Address)
+		seen[result.Address] = struct{}{}
+	}
+	for _, address := range addresses {
+		if _, ok := seen[address]; ok {
+			continue
+		}
+		ordered = append(ordered, address)
+	}
+	return ordered
+}
+
+func (client *Client) timeout() time.Duration {
+	if client == nil || client.opt == nil {
+		return time.Duration(_defaultTimeoutSec) * time.Second
+	}
+	timeout := time.Duration(client.opt.TimeoutSec) * time.Second
+	if timeout <= 0 {
+		return time.Duration(_defaultTimeoutSec) * time.Second
+	}
+	return timeout
+}
+
 func (client *Client) closeCurrentConn() {
 	if client.conn != nil {
 		_ = client.conn.Close()
@@ -102,7 +206,7 @@ func (client *Client) closeCurrentConn() {
 }
 
 func (client *Client) connectWithHandshake(handshake func() error) error {
-	addresses := client.addresses()
+	addresses := client.connectionOrder()
 	if len(addresses) == 0 {
 		return errors.New("no tcp address configured")
 	}
@@ -131,11 +235,7 @@ func (client *Client) do(msg proto.Msg) error {
 		return errors.New("connection is nil")
 	}
 
-	timeout := time.Duration(client.opt.TimeoutSec) * time.Second
-	if timeout <= 0 {
-		timeout = time.Duration(_defaultTimeoutSec) * time.Second
-	}
-	_ = client.conn.SetDeadline(time.Now().Add(timeout))
+	_ = client.conn.SetDeadline(time.Now().Add(client.timeout()))
 	defer func() {
 		_ = client.conn.SetDeadline(time.Time{})
 	}()

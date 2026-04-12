@@ -14,37 +14,37 @@ type GetIndexInfo struct {
 }
 
 type GetIndexInfoRequest struct {
-	Market uint16
-	Code   [6]byte
-	Zero   uint32
+	Market uint16  // 市场代码。
+	Code   [6]byte // 指数代码。
+	Zero   uint32  // 保留字段。
 }
 
 type GetIndexInfoReply struct {
-	OrderCount uint32
-	Market     uint8
-	Code       string
-	Active     uint16
-	Close      float64
-	PreClose   float64
-	Diff       float64
-	Open       float64
-	High       float64
-	Low        float64
-	ServerTime string
-	AfterHour  int
-	Vol        int
-	CurVol     int
-	Amount     float64
-	OpenAmount int
-	UpCount    int
-	DownCount  int
-	Orders     []IndexInfoOrder
+	OrderCount uint32           // 委托明细条数。
+	Market     uint8            // 市场代码。
+	Code       string           // 指数代码。
+	Active     uint16           // 活跃度。
+	Close      float64          // 最新值。
+	PreClose   float64          // 昨收值。
+	Diff       float64          // 涨跌值。
+	Open       float64          // 开盘值。
+	High       float64          // 最高值。
+	Low        float64          // 最低值。
+	ServerTime string           // 服务端时间。
+	AfterHour  int              // 盘后字段或扩展标记。
+	Vol        int              // 总成交量。
+	CurVol     int              // 现量。
+	Amount     float64          // 总成交额。
+	OpenAmount int              // 开盘金额。
+	UpCount    int              // 上涨家数。
+	DownCount  int              // 下跌家数。
+	Orders     []IndexInfoOrder // 委托分布明细。
 }
 
 type IndexInfoOrder struct {
-	Price   float64
-	Unknown int
-	Vol     int
+	Price   float64 // 档位价格。
+	Unknown int     // 未确认字段。
+	Vol     int     // 档位挂单量。
 }
 
 func NewGetIndexInfo() *GetIndexInfo {

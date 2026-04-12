@@ -1,6 +1,10 @@
 package main
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/bensema/gotdx/proto"
+)
 
 func TestParseExTableRows(t *testing.T) {
 	rows := parseExTableRows("42#IMCI|上期有色,42#T001|通达信商品,")
@@ -48,5 +52,79 @@ func TestMethodDefsStockFirst(t *testing.T) {
 	}
 	if methodDefs[0].Group != "股票快照" {
 		t.Fatalf("expected stock methods first, got %q", methodDefs[0].Group)
+	}
+}
+
+func TestRowsFromUnusualIncludesUnusualType(t *testing.T) {
+	rows := rowsFromUnusual([]proto.UnusualData{{
+		Index:       1,
+		Market:      0,
+		Code:        "000001",
+		Time:        "09:30:00",
+		Desc:        "加速拉升",
+		Value:       "1.23%",
+		UnusualType: 4,
+	}})
+	if len(rows) != 1 {
+		t.Fatalf("unexpected rows len: %d", len(rows))
+	}
+	if len(rows[0]) != 7 || rows[0][6] != "4" {
+		t.Fatalf("unexpected unusual row: %#v", rows[0])
+	}
+}
+
+func TestRowsIncludeTurnoverColumns(t *testing.T) {
+	detailRows := rowsFromQuoteDetail([]proto.SecurityQuote{{
+		Market:     0,
+		Code:       "000001",
+		ServerTime: "09:30:00",
+		Price:      10.01,
+		Open:       9.80,
+		High:       10.20,
+		Low:        9.70,
+		Vol:        100,
+		Amount:     1000,
+		Turnover:   1.23,
+	}})
+	if len(detailRows) != 1 || len(detailRows[0]) != 10 || detailRows[0][9] != "1.23" {
+		t.Fatalf("unexpected quote detail rows: %#v", detailRows)
+	}
+
+	listRows := rowsFromQuoteList([]proto.QuoteListItem{{
+		Market:    0,
+		Code:      "000001",
+		Price:     10.01,
+		PreClose:  9.91,
+		Vol:       100,
+		Amount:    1000,
+		RiseSpeed: 0.56,
+		Turnover:  2.34,
+	}})
+	if len(listRows) != 1 || len(listRows[0]) != 9 || listRows[0][8] != "2.34" {
+		t.Fatalf("unexpected quote list rows: %#v", listRows)
+	}
+
+	barRows := rowsFromSecurityBars([]proto.SecurityBar{{
+		DateTime: "2026-04-12 15:00:00",
+		Open:     10,
+		High:     11,
+		Low:      9,
+		Close:    10.5,
+		Vol:      12345,
+		Amount:   45678,
+		Turnover: 3.45,
+	}})
+	if len(barRows) != 1 || len(barRows[0]) != 8 || barRows[0][7] != "3.45" {
+		t.Fatalf("unexpected bar rows: %#v", barRows)
+	}
+
+	profileRows := rowsFromVolumeProfile([]proto.VolumeProfileItem{{
+		Price: 10.01,
+		Vol:   100,
+		Buy:   60,
+		Sell:  40,
+	}}, 4.56)
+	if len(profileRows) != 1 || len(profileRows[0]) != 5 || profileRows[0][4] != "4.56" {
+		t.Fatalf("unexpected volume profile rows: %#v", profileRows)
 	}
 }

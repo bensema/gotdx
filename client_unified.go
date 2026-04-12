@@ -1,6 +1,10 @@
 package gotdx
 
-import "github.com/bensema/gotdx/proto"
+import (
+	"math"
+
+	"github.com/bensema/gotdx/proto"
+)
 
 func (client *Client) quotationClient() (*Client, error) {
 	if client.mode == clientModeMain {
@@ -109,6 +113,7 @@ func (client *Client) StockKLine(category uint16, market uint8, code string, sta
 	if err != nil {
 		return nil, err
 	}
+	applyTurnoverToBars(reply.List, client.loadFloatShares(qc, market, code))
 	return reply.List, nil
 }
 
@@ -121,6 +126,7 @@ func (client *Client) StockKLineOffset(category uint16, market uint8, code strin
 	if err != nil {
 		return nil, err
 	}
+	applyTurnoverToBars(reply.List, client.loadFloatShares(qc, market, code))
 	return reply.List, nil
 }
 
@@ -148,6 +154,41 @@ func (client *Client) StockHistoryTickChart(date uint32, market uint8, code stri
 	return reply.List, nil
 }
 
+// StockIndexInfo 获取指数概况。
+func (client *Client) StockIndexInfo(market uint8, code string) (*proto.GetIndexInfoReply, error) {
+	qc, err := client.quotationClient()
+	if err != nil {
+		return nil, err
+	}
+	return qc.GetIndexInfo(market, code)
+}
+
+// StockIndexMomentum 获取指数动量序列。
+func (client *Client) StockIndexMomentum(market uint8, code string) ([]int, error) {
+	qc, err := client.quotationClient()
+	if err != nil {
+		return nil, err
+	}
+	reply, err := qc.GetIndexMomentum(market, code)
+	if err != nil {
+		return nil, err
+	}
+	return reply.Values, nil
+}
+
+// StockChartSampling 获取分时缩略采样价格。
+func (client *Client) StockChartSampling(market uint8, code string) ([]float64, error) {
+	qc, err := client.quotationClient()
+	if err != nil {
+		return nil, err
+	}
+	reply, err := qc.GetChartSampling(market, code)
+	if err != nil {
+		return nil, err
+	}
+	return reply.Prices, nil
+}
+
 func (client *Client) StockQuotesDetail(markets []uint8, codes []string) ([]proto.SecurityQuote, error) {
 	qc, err := client.quotationClient()
 	if err != nil {
@@ -157,6 +198,7 @@ func (client *Client) StockQuotesDetail(markets []uint8, codes []string) ([]prot
 	if err != nil {
 		return nil, err
 	}
+	applyTurnoverToSecurityQuotes(reply.List, client.loadFloatSharesMap(qc, stockKeysFromPairLists(markets, codes)))
 	return reply.List, nil
 }
 
@@ -169,6 +211,7 @@ func (client *Client) StockQuotesList(category uint8, start uint16, count uint16
 	if err != nil {
 		return nil, err
 	}
+	applyTurnoverToQuoteList(reply.List, client.loadFloatSharesMap(qc, stockKeysFromQuoteItems(reply.List)))
 	return reply.List, nil
 }
 
@@ -181,6 +224,7 @@ func (client *Client) StockQuotes(markets []uint8, codes []string) ([]proto.Quot
 	if err != nil {
 		return nil, err
 	}
+	applyTurnoverToQuoteList(reply.List, client.loadFloatSharesMap(qc, stockKeysFromQuoteItems(reply.List)))
 	return reply.List, nil
 }
 
@@ -196,12 +240,74 @@ func (client *Client) StockQuotesEncrypt(markets []uint8, codes []string) ([]pro
 	return reply.List, nil
 }
 
+// StockAuction 获取集合竞价数据。
+func (client *Client) StockAuction(market uint8, code string, start uint32, count uint32) ([]proto.AuctionData, error) {
+	qc, err := client.quotationClient()
+	if err != nil {
+		return nil, err
+	}
+	reply, err := qc.GetAuction(market, code, start, count)
+	if err != nil {
+		return nil, err
+	}
+	return reply.List, nil
+}
+
+// StockTopBoard 获取主行情排行榜。
+func (client *Client) StockTopBoard(category uint8, size uint8) (*proto.GetTopBoardReply, error) {
+	qc, err := client.quotationClient()
+	if err != nil {
+		return nil, err
+	}
+	return qc.GetTopBoard(category, size)
+}
+
+// StockUnusual 获取主力监控异动数据。
+func (client *Client) StockUnusual(market uint8, start uint32, count uint32) ([]proto.UnusualData, error) {
+	qc, err := client.quotationClient()
+	if err != nil {
+		return nil, err
+	}
+	reply, err := qc.GetUnusual(market, start, count)
+	if err != nil {
+		return nil, err
+	}
+	return reply.List, nil
+}
+
+// StockVolumeProfile 获取成交分布与盘口快照。
+func (client *Client) StockVolumeProfile(market uint8, code string) (*proto.GetVolumeProfileReply, error) {
+	qc, err := client.quotationClient()
+	if err != nil {
+		return nil, err
+	}
+	reply, err := qc.GetVolumeProfile(market, code)
+	if err != nil {
+		return nil, err
+	}
+	applyTurnoverToVolumeProfile(reply, client.loadFloatShares(qc, market, code))
+	return reply, nil
+}
+
 func (client *Client) StockTransaction(market uint8, code string, start uint16, count uint16) ([]proto.TransactionData, error) {
 	qc, err := client.quotationClient()
 	if err != nil {
 		return nil, err
 	}
 	reply, err := qc.GetTransactionData(market, code, start, count)
+	if err != nil {
+		return nil, err
+	}
+	return reply.List, nil
+}
+
+// StockHistoryOrders 获取历史委托分布。
+func (client *Client) StockHistoryOrders(date uint32, market uint8, code string) ([]proto.HistoryOrderData, error) {
+	qc, err := client.quotationClient()
+	if err != nil {
+		return nil, err
+	}
+	reply, err := qc.GetHistoryOrders(date, market, code)
 	if err != nil {
 		return nil, err
 	}
@@ -525,4 +631,94 @@ func (client *Client) ExTableDetail() (string, error) {
 		return "", err
 	}
 	return eqc.ExGetTableDetail()
+}
+
+type stockKey struct {
+	Market uint8
+	Code   string
+}
+
+func stockKeysFromPairLists(markets []uint8, codes []string) []stockKey {
+	items := make([]stockKey, 0, len(codes))
+	for i, code := range codes {
+		if i >= len(markets) {
+			break
+		}
+		items = append(items, stockKey{Market: markets[i], Code: code})
+	}
+	return items
+}
+
+func stockKeysFromQuoteItems(items []proto.QuoteListItem) []stockKey {
+	keys := make([]stockKey, 0, len(items))
+	for _, item := range items {
+		keys = append(keys, stockKey{Market: item.Market, Code: item.Code})
+	}
+	return keys
+}
+
+func (client *Client) loadFloatShares(qc *Client, market uint8, code string) float64 {
+	if code == "" {
+		return 0
+	}
+	return client.loadFloatSharesMap(qc, []stockKey{{Market: market, Code: code}})[stockKey{Market: market, Code: code}]
+}
+
+func (client *Client) loadFloatSharesMap(qc *Client, keys []stockKey) map[stockKey]float64 {
+	out := make(map[stockKey]float64, len(keys))
+	seen := make(map[stockKey]struct{}, len(keys))
+	for _, key := range keys {
+		if key.Code == "" {
+			continue
+		}
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		finance, err := qc.GetFinanceInfo(key.Market, key.Code)
+		if err != nil {
+			continue
+		}
+		if finance == nil || finance.FloatShares <= 0 {
+			continue
+		}
+		out[key] = float64(finance.FloatShares)
+	}
+	return out
+}
+
+func applyTurnoverToSecurityQuotes(items []proto.SecurityQuote, shares map[stockKey]float64) {
+	for i := range items {
+		if floatShares := shares[stockKey{Market: items[i].Market, Code: items[i].Code}]; floatShares > 0 {
+			items[i].Turnover = round2(float64(items[i].Vol) * 10000 / floatShares)
+		}
+	}
+}
+
+func applyTurnoverToQuoteList(items []proto.QuoteListItem, shares map[stockKey]float64) {
+	for i := range items {
+		if floatShares := shares[stockKey{Market: items[i].Market, Code: items[i].Code}]; floatShares > 0 {
+			items[i].Turnover = round2(float64(items[i].Vol) * 10000 / floatShares)
+		}
+	}
+}
+
+func applyTurnoverToBars(items []proto.SecurityBar, floatShares float64) {
+	if floatShares <= 0 {
+		return
+	}
+	for i := range items {
+		items[i].Turnover = round2(items[i].Vol * 100 / floatShares)
+	}
+}
+
+func applyTurnoverToVolumeProfile(reply *proto.GetVolumeProfileReply, floatShares float64) {
+	if reply == nil || floatShares <= 0 {
+		return
+	}
+	reply.Turnover = round2(float64(reply.Vol) * 10000 / floatShares)
+}
+
+func round2(v float64) float64 {
+	return math.Round(v*100) / 100
 }

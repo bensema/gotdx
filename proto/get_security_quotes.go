@@ -13,69 +13,70 @@ type GetSecurityQuotes struct {
 }
 
 type Stock struct {
-	Market uint8
-	Code   string
+	Market uint8  // 市场代码。
+	Code   string // 证券代码。
 }
 
 type GetSecurityQuotesRequest struct {
-	StockList []Stock
+	StockList []Stock // 待查询的证券列表。
 }
 
 type GetSecurityQuotesReply struct {
-	Count uint16
-	List  []SecurityQuote
+	Count uint16          // 返回的证券数量。
+	List  []SecurityQuote // 五档行情明细列表。
 }
 
 type SecurityQuote struct {
-	Market     uint8
-	Code       string
-	Active1    uint16
-	Close      float64
-	Price      float64
-	PreClose   float64
-	LastClose  float64
-	Open       float64
-	High       float64
-	Low        float64
-	ServerTime string
-	NegPrice   float64
-	Vol        int
-	CurVol     int
-	Amount     float64
-	SVol       int
-	BVol       int
-	SAmount    int
-	OpenAmount int
-	BidLevels  []Level
-	AskLevels  []Level
-	Bid1       float64
-	Ask1       float64
-	BidVol1    int
-	AskVol1    int
-	Bid2       float64
-	Ask2       float64
-	BidVol2    int
-	AskVol2    int
-	Bid3       float64
-	Ask3       float64
-	BidVol3    int
-	AskVol3    int
-	Bid4       float64
-	Ask4       float64
-	BidVol4    int
-	AskVol4    int
-	Bid5       float64
-	Ask5       float64
-	BidVol5    int
-	AskVol5    int
-	Unknown    int16
-	Rate       float64
-	Active2    uint16
+	Market     uint8   // 市场代码。
+	Code       string  // 证券代码。
+	Active1    uint16  // 活跃度字段 1。
+	Close      float64 // 最新价。
+	Price      float64 // 当前价，通常与 Close 一致。
+	PreClose   float64 // 昨收价。
+	LastClose  float64 // 前收价别名，通常与 PreClose 一致。
+	Open       float64 // 今开价。
+	High       float64 // 最高价。
+	Low        float64 // 最低价。
+	ServerTime string  // 服务端时间，格式一般为 HH:MM:SS。
+	NegPrice   float64 // 特殊价格字段，常见场景下可忽略。
+	Vol        int     // 总成交量。
+	CurVol     int     // 现量。
+	Amount     float64 // 总成交额。
+	SVol       int     // 外盘量或卖出量。
+	BVol       int     // 内盘量或买入量。
+	SAmount    int     // 上涨家数或卖出相关统计字段。
+	OpenAmount int     // 开盘金额。
+	BidLevels  []Level // 买盘五档。
+	AskLevels  []Level // 卖盘五档。
+	Bid1       float64 // 买一价。
+	Ask1       float64 // 卖一价。
+	BidVol1    int     // 买一量。
+	AskVol1    int     // 卖一量。
+	Bid2       float64 // 买二价。
+	Ask2       float64 // 卖二价。
+	BidVol2    int     // 买二量。
+	AskVol2    int     // 卖二量。
+	Bid3       float64 // 买三价。
+	Ask3       float64 // 卖三价。
+	BidVol3    int     // 买三量。
+	AskVol3    int     // 卖三量。
+	Bid4       float64 // 买四价。
+	Ask4       float64 // 卖四价。
+	BidVol4    int     // 买四量。
+	AskVol4    int     // 卖四量。
+	Bid5       float64 // 买五价。
+	Ask5       float64 // 卖五价。
+	BidVol5    int     // 买五量。
+	AskVol5    int     // 卖五量。
+	Unknown    int16   // 未确认字段。
+	Rate       float64 // 涨跌幅或速率相关字段。
+	Turnover   float64 // 换手率，按高层接口 best-effort 补齐。
+	Active2    uint16  // 活跃度字段 2。
 }
 
 type Level struct {
-	Price float64
-	Vol   int
+	Price float64 // 档位价格。
+	Vol   int     // 档位挂单量。
 }
 
 func NewGetSecurityQuotes() *GetSecurityQuotes {

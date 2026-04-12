@@ -1,6 +1,10 @@
 package gotdx
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/bensema/gotdx/proto"
+)
 
 func TestNewKeepsMainAndExAddresses(t *testing.T) {
 	client := New(
@@ -67,5 +71,53 @@ func TestNewMACExUsesMacExAddressAsPrimary(t *testing.T) {
 	}
 	if client.opt.MacExTCPAddress != "4.4.4.4:7727" {
 		t.Fatalf("unexpected mac ex tcp address: %q", client.opt.MacExTCPAddress)
+	}
+}
+
+func TestApplyTurnoverHelpers(t *testing.T) {
+	shares := map[stockKey]float64{
+		{Market: MarketSZ, Code: "000001"}: 1000000,
+	}
+
+	quotes := []proto.SecurityQuote{{
+		Market: MarketSZ,
+		Code:   "000001",
+		Vol:    12345,
+	}}
+	applyTurnoverToSecurityQuotes(quotes, shares)
+	if quotes[0].Turnover != 123.45 {
+		t.Fatalf("unexpected security quote turnover: %.2f", quotes[0].Turnover)
+	}
+
+	quoteList := []proto.QuoteListItem{{
+		Market: MarketSZ,
+		Code:   "000001",
+		Vol:    23456,
+	}}
+	applyTurnoverToQuoteList(quoteList, shares)
+	if quoteList[0].Turnover != 234.56 {
+		t.Fatalf("unexpected quote list turnover: %.2f", quoteList[0].Turnover)
+	}
+
+	bars := []proto.SecurityBar{{Vol: 12345}}
+	applyTurnoverToBars(bars, 1000000)
+	if bars[0].Turnover != 1.23 {
+		t.Fatalf("unexpected bar turnover: %.2f", bars[0].Turnover)
+	}
+
+	reply := &proto.GetVolumeProfileReply{
+		Market: MarketSZ,
+		Code:   "000001",
+		Vol:    34567,
+	}
+	applyTurnoverToVolumeProfile(reply, 1000000)
+	if reply.Turnover != 345.67 {
+		t.Fatalf("unexpected volume profile turnover: %.2f", reply.Turnover)
+	}
+}
+
+func TestRound2(t *testing.T) {
+	if got := round2(1.235); got != 1.24 {
+		t.Fatalf("unexpected rounded value: %.2f", got)
 	}
 }

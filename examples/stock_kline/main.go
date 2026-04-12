@@ -25,7 +25,7 @@ func main() {
 	}
 
 	for _, bar := range bars {
-		log.Printf("%s open=%.3f high=%.3f low=%.3f close=%.3f vol=%.0f amount=%.0f",
-			bar.DateTime, bar.Open, bar.High, bar.Low, bar.Close, bar.Vol, bar.Amount)
+		log.Printf("%s open=%.3f high=%.3f low=%.3f close=%.3f vol=%.0f amount=%.0f turnover=%.2f%%",
+			bar.DateTime, bar.Open, bar.High, bar.Low, bar.Close, bar.Vol, bar.Amount, bar.Turnover)
 	}
 }

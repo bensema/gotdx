@@ -17,23 +17,23 @@ type GetTransactionData struct {
 }
 
 type GetTransactionDataRequest struct {
-	Market uint16
-	Code   [6]byte
-	Start  uint16
-	Count  uint16
+	Market uint16  // 市场代码。
+	Code   [6]byte // 证券代码。
+	Start  uint16  // 起始偏移。
+	Count  uint16  // 请求条数。
 }
 
 type GetTransactionDataReply struct {
-	Count uint16
-	List  []TransactionData
+	Count uint16            // 返回条数。
+	List  []TransactionData // 当日逐笔成交。
 }
 
 type TransactionData struct {
-	Time      string
-	Price     float64
-	Vol       int
-	Num       int
-	BuyOrSell int
+	Time      string  // 成交时间。
+	Price     float64 // 成交价。
+	Vol       int     // 成交量。
+	Num       int     // 笔数或委托笔数。
+	BuyOrSell int     // 买卖方向标记。
 }
 
 func NewGetTransactionData() *GetTransactionData {

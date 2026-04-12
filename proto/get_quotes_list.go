@@ -14,52 +14,53 @@ type GetQuotesList struct {
 }
 
 type GetQuotesListRequest struct {
-	Category    uint16
-	SortType    uint16
-	Start       uint16
-	Count       uint16
-	SortReverse uint16
-	Mode        uint16
-	Filter      uint16
-	One         uint16
-	Zero        uint16
+	Category    uint16 // 板块或市场分类。
+	SortType    uint16 // 排序方式。
+	Start       uint16 // 起始偏移。
+	Count       uint16 // 请求条数。
+	SortReverse uint16 // 是否倒序排序。
+	Mode        uint16 // 协议模式位。
+	Filter      uint16 // 过滤条件。
+	One         uint16 // 固定位，通常为 1。
+	Zero        uint16 // 保留字段。
 }
 
 type GetQuotesListReply struct {
-	Block uint16
-	Count uint16
-	List  []QuoteListItem
+	Block uint16          // 区块或分组标识。
+	Count uint16          // 返回条数。
+	List  []QuoteListItem // 排序行情列表。
 }
 
 type QuoteListItem struct {
-	Market        uint8
-	Code          string
-	Active1       uint16
-	Active2       uint16
-	Close         float64
-	Price         float64
-	PreClose      float64
-	Open          float64
-	High          float64
-	Low           float64
-	ServerTime    string
-	NegPrice      float64
-	Vol           int
-	CurVol        int
-	Amount        float64
-	InVol         int
-	OutVol        int
-	SAmount       int
-	OpenAmount    int
-	BidLevels     []Level
-	AskLevels     []Level
-	Unknown       uint16
-	RiseSpeed     float64
-	ShortTurnover float64
-	Min2Amount    float64
-	OpeningRush   float64
-	VolRiseSpeed  float64
-	Depth         float64
+	Market        uint8   // 市场代码。
+	Code          string  // 证券代码。
+	Active1       uint16  // 活跃度字段 1。
+	Active2       uint16  // 活跃度字段 2。
+	Close         float64 // 最新价。
+	Price         float64 // 当前价，通常与 Close 一致。
+	PreClose      float64 // 昨收价。
+	Open          float64 // 今开价。
+	High          float64 // 最高价。
+	Low           float64 // 最低价。
+	ServerTime    string  // 服务端时间。
+	NegPrice      float64 // 特殊价格字段。
+	Vol           int     // 总成交量。
+	CurVol        int     // 现量。
+	Amount        float64 // 总成交额。
+	InVol         int     // 内盘量。
+	OutVol        int     // 外盘量。
+	SAmount       int     // 上涨家数或卖出相关统计字段。
+	OpenAmount    int     // 开盘金额。
+	BidLevels     []Level // 买盘档位列表。
+	AskLevels     []Level // 卖盘档位列表。
+	Unknown       uint16  // 未确认字段。
+	RiseSpeed     float64 // 涨速。
+	ShortTurnover float64 // 短换手。
+	Min2Amount    float64 // 两分钟成交额。
+	OpeningRush   float64 // 开盘抢筹。
+	VolRiseSpeed  float64 // 量涨速。
+	Depth         float64 // 委比或深度指标。
+	Turnover      float64 // 换手率，按高层接口 best-effort 补齐。
 }
 
 func NewGetQuotesList() *GetQuotesList {
@@ -129,13 +130,13 @@ type GetQuotes struct {
 }
 
 type GetQuotesRequest struct {
-	Stocks []Stock
+	Stocks []Stock // 待查询的证券列表。
 }
 
 type GetQuotesReply struct {
-	Block uint16
-	Count uint16
-	List  []QuoteListItem
+	Block uint16          // 区块或分组标识。
+	Count uint16          // 返回条数。
+	List  []QuoteListItem // 批量行情列表。
 }
 
 func NewGetQuotes() *GetQuotes {

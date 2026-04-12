@@ -16,23 +16,24 @@ type GetUnusual struct {
 }
 
 type GetUnusualRequest struct {
-	Market uint16
-	Start  uint32
-	Count  uint32
+	Market uint16 // 市场代码。
+	Start  uint32 // 起始偏移。
+	Count  uint32 // 请求条数，0 时按默认批量处理。
 }
 
 type GetUnusualReply struct {
-	Count uint16
-	List  []UnusualData
+	Count uint16        // 返回条数。
+	List  []UnusualData // 异动明细列表。
 }
 
 type UnusualData struct {
-	Index  uint16
-	Market uint16
-	Code   string
-	Time   string
-	Desc   string
-	Value  string
+	Index       uint16 // 序号。
+	Market      uint16 // 市场代码。
+	Code        string // 证券代码。
+	Time        string // 异动时间。
+	Desc        string // 异动描述。
+	Value       string // 异动展示值。
+	UnusualType uint8  // 异动类型原始编码。
 }
 
 func NewGetUnusual() *GetUnusual {
@@ -88,12 +89,13 @@ func (obj *GetUnusual) UnSerialize(header interface{}, data []byte) error {
 		minuteSec := int(binary.LittleEndian.Uint16(data[base+30 : base+32]))
 
 		obj.reply.List = append(obj.reply.List, UnusualData{
-			Index:  index,
-			Market: market,
-			Code:   code,
-			Time:   fmt.Sprintf("%02d:%02d:%02d", hour, minuteSec/100, minuteSec%100),
-			Desc:   desc,
-			Value:  value,
+			Index:       index,
+			Market:      market,
+			Code:        code,
+			Time:        fmt.Sprintf("%02d:%02d:%02d", hour, minuteSec/100, minuteSec%100),
+			Desc:        desc,
+			Value:       value,
+			UnusualType: eventType,
 		})
 	}
 

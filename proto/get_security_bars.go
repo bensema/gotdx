@@ -14,36 +14,37 @@ type GetSecurityBars struct {
 }
 
 type GetSecurityBarsRequest struct {
-	Market   uint16
-	Code     [6]byte
-	Category uint16
-	Times    uint16
-	Start    uint16
-	Count    uint16
-	Adjust   uint16
-	Reserved [8]byte
+	Market   uint16  // 市场代码。
+	Code     [6]byte // 证券代码。
+	Category uint16  // K 线周期类别。
+	Times    uint16  // 周期倍数。
+	Start    uint16  // 起始偏移。
+	Count    uint16  // 请求条数。
+	Adjust   uint16  // 复权方式。
+	Reserved [8]byte // 保留字段。
 }
 
 type GetSecurityBarsReply struct {
-	Count uint16
-	List  []SecurityBar
+	Count uint16        // 返回条数。
+	List  []SecurityBar // K 线数据列表。
 }
 
 type SecurityBar struct {
-	Open      float64
-	Close     float64
-	High      float64
-	Low       float64
-	Vol       float64
-	Amount    float64
-	Year      int
-	Month     int
-	Day       int
-	Hour      int
-	Minute    int
-	DateTime  string
-	UpCount   uint16
-	DownCount uint16
+	Open      float64 // 开盘价。
+	Close     float64 // 收盘价。
+	High      float64 // 最高价。
+	Low       float64 // 最低价。
+	Vol       float64 // 成交量。
+	Amount    float64 // 成交额。
+	Turnover  float64 // 换手率，按高层接口 best-effort 补齐。
+	Year      int     // 年。
+	Month     int     // 月。
+	Day       int     // 日。
+	Hour      int     // 时。
+	Minute    int     // 分。
+	DateTime  string  // 组合后的时间字符串。
+	UpCount   uint16  // 上涨家数，指数类 K 线常见。
+	DownCount uint16  // 下跌家数，指数类 K 线常见。
 }
 
 func NewGetSecurityBars() *GetSecurityBars {

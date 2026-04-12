@@ -16,27 +16,27 @@ type GetSecurityList struct {
 }
 
 type GetSecurityListRequest struct {
-	Market uint16
-	Start  uint32
-	Count  uint32
-	Zero   uint32
+	Market uint16 // 市场代码。
+	Start  uint32 // 起始偏移。
+	Count  uint32 // 请求条数。
+	Zero   uint32 // 保留字段。
 }
 
 type GetSecurityListReply struct {
-	Count uint16
-	List  []Security
+	Count uint16     // 返回条数。
+	List  []Security // 证券列表。
 }
 
 type Security struct {
-	Code         string
-	Vol          uint16
-	VolUnit      uint16
-	DecimalPoint int8
-	Name         string
-	PreClose     float64
-	Unknown1     float32
-	Unknown2     uint16
-	Unknown3     uint16
+	Code         string  // 证券代码。
+	Vol          uint16  // 成交量单位原值。
+	VolUnit      uint16  // 成交量单位。
+	DecimalPoint int8    // 价格小数位数。
+	Name         string  // 证券名称。
+	PreClose     float64 // 昨收价。
+	Unknown1     float32 // 未确认字段。
+	Unknown2     uint16  // 未确认字段。
+	Unknown3     uint16  // 未确认字段。
 }
 
 func NewGetSecurityList() *GetSecurityList {

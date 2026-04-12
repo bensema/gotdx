@@ -20,7 +20,7 @@ func main() {
 	}
 
 	for _, item := range items {
-		log.Printf("%s %s price=%.2f open=%.2f high=%.2f low=%.2f vol=%d",
-			item.Code, item.ServerTime, item.Price, item.Open, item.High, item.Low, item.Vol)
+		log.Printf("%s %s price=%.2f open=%.2f high=%.2f low=%.2f vol=%d turnover=%.2f%%",
+			item.Code, item.ServerTime, item.Price, item.Open, item.High, item.Low, item.Vol, item.Turnover)
 	}
 }

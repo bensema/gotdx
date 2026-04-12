@@ -13,21 +13,21 @@ type GetMinuteTimeData struct {
 }
 
 type GetMinuteTimeDataRequest struct {
-	Market uint16
-	Code   [6]byte
-	Start  uint16
-	Count  uint16
+	Market uint16  // 市场代码。
+	Code   [6]byte // 证券代码。
+	Start  uint16  // 起始偏移。
+	Count  uint16  // 请求条数。
 }
 
 type GetMinuteTimeDataReply struct {
-	Count uint16
-	List  []MinuteTimeData
+	Count uint16           // 返回条数。
+	List  []MinuteTimeData // 当日分时数据。
 }
 
 type MinuteTimeData struct {
-	Price float64
-	Avg   float64
-	Vol   int
+	Price float64 // 成交价。
+	Avg   float64 // 均价。
+	Vol   int     // 成交量。
 }
 
 func NewGetMinuteTimeData() *GetMinuteTimeData {

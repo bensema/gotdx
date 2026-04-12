@@ -73,7 +73,7 @@ func main() {
 		log.Fatal(err)
 	}
 	for _, item := range stocks {
-		log.Printf("stock: %+v", item)
+		log.Printf("stock code=%s price=%.2f turnover=%.2f%%", item.Code, item.Price, item.Turnover)
 	}
 
 	exQuotes, err := client.ExQuotes(
@@ -123,7 +123,7 @@ client := gotdx.New(
 
 | 模块 | 典型能力 | 代表接口 |
 | --- | --- | --- |
-| 主行情 | 股票/指数列表、快照、K 线、分时、逐笔、异动、集合竞价 | `StockQuotesDetail`, `StockKLine`, `StockTickChart`, `StockTransaction` |
+| 主行情 | 股票/指数列表、快照、K 线、分时、逐笔、指数工具、异动、集合竞价 | `StockQuotesDetail`, `StockKLine`, `StockIndexInfo`, `StockUnusual`, `StockAuction` |
 | 扩展市场 | 美股/港股/期货等扩展标的列表、报价、K 线、历史成交、表格 | `ExQuotes`, `ExKLine`, `ExHistoryTransaction`, `ExTable` |
 | F10 与文件 | 公司信息分类、正文、财务、除权除息、文件下载、板块文件 | `GetCompanyInfo`, `GetFinanceInfo`, `GetXDXRInfo`, `DownloadFullFile` |
 | MAC 协议 | 板块列表、成分股、成分报价、所属板块、统一 K 线 | `MACBoardList`, `MACBoardMembers`, `MACBoardMembersQuotes`, `MACSymbolBars` |
@@ -251,13 +251,14 @@ http://127.0.0.1:8080
 
 ### 高阶统一入口
 
-- 主行情：`StockCount`, `StockList`, `StockQuotesDetail`, `StockKLine`, `StockTickChart`, `StockHistoryTransaction`, `StockF10`
+- `StockQuotesDetail`、`StockQuotesList`、`StockQuotes`、`StockKLine`、`StockKLineOffset`、`StockVolumeProfile` 会在可获取到流通股本时，按 `opentdx` 逻辑尽力补齐 `Turnover`。
+- 主行情：`StockCount`, `StockList`, `StockQuotesDetail`, `StockKLine`, `StockTickChart`, `StockIndexInfo`, `StockIndexMomentum`, `StockChartSampling`, `StockAuction`, `StockTopBoard`, `StockUnusual`, `StockVolumeProfile`, `StockHistoryOrders`, `StockHistoryTransaction`, `StockF10`
 - 扩展市场：`ExCount`, `ExList`, `ExQuote`, `ExQuotes`, `ExKLine`, `ExTickChart`, `ExHistoryTransaction`, `ExTable`
 - MAC：`MACBoardList`, `MACBoardMembers`, `MACBoardMembersQuotes`, `MACSymbolBelongBoard`, `MACSymbolBars`
 
 ### 常用底层接口
 
-- 主行情：`GetSecurityCount`, `GetSecurityListRange`, `GetQuotesDetail`, `GetMinuteTimeData`, `GetTransactionData`
+- 主行情：`GetSecurityCount`, `GetSecurityListRange`, `GetQuotesDetail`, `GetIndexInfo`, `GetIndexMomentum`, `GetVolumeProfile`, `GetMinuteTimeData`, `GetAuction`, `GetTopBoard`, `GetUnusual`, `GetTransactionData`, `GetHistoryOrders`
 - F10/文件：`GetCompanyCategories`, `GetCompanyContent`, `GetFinanceInfo`, `GetXDXRInfo`, `DownloadFile`, `GetBlockFile`
 - 扩展市场：`ExGetCategoryList`, `ExGetQuotesList`, `ExGetQuote`, `ExGetChartSampling`, `ExGetFileMeta`, `ExDownloadFile`
 

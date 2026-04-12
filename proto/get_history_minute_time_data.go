@@ -13,20 +13,20 @@ type GetHistoryMinuteTimeData struct {
 }
 
 type GetHistoryMinuteTimeDataRequest struct {
-	Date   int32
-	Market uint8
-	Code   [6]byte
+	Date   int32   // 交易日期，协议中使用负值编码。
+	Market uint8   // 市场代码。
+	Code   [6]byte // 证券代码。
 }
 
 type GetHistoryMinuteTimeDataReply struct {
-	Count uint16
-	List  []HistoryMinuteTimeData
+	Count uint16                  // 返回条数。
+	List  []HistoryMinuteTimeData // 历史分时数据。
 }
 
 type HistoryMinuteTimeData struct {
-	Price float64
-	Avg   float64
-	Vol   int
+	Price float64 // 成交价。
+	Avg   float64 // 均价。
+	Vol   int     // 成交量。
 }
 
 func NewGetHistoryMinuteTimeData() *GetHistoryMinuteTimeData {

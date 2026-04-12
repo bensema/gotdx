@@ -1173,14 +1173,14 @@ func runMethod(def methodDef, params map[string]string) (queryPayload, map[strin
 		}
 		request := map[string]any{"markets": markets, "codes": codes}
 		payload, err := withMainClient(func(client *gotdx.Client) (queryPayload, error) {
-			reply, err := client.GetQuotes(markets, codes)
+			reply, err := client.StockQuotes(markets, codes)
 			if err != nil {
 				return queryPayload{}, err
 			}
 			return queryPayload{
-				columns: []string{"market", "code", "price", "pre_close", "change", "vol", "amount", "rise_speed"},
-				rows:    rowsFromQuoteList(reply.List),
-				raw:     reply.List,
+				columns: []string{"market", "code", "price", "pre_close", "change", "vol", "amount", "rise_speed", "turnover"},
+				rows:    rowsFromQuoteList(reply),
+				raw:     reply,
 			}, nil
 		})
 		return payload, request, err
@@ -1196,14 +1196,14 @@ func runMethod(def methodDef, params map[string]string) (queryPayload, map[strin
 		}
 		request := map[string]any{"markets": markets, "codes": codes}
 		payload, err := withMainClient(func(client *gotdx.Client) (queryPayload, error) {
-			reply, err := client.GetQuotesDetail(markets, codes)
+			reply, err := client.StockQuotesDetail(markets, codes)
 			if err != nil {
 				return queryPayload{}, err
 			}
 			return queryPayload{
-				columns: []string{"market", "code", "time", "price", "open", "high", "low", "vol", "amount"},
-				rows:    rowsFromQuoteDetail(reply.List),
-				raw:     reply.List,
+				columns: []string{"market", "code", "time", "price", "open", "high", "low", "vol", "amount", "turnover"},
+				rows:    rowsFromQuoteDetail(reply),
+				raw:     reply,
 			}, nil
 		})
 		return payload, request, err
@@ -1234,14 +1234,14 @@ func runMethod(def methodDef, params map[string]string) (queryPayload, map[strin
 		}
 		request := map[string]any{"category": category, "start": start, "count": count, "sort_type": sortType, "reverse": reverse, "filter": filter}
 		payload, err := withMainClient(func(client *gotdx.Client) (queryPayload, error) {
-			reply, err := client.GetQuotesList(category, start, count, sortType, reverse, filter)
+			reply, err := client.StockQuotesList(category, start, count, sortType, reverse, filter)
 			if err != nil {
 				return queryPayload{}, err
 			}
 			return queryPayload{
-				columns: []string{"market", "code", "price", "pre_close", "change", "vol", "amount", "rise_speed"},
-				rows:    rowsFromQuoteList(reply.List),
-				raw:     reply.List,
+				columns: []string{"market", "code", "price", "pre_close", "change", "vol", "amount", "rise_speed", "turnover"},
+				rows:    rowsFromQuoteList(reply),
+				raw:     reply,
 			}, nil
 		})
 		return payload, request, err
@@ -1343,14 +1343,14 @@ func runMethod(def methodDef, params map[string]string) (queryPayload, map[strin
 		}
 		request := map[string]any{"category": category, "market": market, "code": code, "start": start, "count": count, "times": times, "adjust": adjust}
 		payload, err := withMainClient(func(client *gotdx.Client) (queryPayload, error) {
-			reply, err := client.GetKLine(category, market, code, start, count, times, adjust)
+			reply, err := client.StockKLine(category, market, code, start, count, times, adjust)
 			if err != nil {
 				return queryPayload{}, err
 			}
 			return queryPayload{
-				columns: []string{"datetime", "open", "high", "low", "close", "vol", "amount"},
-				rows:    rowsFromSecurityBars(reply.List),
-				raw:     reply.List,
+				columns: []string{"datetime", "open", "high", "low", "close", "vol", "amount", "turnover"},
+				rows:    rowsFromSecurityBars(reply),
+				raw:     reply,
 			}, nil
 		})
 		return payload, request, err
@@ -1382,14 +1382,14 @@ func runMethod(def methodDef, params map[string]string) (queryPayload, map[strin
 		}
 		request := map[string]any{"category": category, "market": market, "code": code, "start": start, "count": count, "times": times, "adjust": adjust}
 		payload, err := withMainClient(func(client *gotdx.Client) (queryPayload, error) {
-			reply, err := client.GetSecurityBarsOffset(category, market, code, start, count, times, adjust)
+			reply, err := client.StockKLineOffset(category, market, code, start, count, times, adjust)
 			if err != nil {
 				return queryPayload{}, err
 			}
 			return queryPayload{
-				columns: []string{"datetime", "open", "high", "low", "close", "vol", "amount"},
-				rows:    rowsFromSecurityBars(reply.List),
-				raw:     reply.List,
+				columns: []string{"datetime", "open", "high", "low", "close", "vol", "amount", "turnover"},
+				rows:    rowsFromSecurityBars(reply),
+				raw:     reply,
 			}, nil
 		})
 		return payload, request, err
@@ -1704,7 +1704,7 @@ func runMethod(def methodDef, params map[string]string) (queryPayload, map[strin
 				return queryPayload{}, err
 			}
 			return queryPayload{
-				columns: []string{"index", "market", "code", "time", "desc", "value"},
+				columns: []string{"index", "market", "code", "time", "desc", "value", "unusual_type"},
 				rows:    rowsFromUnusual(reply.List),
 				raw:     reply.List,
 			}, nil
@@ -1718,13 +1718,13 @@ func runMethod(def methodDef, params map[string]string) (queryPayload, map[strin
 		code := valueOrDefault(params, "code", "000001")
 		request := map[string]any{"market": market, "code": code}
 		payload, err := withMainClient(func(client *gotdx.Client) (queryPayload, error) {
-			reply, err := client.GetVolumeProfile(market, code)
+			reply, err := client.StockVolumeProfile(market, code)
 			if err != nil {
 				return queryPayload{}, err
 			}
 			return queryPayload{
-				columns: []string{"price", "vol", "buy", "sell"},
-				rows:    rowsFromVolumeProfile(reply.VolProfiles),
+				columns: []string{"price", "vol", "buy", "sell", "turnover"},
+				rows:    rowsFromVolumeProfile(reply.VolProfiles, reply.Turnover),
 				raw:     reply,
 				warning: "部分主站返回的价格档位仍可能存在异常跳变，适合作为协议调试观察。",
 			}, nil
@@ -2801,6 +2801,7 @@ func rowsFromQuoteDetail(items []proto.SecurityQuote) [][]string {
 			formatFloat(item.Low),
 			fmt.Sprintf("%d", item.Vol),
 			formatFloat(item.Amount),
+			formatFloat(item.Turnover),
 		})
 	}
 	return rows
@@ -2818,6 +2819,7 @@ func rowsFromQuoteList(items []proto.QuoteListItem) [][]string {
 			fmt.Sprintf("%d", item.Vol),
 			formatFloat(item.Amount),
 			formatFloat(item.RiseSpeed),
+			formatFloat(item.Turnover),
 		})
 	}
 	return rows
@@ -2861,6 +2863,7 @@ func rowsFromSecurityBars(items []proto.SecurityBar) [][]string {
 			formatFloat(item.Close),
 			formatFloat(item.Vol),
 			formatFloat(item.Amount),
+			formatFloat(item.Turnover),
 		})
 	}
 	return rows
@@ -3050,12 +3053,13 @@ func rowsFromUnusual(items []proto.UnusualData) [][]string {
 			item.Time,
 			item.Desc,
 			item.Value,
+			fmt.Sprintf("%d", item.UnusualType),
 		})
 	}
 	return rows
 }
 
-func rowsFromVolumeProfile(items []proto.VolumeProfileItem) [][]string {
+func rowsFromVolumeProfile(items []proto.VolumeProfileItem, turnover float64) [][]string {
 	rows := make([][]string, 0, len(items))
 	for _, item := range items {
 		rows = append(rows, []string{
@@ -3063,6 +3067,7 @@ func rowsFromVolumeProfile(items []proto.VolumeProfileItem) [][]string {
 			fmt.Sprintf("%d", item.Vol),
 			fmt.Sprintf("%d", item.Buy),
 			fmt.Sprintf("%d", item.Sell),
+			formatFloat(turnover),
 		})
 	}
 	return rows

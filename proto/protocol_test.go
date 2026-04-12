@@ -645,7 +645,7 @@ func TestGetUnusualSerializeAndDeserialize(t *testing.T) {
 	}
 
 	item := msg.Reply().List[0]
-	if item.Code != "600000" || item.Time != "09:30:15" || item.Desc != "加速拉升" || item.Value != "1.23%" {
+	if item.Code != "600000" || item.Time != "09:30:15" || item.Desc != "加速拉升" || item.Value != "1.23%" || item.UnusualType != 0x04 {
 		t.Fatalf("unexpected unusual item: %+v", item)
 	}
 }

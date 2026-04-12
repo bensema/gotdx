@@ -15,17 +15,17 @@ type GetHistoryTransactionDataWithTrans struct {
 }
 
 type GetHistoryTransactionDataWithTransReply struct {
-	Count    uint16
-	PreClose float64
-	List     []HistoryTransactionDataWithTrans
+	Count    uint16                            // 返回条数。
+	PreClose float64                           // 昨收价。
+	List     []HistoryTransactionDataWithTrans // 带方向的历史逐笔成交。
 }
 
 type HistoryTransactionDataWithTrans struct {
-	Time   string
-	Price  float64
-	Vol    int
-	Num    int
-	Action string
+	Time   string  // 成交时间。
+	Price  float64 // 成交价。
+	Vol    int     // 成交量。
+	Num    int     // 笔数或委托笔数。
+	Action string  // 成交方向，如 BUY/SELL/NEUTRAL。
 }
 
 func NewGetHistoryTransactionDataWithTrans() *GetHistoryTransactionDataWithTrans {

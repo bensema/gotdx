@@ -14,40 +14,41 @@ type GetVolumeProfile struct {
 }
 
 type GetVolumeProfileRequest struct {
-	Market uint16
-	Code   [6]byte
+	Market uint16  // 市场代码。
+	Code   [6]byte // 证券代码。
 }
 
 type GetVolumeProfileReply struct {
-	Count       uint16
-	Market      uint8
-	Code        string
-	Active      uint16
-	Close       float64
-	Open        float64
-	High        float64
-	Low         float64
-	PreClose    float64
-	ServerTime  string
-	NegPrice    float64
-	Vol         int
-	CurVol      int
-	Amount      float64
-	InVol       int
-	OutVol      int
-	SAmount     int
-	OpenAmount  int
-	BidLevels   []Level
-	AskLevels   []Level
-	Unknown     uint16
-	VolProfiles []VolumeProfileItem
+	Count       uint16              // 成交分布档位数。
+	Market      uint8               // 市场代码。
+	Code        string              // 证券代码。
+	Active      uint16              // 活跃度。
+	Close       float64             // 最新价。
+	Open        float64             // 今开价。
+	High        float64             // 最高价。
+	Low         float64             // 最低价。
+	PreClose    float64             // 昨收价。
+	ServerTime  string              // 服务端时间。
+	NegPrice    float64             // 特殊价格字段。
+	Vol         int                 // 总成交量。
+	CurVol      int                 // 现量。
+	Amount      float64             // 总成交额。
+	InVol       int                 // 内盘量。
+	OutVol      int                 // 外盘量。
+	SAmount     int                 // 上涨家数或卖出相关统计字段。
+	OpenAmount  int                 // 开盘金额。
+	Turnover    float64             // 换手率，按高层接口 best-effort 补齐。
+	BidLevels   []Level             // 买盘三档。
+	AskLevels   []Level             // 卖盘三档。
+	Unknown     uint16              // 未确认字段。
+	VolProfiles []VolumeProfileItem // 成交分布明细。
 }
 
 type VolumeProfileItem struct {
-	Price float64
-	Vol   int
-	Buy   int
-	Sell  int
+	Price float64 // 档位价格。
+	Vol   int     // 该档总成交量。
+	Buy   int     // 主买量。
+	Sell  int     // 主卖量。
 }
 
 func NewGetVolumeProfile() *GetVolumeProfile {

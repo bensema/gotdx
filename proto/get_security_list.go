@@ -39,7 +39,7 @@ type Security struct {
 	Unknown3     uint16  // 未确认字段。
 }
 
-func NewGetSecurityList() *GetSecurityList {
+func NewGetSecurityList(req *GetSecurityListRequest) *GetSecurityList {
 	obj := new(GetSecurityList)
 	obj.reqHeader = new(ReqHeader)
 	obj.respHeader = new(RespHeader)
@@ -50,17 +50,20 @@ func NewGetSecurityList() *GetSecurityList {
 	obj.reqHeader.SeqID = seqID()
 	obj.reqHeader.PacketType = 0x01
 	obj.reqHeader.Method = KMSG_SECURITYLIST
+	if req != nil {
+		obj.applyRequest(req)
+	}
 	return obj
 }
 
-func (obj *GetSecurityList) SetParams(req *GetSecurityListRequest) {
+func (obj *GetSecurityList) applyRequest(req *GetSecurityListRequest) {
 	if req.Count == 0 {
 		req.Count = 1600
 	}
 	obj.request = req
 }
 
-func (obj *GetSecurityList) Serialize() ([]byte, error) {
+func (obj *GetSecurityList) BuildRequest() ([]byte, error) {
 	obj.reqHeader.PkgLen1 = 2 + 2 + 4 + 4 + 4
 	obj.reqHeader.PkgLen2 = 2 + 2 + 4 + 4 + 4
 
@@ -71,8 +74,8 @@ func (obj *GetSecurityList) Serialize() ([]byte, error) {
 	return buf.Bytes(), err
 }
 
-func (obj *GetSecurityList) UnSerialize(header interface{}, data []byte) error {
-	obj.respHeader = header.(*RespHeader)
+func (obj *GetSecurityList) ParseResponse(header *RespHeader, data []byte) error {
+	obj.respHeader = header
 
 	pos := 0
 	err := binary.Read(bytes.NewBuffer(data[pos:pos+2]), binary.LittleEndian, &obj.reply.Count)
@@ -112,6 +115,6 @@ func (obj *GetSecurityList) UnSerialize(header interface{}, data []byte) error {
 	return err
 }
 
-func (obj *GetSecurityList) Reply() *GetSecurityListReply {
+func (obj *GetSecurityList) Response() *GetSecurityListReply {
 	return obj.reply
 }

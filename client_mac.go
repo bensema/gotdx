@@ -22,19 +22,17 @@ func (client *Client) ConnectMAC() error {
 }
 
 func (client *Client) GetMACBoardCount(boardType uint16) (*proto.MACBoardCountReply, error) {
-	obj := proto.NewMACBoardCount()
-	obj.SetParams(&proto.MACBoardListRequest{BoardType: boardType})
-	return executeMsg(client, obj, obj.Reply)
+	obj := proto.NewMACBoardCount(&proto.MACBoardListRequest{BoardType: boardType})
+	return executeProtocol(client, obj)
 }
 
 func (client *Client) GetMACBoardList(boardType uint16, start uint16, pageSize uint16) (*proto.MACBoardListReply, error) {
-	obj := proto.NewMACBoardList()
-	obj.SetParams(&proto.MACBoardListRequest{
+	obj := proto.NewMACBoardList(&proto.MACBoardListRequest{
 		BoardType: boardType,
 		Start:     start,
 		PageSize:  pageSize,
 	})
-	return executeMsg(client, obj, obj.Reply)
+	return executeProtocol(client, obj)
 }
 
 func (client *Client) GetMACBoardMembers(boardSymbol string, sortType uint16, start uint32, pageSize uint8, sortOrder uint16) (*proto.MACBoardMembersReply, error) {
@@ -42,15 +40,14 @@ func (client *Client) GetMACBoardMembers(boardSymbol string, sortType uint16, st
 	if err != nil {
 		return nil, err
 	}
-	obj := proto.NewMACBoardMembers()
-	obj.SetParams(&proto.MACBoardMembersRequest{
+	obj := proto.NewMACBoardMembers(&proto.MACBoardMembersRequest{
 		BoardCode: boardCode,
 		SortType:  sortType,
 		Start:     start,
 		PageSize:  pageSize,
 		SortOrder: sortOrder,
 	})
-	return executeMsg(client, obj, obj.Reply)
+	return executeProtocol(client, obj)
 }
 
 func (client *Client) GetMACBoardMembersQuotes(boardSymbol string, sortType uint16, start uint32, pageSize uint8, sortOrder uint8) (*proto.MACBoardMembersQuotesReply, error) {
@@ -58,29 +55,26 @@ func (client *Client) GetMACBoardMembersQuotes(boardSymbol string, sortType uint
 	if err != nil {
 		return nil, err
 	}
-	obj := proto.NewMACBoardMembersQuotes()
-	obj.SetParams(&proto.MACBoardMembersQuotesRequest{
+	obj := proto.NewMACBoardMembersQuotes(&proto.MACBoardMembersQuotesRequest{
 		BoardCode: boardCode,
 		SortType:  sortType,
 		Start:     start,
 		PageSize:  pageSize,
 		SortOrder: sortOrder,
 	})
-	return executeMsg(client, obj, obj.Reply)
+	return executeProtocol(client, obj)
 }
 
 func (client *Client) GetMACSymbolBelongBoard(market uint8, symbol string) (*proto.MACSymbolBelongBoardReply, error) {
-	obj := proto.NewMACSymbolBelongBoard()
-	obj.SetParams(&proto.MACSymbolBelongBoardRequest{
+	obj := proto.NewMACSymbolBelongBoard(&proto.MACSymbolBelongBoardRequest{
 		Market: uint16(market),
 		Symbol: makeMACCode8Client(symbol),
 	})
-	return executeMsg(client, obj, obj.Reply)
+	return executeProtocol(client, obj)
 }
 
 func (client *Client) GetMACSymbolBars(market uint8, code string, period uint16, times uint16, start uint32, count uint16, adjust uint16) (*proto.MACSymbolBarsReply, error) {
-	obj := proto.NewMACSymbolBars()
-	obj.SetParams(&proto.MACSymbolBarsRequest{
+	obj := proto.NewMACSymbolBars(&proto.MACSymbolBarsRequest{
 		Market: uint16(market),
 		Code:   makeMACCode22Client(code),
 		Period: period,
@@ -89,7 +83,7 @@ func (client *Client) GetMACSymbolBars(market uint8, code string, period uint16,
 		Count:  count,
 		Adjust: adjust,
 	})
-	return executeMsg(client, obj, obj.Reply)
+	return executeProtocol(client, obj)
 }
 
 func (client *Client) MACBoardCount(boardType uint16) (uint16, error) {

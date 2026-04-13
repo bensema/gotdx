@@ -13,7 +13,7 @@ type ExGetFileMeta struct {
 	reply      *GetFileMetaReply
 }
 
-func NewExGetFileMeta() *ExGetFileMeta {
+func NewExGetFileMeta(req *GetFileMetaRequest) *ExGetFileMeta {
 	obj := &ExGetFileMeta{
 		reqHeader:  new(ReqHeader),
 		respHeader: new(RespHeader),
@@ -24,23 +24,26 @@ func NewExGetFileMeta() *ExGetFileMeta {
 	obj.reqHeader.SeqID = seqID()
 	obj.reqHeader.PacketType = 0x01
 	obj.reqHeader.Method = KMSG_EXFILEMETA
+	if req != nil {
+		obj.applyRequest(req)
+	}
 	return obj
 }
 
-func (obj *ExGetFileMeta) SetParams(req *GetFileMetaRequest) {
+func (obj *ExGetFileMeta) applyRequest(req *GetFileMetaRequest) {
 	obj.request = req
 }
 
-func (obj *ExGetFileMeta) Serialize() ([]byte, error) {
+func (obj *ExGetFileMeta) BuildRequest() ([]byte, error) {
 	payload := new(bytes.Buffer)
 	if err := binary.Write(payload, binary.LittleEndian, obj.request); err != nil {
 		return nil, err
 	}
-	return serializeExRequest(KMSG_EXFILEMETA, payload.Bytes())
+	return buildExRequest(KMSG_EXFILEMETA, payload.Bytes())
 }
 
-func (obj *ExGetFileMeta) UnSerialize(header interface{}, data []byte) error {
-	obj.respHeader = header.(*RespHeader)
+func (obj *ExGetFileMeta) ParseResponse(header *RespHeader, data []byte) error {
+	obj.respHeader = header
 	if len(data) < 38 {
 		return fmt.Errorf("invalid ex file meta response length: %d", len(data))
 	}
@@ -51,7 +54,7 @@ func (obj *ExGetFileMeta) UnSerialize(header interface{}, data []byte) error {
 	return nil
 }
 
-func (obj *ExGetFileMeta) Reply() *GetFileMetaReply {
+func (obj *ExGetFileMeta) Response() *GetFileMetaReply {
 	return obj.reply
 }
 
@@ -68,7 +71,7 @@ type ExDownloadFileRequest struct {
 	Filename [40]byte
 }
 
-func NewExDownloadFile() *ExDownloadFile {
+func NewExDownloadFile(req *ExDownloadFileRequest) *ExDownloadFile {
 	obj := &ExDownloadFile{
 		reqHeader:  new(ReqHeader),
 		respHeader: new(RespHeader),
@@ -79,23 +82,26 @@ func NewExDownloadFile() *ExDownloadFile {
 	obj.reqHeader.SeqID = seqID()
 	obj.reqHeader.PacketType = 0x01
 	obj.reqHeader.Method = KMSG_EXFILEDOWNLOAD
+	if req != nil {
+		obj.applyRequest(req)
+	}
 	return obj
 }
 
-func (obj *ExDownloadFile) SetParams(req *ExDownloadFileRequest) {
+func (obj *ExDownloadFile) applyRequest(req *ExDownloadFileRequest) {
 	obj.request = req
 }
 
-func (obj *ExDownloadFile) Serialize() ([]byte, error) {
+func (obj *ExDownloadFile) BuildRequest() ([]byte, error) {
 	payload := new(bytes.Buffer)
 	if err := binary.Write(payload, binary.LittleEndian, obj.request); err != nil {
 		return nil, err
 	}
-	return serializeExRequest(KMSG_EXFILEDOWNLOAD, payload.Bytes())
+	return buildExRequest(KMSG_EXFILEDOWNLOAD, payload.Bytes())
 }
 
-func (obj *ExDownloadFile) UnSerialize(header interface{}, data []byte) error {
-	obj.respHeader = header.(*RespHeader)
+func (obj *ExDownloadFile) ParseResponse(header *RespHeader, data []byte) error {
+	obj.respHeader = header
 	if len(data) < 4 {
 		return fmt.Errorf("invalid ex download file response length: %d", len(data))
 	}
@@ -104,7 +110,7 @@ func (obj *ExDownloadFile) UnSerialize(header interface{}, data []byte) error {
 	return nil
 }
 
-func (obj *ExDownloadFile) Reply() *DownloadFileReply {
+func (obj *ExDownloadFile) Response() *DownloadFileReply {
 	return obj.reply
 }
 
@@ -154,33 +160,37 @@ type ExGetTable struct {
 	*ExGetTableChunk
 }
 
-func NewExGetTable() *ExGetTable {
-	return &ExGetTable{ExGetTableChunk: newExGetTableChunk(KMSG_EXTABLE, 1)}
+func NewExGetTable(start uint32) *ExGetTable {
+	obj := &ExGetTable{ExGetTableChunk: newExGetTableChunk(KMSG_EXTABLE, 1)}
+	obj.applyStart(start)
+	return obj
 }
 
 type ExGetTableDetail struct {
 	*ExGetTableChunk
 }
 
-func NewExGetTableDetail() *ExGetTableDetail {
-	return &ExGetTableDetail{ExGetTableChunk: newExGetTableChunk(KMSG_EXTABLEDETAIL, 0)}
+func NewExGetTableDetail(start uint32) *ExGetTableDetail {
+	obj := &ExGetTableDetail{ExGetTableChunk: newExGetTableChunk(KMSG_EXTABLEDETAIL, 0)}
+	obj.applyStart(start)
+	return obj
 }
 
-func (obj *ExGetTableChunk) SetParams(start uint32) {
+func (obj *ExGetTableChunk) applyStart(start uint32) {
 	obj.request.Start = start
 	obj.request.Mode = obj.mode
 }
 
-func (obj *ExGetTableChunk) Serialize() ([]byte, error) {
+func (obj *ExGetTableChunk) BuildRequest() ([]byte, error) {
 	payload := new(bytes.Buffer)
 	if err := binary.Write(payload, binary.LittleEndian, obj.request); err != nil {
 		return nil, err
 	}
-	return serializeExRequest(obj.method, payload.Bytes())
+	return buildExRequest(obj.method, payload.Bytes())
 }
 
-func (obj *ExGetTableChunk) UnSerialize(header interface{}, data []byte) error {
-	obj.respHeader = header.(*RespHeader)
+func (obj *ExGetTableChunk) ParseResponse(header *RespHeader, data []byte) error {
+	obj.respHeader = header
 	if len(data) < 169 {
 		return fmt.Errorf("invalid ex table response length: %d", len(data))
 	}
@@ -190,6 +200,6 @@ func (obj *ExGetTableChunk) UnSerialize(header interface{}, data []byte) error {
 	return nil
 }
 
-func (obj *ExGetTableChunk) Reply() *ExGetTableChunkReply {
+func (obj *ExGetTableChunk) Response() *ExGetTableChunkReply {
 	return obj.reply
 }

@@ -43,7 +43,7 @@ type EncryptedQuoteItem struct {
 	AskLevels  []Level
 }
 
-func NewGetQuotesEncrypt() *GetQuotesEncrypt {
+func NewGetQuotesEncrypt(req *GetQuotesEncryptRequest) *GetQuotesEncrypt {
 	obj := &GetQuotesEncrypt{
 		reqHeader:  new(ReqHeader),
 		respHeader: new(RespHeader),
@@ -54,14 +54,17 @@ func NewGetQuotesEncrypt() *GetQuotesEncrypt {
 	obj.reqHeader.SeqID = seqID()
 	obj.reqHeader.PacketType = 0x01
 	obj.reqHeader.Method = KMSG_QUOTESENCRYPT
+	if req != nil {
+		obj.applyRequest(req)
+	}
 	return obj
 }
 
-func (obj *GetQuotesEncrypt) SetParams(req *GetQuotesEncryptRequest) {
+func (obj *GetQuotesEncrypt) applyRequest(req *GetQuotesEncryptRequest) {
 	obj.request = req
 }
 
-func (obj *GetQuotesEncrypt) Serialize() ([]byte, error) {
+func (obj *GetQuotesEncrypt) BuildRequest() ([]byte, error) {
 	buf := new(bytes.Buffer)
 	if err := binary.Write(buf, binary.LittleEndian, uint16(len(obj.request.Stocks))); err != nil {
 		return nil, err
@@ -82,11 +85,11 @@ func (obj *GetQuotesEncrypt) Serialize() ([]byte, error) {
 			return nil, err
 		}
 	}
-	return serializeGenericRequest(0x0c, 0, 0x01, KMSG_QUOTESENCRYPT, buf.Bytes())
+	return buildGenericRequest(0x0c, 0, 0x01, KMSG_QUOTESENCRYPT, buf.Bytes())
 }
 
-func (obj *GetQuotesEncrypt) UnSerialize(header interface{}, data []byte) error {
-	obj.respHeader = header.(*RespHeader)
+func (obj *GetQuotesEncrypt) ParseResponse(header *RespHeader, data []byte) error {
+	obj.respHeader = header
 	xor := make([]byte, len(data))
 	for i := range data {
 		xor[i] = data[i] ^ 0x93
@@ -154,6 +157,6 @@ func (obj *GetQuotesEncrypt) UnSerialize(header interface{}, data []byte) error 
 	return nil
 }
 
-func (obj *GetQuotesEncrypt) Reply() *GetQuotesEncryptReply {
+func (obj *GetQuotesEncrypt) Response() *GetQuotesEncryptReply {
 	return obj.reply
 }

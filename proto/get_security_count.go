@@ -22,7 +22,7 @@ type GetSecurityCountReply struct {
 	Count uint16
 }
 
-func NewGetSecurityCount() *GetSecurityCount {
+func NewGetSecurityCount(req *GetSecurityCountRequest) *GetSecurityCount {
 	obj := new(GetSecurityCount)
 	obj.reqHeader = new(ReqHeader)
 	obj.respHeader = new(RespHeader)
@@ -33,17 +33,20 @@ func NewGetSecurityCount() *GetSecurityCount {
 	obj.reqHeader.SeqID = seqID()
 	obj.reqHeader.PacketType = 0x01
 	obj.reqHeader.Method = KMSG_SECURITYCOUNT
+	if req != nil {
+		obj.applyRequest(req)
+	}
 	return obj
 }
 
-func (obj *GetSecurityCount) SetParams(req *GetSecurityCountRequest) {
+func (obj *GetSecurityCount) applyRequest(req *GetSecurityCountRequest) {
 	if req.Date == 0 {
 		req.Date = todayDate()
 	}
 	obj.request = req
 }
 
-func (obj *GetSecurityCount) Serialize() ([]byte, error) {
+func (obj *GetSecurityCount) BuildRequest() ([]byte, error) {
 	obj.reqHeader.PkgLen1 = 2 + 2 + 4
 	obj.reqHeader.PkgLen2 = 2 + 2 + 4
 
@@ -53,13 +56,13 @@ func (obj *GetSecurityCount) Serialize() ([]byte, error) {
 	return buf.Bytes(), err
 }
 
-func (obj *GetSecurityCount) UnSerialize(header interface{}, data []byte) error {
-	obj.respHeader = header.(*RespHeader)
+func (obj *GetSecurityCount) ParseResponse(header *RespHeader, data []byte) error {
+	obj.respHeader = header
 
 	obj.reply.Count = binary.LittleEndian.Uint16(data[:2])
 	return nil
 }
 
-func (obj *GetSecurityCount) Reply() *GetSecurityCountReply {
+func (obj *GetSecurityCount) Response() *GetSecurityCountReply {
 	return obj.reply
 }

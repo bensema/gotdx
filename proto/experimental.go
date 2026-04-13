@@ -44,9 +44,9 @@ func newGenericRawMainProtocol(method uint16, payload []byte) *RawMainProtocol {
 	return obj
 }
 
-func (obj *RawMainProtocol) Serialize() ([]byte, error) {
+func (obj *RawMainProtocol) BuildRequest() ([]byte, error) {
 	if obj.generic {
-		return serializeGenericRequest(0x0c, 0, 0x01, obj.method, obj.payload)
+		return buildGenericRequest(0x0c, 0, 0x01, obj.method, obj.payload)
 	}
 	obj.reqHeader.PkgLen1 = uint16(2 + len(obj.payload))
 	obj.reqHeader.PkgLen2 = obj.reqHeader.PkgLen1
@@ -58,15 +58,15 @@ func (obj *RawMainProtocol) Serialize() ([]byte, error) {
 	return buf.Bytes(), err
 }
 
-func (obj *RawMainProtocol) UnSerialize(header interface{}, data []byte) error {
-	obj.respHeader = header.(*RespHeader)
+func (obj *RawMainProtocol) ParseResponse(header *RespHeader, data []byte) error {
+	obj.respHeader = header
 	obj.reply.Length = len(data)
 	obj.reply.Data = append([]byte(nil), data...)
 	obj.reply.Hex = hex.EncodeToString(data)
 	return nil
 }
 
-func (obj *RawMainProtocol) Reply() *RawDataReply {
+func (obj *RawMainProtocol) Response() *RawDataReply {
 	return obj.reply
 }
 
@@ -186,7 +186,7 @@ type SecurityFeature452Item struct {
 	P2     float64
 }
 
-func NewGetSecurityFeature452() *GetSecurityFeature452 {
+func NewGetSecurityFeature452(req *GetSecurityFeature452Request) *GetSecurityFeature452 {
 	obj := &GetSecurityFeature452{
 		reqHeader:  new(ReqHeader),
 		respHeader: new(RespHeader),
@@ -197,10 +197,13 @@ func NewGetSecurityFeature452() *GetSecurityFeature452 {
 	obj.reqHeader.SeqID = seqID()
 	obj.reqHeader.PacketType = 0x01
 	obj.reqHeader.Method = KMSG_SECURITYFEATURE452
+	if req != nil {
+		obj.applyRequest(req)
+	}
 	return obj
 }
 
-func (obj *GetSecurityFeature452) SetParams(req *GetSecurityFeature452Request) {
+func (obj *GetSecurityFeature452) applyRequest(req *GetSecurityFeature452Request) {
 	if req.Count == 0 {
 		req.Count = 2000
 	}
@@ -210,7 +213,7 @@ func (obj *GetSecurityFeature452) SetParams(req *GetSecurityFeature452Request) {
 	obj.request = req
 }
 
-func (obj *GetSecurityFeature452) Serialize() ([]byte, error) {
+func (obj *GetSecurityFeature452) BuildRequest() ([]byte, error) {
 	obj.reqHeader.PkgLen1 = 16
 	obj.reqHeader.PkgLen2 = 16
 	buf := new(bytes.Buffer)
@@ -221,8 +224,8 @@ func (obj *GetSecurityFeature452) Serialize() ([]byte, error) {
 	return buf.Bytes(), err
 }
 
-func (obj *GetSecurityFeature452) UnSerialize(header interface{}, data []byte) error {
-	obj.respHeader = header.(*RespHeader)
+func (obj *GetSecurityFeature452) ParseResponse(header *RespHeader, data []byte) error {
+	obj.respHeader = header
 	if len(data) < 2 {
 		return fmt.Errorf("invalid 452 response length: %d", len(data))
 	}
@@ -245,7 +248,7 @@ func (obj *GetSecurityFeature452) UnSerialize(header interface{}, data []byte) e
 	return nil
 }
 
-func (obj *GetSecurityFeature452) Reply() *GetSecurityFeature452Reply { return obj.reply }
+func (obj *GetSecurityFeature452) Response() *GetSecurityFeature452Reply { return obj.reply }
 
 type ExGetListExtra struct {
 	reqHeader  *ReqHeader
@@ -273,7 +276,7 @@ type ExExtraListItem struct {
 	Values   []uint16
 }
 
-func NewExGetListExtra() *ExGetListExtra {
+func NewExGetListExtra(req *ExGetListExtraRequest) *ExGetListExtra {
 	obj := &ExGetListExtra{
 		reqHeader:  new(ReqHeader),
 		respHeader: new(RespHeader),
@@ -284,26 +287,29 @@ func NewExGetListExtra() *ExGetListExtra {
 	obj.reqHeader.SeqID = seqID()
 	obj.reqHeader.PacketType = 0x01
 	obj.reqHeader.Method = KMSG_EXLIST_EXTRA
+	if req != nil {
+		obj.applyRequest(req)
+	}
 	return obj
 }
 
-func (obj *ExGetListExtra) SetParams(req *ExGetListExtraRequest) {
+func (obj *ExGetListExtra) applyRequest(req *ExGetListExtraRequest) {
 	if req.Count == 0 {
 		req.Count = 500
 	}
 	obj.request = req
 }
 
-func (obj *ExGetListExtra) Serialize() ([]byte, error) {
+func (obj *ExGetListExtra) BuildRequest() ([]byte, error) {
 	payload := new(bytes.Buffer)
 	if err := binary.Write(payload, binary.LittleEndian, obj.request); err != nil {
 		return nil, err
 	}
-	return serializeExRequest(KMSG_EXLIST_EXTRA, payload.Bytes())
+	return buildExRequest(KMSG_EXLIST_EXTRA, payload.Bytes())
 }
 
-func (obj *ExGetListExtra) UnSerialize(header interface{}, data []byte) error {
-	obj.respHeader = header.(*RespHeader)
+func (obj *ExGetListExtra) ParseResponse(header *RespHeader, data []byte) error {
+	obj.respHeader = header
 	if len(data) < 6 {
 		return fmt.Errorf("invalid 23f6 response length: %d", len(data))
 	}
@@ -329,7 +335,7 @@ func (obj *ExGetListExtra) UnSerialize(header interface{}, data []byte) error {
 	return nil
 }
 
-func (obj *ExGetListExtra) Reply() *ExGetListExtraReply { return obj.reply }
+func (obj *ExGetListExtra) Response() *ExGetListExtraReply { return obj.reply }
 
 type ExExperiment2487 struct {
 	reqHeader  *ReqHeader
@@ -360,7 +366,7 @@ type ExExperiment2487Reply struct {
 	TailHex  string
 }
 
-func NewExExperiment2487() *ExExperiment2487 {
+func NewExExperiment2487(req *ExExperiment2487Request) *ExExperiment2487 {
 	obj := &ExExperiment2487{
 		reqHeader:  new(ReqHeader),
 		respHeader: new(RespHeader),
@@ -371,21 +377,24 @@ func NewExExperiment2487() *ExExperiment2487 {
 	obj.reqHeader.SeqID = seqID()
 	obj.reqHeader.PacketType = 0x01
 	obj.reqHeader.Method = KMSG_EXQUOTES_EXPERIMENT1
+	if req != nil {
+		obj.applyRequest(req)
+	}
 	return obj
 }
 
-func (obj *ExExperiment2487) SetParams(req *ExExperiment2487Request) { obj.request = req }
+func (obj *ExExperiment2487) applyRequest(req *ExExperiment2487Request) { obj.request = req }
 
-func (obj *ExExperiment2487) Serialize() ([]byte, error) {
+func (obj *ExExperiment2487) BuildRequest() ([]byte, error) {
 	payload := new(bytes.Buffer)
 	if err := binary.Write(payload, binary.LittleEndian, obj.request); err != nil {
 		return nil, err
 	}
-	return serializeExRequest(KMSG_EXQUOTES_EXPERIMENT1, payload.Bytes())
+	return buildExRequest(KMSG_EXQUOTES_EXPERIMENT1, payload.Bytes())
 }
 
-func (obj *ExExperiment2487) UnSerialize(header interface{}, data []byte) error {
-	obj.respHeader = header.(*RespHeader)
+func (obj *ExExperiment2487) ParseResponse(header *RespHeader, data []byte) error {
+	obj.respHeader = header
 	if len(data) < 68 {
 		return fmt.Errorf("invalid 2487 response length: %d", len(data))
 	}
@@ -408,7 +417,7 @@ func (obj *ExExperiment2487) UnSerialize(header interface{}, data []byte) error 
 	return nil
 }
 
-func (obj *ExExperiment2487) Reply() *ExExperiment2487Reply { return obj.reply }
+func (obj *ExExperiment2487) Response() *ExExperiment2487Reply { return obj.reply }
 
 type ExExperiment2488 struct {
 	reqHeader  *ReqHeader
@@ -438,7 +447,7 @@ type ExExperiment2488Item struct {
 	Values []uint16
 }
 
-func NewExExperiment2488() *ExExperiment2488 {
+func NewExExperiment2488(req *ExExperiment2488Request) *ExExperiment2488 {
 	obj := &ExExperiment2488{
 		reqHeader:  new(ReqHeader),
 		respHeader: new(RespHeader),
@@ -449,26 +458,29 @@ func NewExExperiment2488() *ExExperiment2488 {
 	obj.reqHeader.SeqID = seqID()
 	obj.reqHeader.PacketType = 0x01
 	obj.reqHeader.Method = KMSG_EXQUOTES_EXPERIMENT2
+	if req != nil {
+		obj.applyRequest(req)
+	}
 	return obj
 }
 
-func (obj *ExExperiment2488) SetParams(req *ExExperiment2488Request) {
+func (obj *ExExperiment2488) applyRequest(req *ExExperiment2488Request) {
 	if req.Mode == 0 {
 		req.Mode = 55
 	}
 	obj.request = req
 }
 
-func (obj *ExExperiment2488) Serialize() ([]byte, error) {
+func (obj *ExExperiment2488) BuildRequest() ([]byte, error) {
 	payload := new(bytes.Buffer)
 	if err := binary.Write(payload, binary.LittleEndian, obj.request); err != nil {
 		return nil, err
 	}
-	return serializeExRequest(KMSG_EXQUOTES_EXPERIMENT2, payload.Bytes())
+	return buildExRequest(KMSG_EXQUOTES_EXPERIMENT2, payload.Bytes())
 }
 
-func (obj *ExExperiment2488) UnSerialize(header interface{}, data []byte) error {
-	obj.respHeader = header.(*RespHeader)
+func (obj *ExExperiment2488) ParseResponse(header *RespHeader, data []byte) error {
+	obj.respHeader = header
 	if len(data) < 38 {
 		return fmt.Errorf("invalid 2488 response length: %d", len(data))
 	}
@@ -493,7 +505,7 @@ func (obj *ExExperiment2488) UnSerialize(header interface{}, data []byte) error 
 	return nil
 }
 
-func (obj *ExExperiment2488) Reply() *ExExperiment2488Reply { return obj.reply }
+func (obj *ExExperiment2488) Response() *ExExperiment2488Reply { return obj.reply }
 
 type ExGetKLine2 struct {
 	reqHeader  *ReqHeader
@@ -522,7 +534,7 @@ type ExGetKLine2Reply struct {
 	List     []ExKLineItem
 }
 
-func NewExGetKLine2() *ExGetKLine2 {
+func NewExGetKLine2(req *ExGetKLine2Request) *ExGetKLine2 {
 	obj := &ExGetKLine2{
 		reqHeader:  new(ReqHeader),
 		respHeader: new(RespHeader),
@@ -533,10 +545,13 @@ func NewExGetKLine2() *ExGetKLine2 {
 	obj.reqHeader.SeqID = seqID()
 	obj.reqHeader.PacketType = 0x01
 	obj.reqHeader.Method = KMSG_EXKLINE2
+	if req != nil {
+		obj.applyRequest(req)
+	}
 	return obj
 }
 
-func (obj *ExGetKLine2) SetParams(req *ExGetKLine2Request) {
+func (obj *ExGetKLine2) applyRequest(req *ExGetKLine2Request) {
 	if req.Times == 0 {
 		req.Times = 1
 	}
@@ -546,16 +561,16 @@ func (obj *ExGetKLine2) SetParams(req *ExGetKLine2Request) {
 	obj.request = req
 }
 
-func (obj *ExGetKLine2) Serialize() ([]byte, error) {
+func (obj *ExGetKLine2) BuildRequest() ([]byte, error) {
 	payload := new(bytes.Buffer)
 	if err := binary.Write(payload, binary.LittleEndian, obj.request); err != nil {
 		return nil, err
 	}
-	return serializeExRequest(KMSG_EXKLINE2, payload.Bytes())
+	return buildExRequest(KMSG_EXKLINE2, payload.Bytes())
 }
 
-func (obj *ExGetKLine2) UnSerialize(header interface{}, data []byte) error {
-	obj.respHeader = header.(*RespHeader)
+func (obj *ExGetKLine2) ParseResponse(header *RespHeader, data []byte) error {
+	obj.respHeader = header
 	if len(data) < 42 {
 		return fmt.Errorf("invalid ex kline2 response length: %d", len(data))
 	}
@@ -590,7 +605,7 @@ func (obj *ExGetKLine2) UnSerialize(header interface{}, data []byte) error {
 	return nil
 }
 
-func (obj *ExGetKLine2) Reply() *ExGetKLine2Reply { return obj.reply }
+func (obj *ExGetKLine2) Response() *ExGetKLine2Reply { return obj.reply }
 
 type ExMapping2562 struct {
 	reqHeader  *ReqHeader
@@ -623,7 +638,7 @@ type ExMapping2562Item struct {
 	Code5    uint16
 }
 
-func NewExMapping2562() *ExMapping2562 {
+func NewExMapping2562(req *ExMapping2562Request) *ExMapping2562 {
 	obj := &ExMapping2562{
 		reqHeader:  new(ReqHeader),
 		respHeader: new(RespHeader),
@@ -634,26 +649,29 @@ func NewExMapping2562() *ExMapping2562 {
 	obj.reqHeader.SeqID = seqID()
 	obj.reqHeader.PacketType = 0x01
 	obj.reqHeader.Method = KMSG_EXMAPPING2562
+	if req != nil {
+		obj.applyRequest(req)
+	}
 	return obj
 }
 
-func (obj *ExMapping2562) SetParams(req *ExMapping2562Request) {
+func (obj *ExMapping2562) applyRequest(req *ExMapping2562Request) {
 	if req.Count == 0 {
 		req.Count = 600
 	}
 	obj.request = req
 }
 
-func (obj *ExMapping2562) Serialize() ([]byte, error) {
+func (obj *ExMapping2562) BuildRequest() ([]byte, error) {
 	payload := new(bytes.Buffer)
 	if err := binary.Write(payload, binary.LittleEndian, obj.request); err != nil {
 		return nil, err
 	}
-	return serializeExRequest(KMSG_EXMAPPING2562, payload.Bytes())
+	return buildExRequest(KMSG_EXMAPPING2562, payload.Bytes())
 }
 
-func (obj *ExMapping2562) UnSerialize(header interface{}, data []byte) error {
-	obj.respHeader = header.(*RespHeader)
+func (obj *ExMapping2562) ParseResponse(header *RespHeader, data []byte) error {
+	obj.respHeader = header
 	if len(data) < 2 {
 		return fmt.Errorf("invalid 2562 response length: %d", len(data))
 	}
@@ -681,7 +699,7 @@ func (obj *ExMapping2562) UnSerialize(header interface{}, data []byte) error {
 	return nil
 }
 
-func (obj *ExMapping2562) Reply() *ExMapping2562Reply { return obj.reply }
+func (obj *ExMapping2562) Response() *ExMapping2562Reply { return obj.reply }
 
 func mustDecodeHex(value string) []byte {
 	out, err := hex.DecodeString(value)

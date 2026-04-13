@@ -47,7 +47,7 @@ type SecurityBar struct {
 	DownCount uint16  // 下跌家数，指数类 K 线常见。
 }
 
-func NewGetSecurityBars() *GetSecurityBars {
+func NewGetSecurityBars(req *GetSecurityBarsRequest) *GetSecurityBars {
 	obj := new(GetSecurityBars)
 	obj.reqHeader = new(ReqHeader)
 	obj.respHeader = new(RespHeader)
@@ -58,17 +58,20 @@ func NewGetSecurityBars() *GetSecurityBars {
 	obj.reqHeader.SeqID = seqID()
 	obj.reqHeader.PacketType = 0x00
 	obj.reqHeader.Method = KMSG_SECURITYBARS
+	if req != nil {
+		obj.applyRequest(req)
+	}
 	return obj
 }
 
-func (obj *GetSecurityBars) SetParams(req *GetSecurityBarsRequest) {
+func (obj *GetSecurityBars) applyRequest(req *GetSecurityBarsRequest) {
 	if req.Times == 0 {
 		req.Times = 1
 	}
 	obj.request = req
 }
 
-func (obj *GetSecurityBars) Serialize() ([]byte, error) {
+func (obj *GetSecurityBars) BuildRequest() ([]byte, error) {
 	obj.reqHeader.PkgLen1 = 0x1c
 	obj.reqHeader.PkgLen2 = 0x1c
 
@@ -78,8 +81,8 @@ func (obj *GetSecurityBars) Serialize() ([]byte, error) {
 	return buf.Bytes(), err
 }
 
-func (obj *GetSecurityBars) UnSerialize(header interface{}, data []byte) error {
-	obj.respHeader = header.(*RespHeader)
+func (obj *GetSecurityBars) ParseResponse(header *RespHeader, data []byte) error {
+	obj.respHeader = header
 
 	pos := 0
 	if err := binary.Read(bytes.NewBuffer(data[pos:pos+2]), binary.LittleEndian, &obj.reply.Count); err != nil {
@@ -136,6 +139,6 @@ func (obj *GetSecurityBars) UnSerialize(header interface{}, data []byte) error {
 	return nil
 }
 
-func (obj *GetSecurityBars) Reply() *GetSecurityBarsReply {
+func (obj *GetSecurityBars) Response() *GetSecurityBarsReply {
 	return obj.reply
 }

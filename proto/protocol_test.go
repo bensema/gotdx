@@ -35,11 +35,11 @@ func encodePrice(value int) []byte {
 	return out
 }
 
-func mustSerialize(t *testing.T, msg Msg) []byte {
+func mustBuildRequest(t *testing.T, msg RequestBuilder) []byte {
 	t.Helper()
-	raw, err := msg.Serialize()
+	raw, err := msg.BuildRequest()
 	if err != nil {
-		t.Fatalf("serialize failed: %v", err)
+		t.Fatalf("build request failed: %v", err)
 	}
 	return raw
 }
@@ -53,11 +53,10 @@ func readReqHeader(t *testing.T, raw []byte) ReqHeader {
 	return header
 }
 
-func TestGetSecurityCountSerializeUsesTodayDate(t *testing.T) {
-	msg := NewGetSecurityCount()
-	msg.SetParams(&GetSecurityCountRequest{Market: 1})
+func TestGetSecurityCountBuildRequestUsesTodayDate(t *testing.T) {
+	msg := NewGetSecurityCount(&GetSecurityCountRequest{Market: 1})
 
-	raw := mustSerialize(t, msg)
+	raw := mustBuildRequest(t, msg)
 	header := readReqHeader(t, raw)
 	if header.Method != KMSG_SECURITYCOUNT {
 		t.Fatalf("unexpected method: %#x", header.Method)
@@ -76,11 +75,10 @@ func TestGetSecurityCountSerializeUsesTodayDate(t *testing.T) {
 	}
 }
 
-func TestGetSecurityListSerializeAndDeserialize(t *testing.T) {
-	msg := NewGetSecurityList()
-	msg.SetParams(&GetSecurityListRequest{Market: 1, Start: 5})
+func TestGetSecurityListBuildRequestAndParseResponse(t *testing.T) {
+	msg := NewGetSecurityList(&GetSecurityListRequest{Market: 1, Start: 5})
 
-	raw := mustSerialize(t, msg)
+	raw := mustBuildRequest(t, msg)
 	header := readReqHeader(t, raw)
 	if header.Method != KMSG_SECURITYLIST {
 		t.Fatalf("unexpected method: %#x", header.Method)
@@ -128,11 +126,11 @@ func TestGetSecurityListSerializeAndDeserialize(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := msg.UnSerialize(&RespHeader{}, buf.Bytes()); err != nil {
-		t.Fatalf("deserialize failed: %v", err)
+	if err := msg.ParseResponse(&RespHeader{}, buf.Bytes()); err != nil {
+		t.Fatalf("parse response failed: %v", err)
 	}
 
-	reply := msg.Reply()
+	reply := msg.Response()
 	if reply.Count != 1 {
 		t.Fatalf("unexpected reply count: %d", reply.Count)
 	}
@@ -157,16 +155,15 @@ func TestGetSecurityListSerializeAndDeserialize(t *testing.T) {
 	}
 }
 
-func TestGetMinuteTimeDataSerializeAndDeserialize(t *testing.T) {
-	msg := NewGetMinuteTimeData()
-	msg.SetParams(&GetMinuteTimeDataRequest{
+func TestGetMinuteTimeDataBuildRequestAndParseResponse(t *testing.T) {
+	msg := NewGetMinuteTimeData(&GetMinuteTimeDataRequest{
 		Market: 1,
 		Code:   [6]byte{'6', '0', '0', '0', '0', '0'},
 		Start:  3,
 		Count:  10,
 	})
 
-	raw := mustSerialize(t, msg)
+	raw := mustBuildRequest(t, msg)
 	header := readReqHeader(t, raw)
 	if header.Method != KMSG_MINUTETIMEDATA {
 		t.Fatalf("unexpected method: %#x", header.Method)
@@ -194,11 +191,11 @@ func TestGetMinuteTimeDataSerializeAndDeserialize(t *testing.T) {
 	buf.Write(encodePrice(100))
 	buf.Write(encodePrice(20))
 
-	if err := msg.UnSerialize(&RespHeader{}, buf.Bytes()); err != nil {
-		t.Fatalf("deserialize failed: %v", err)
+	if err := msg.ParseResponse(&RespHeader{}, buf.Bytes()); err != nil {
+		t.Fatalf("parse response failed: %v", err)
 	}
 
-	reply := msg.Reply()
+	reply := msg.Response()
 	if reply.Count != 2 {
 		t.Fatalf("unexpected count: %d", reply.Count)
 	}
@@ -210,15 +207,14 @@ func TestGetMinuteTimeDataSerializeAndDeserialize(t *testing.T) {
 	}
 }
 
-func TestGetHistoryMinuteTimeDataSerializeAndDeserialize(t *testing.T) {
-	msg := NewGetHistoryMinuteTimeData()
-	msg.SetParams(&GetHistoryMinuteTimeDataRequest{
+func TestGetHistoryMinuteTimeDataBuildRequestAndParseResponse(t *testing.T) {
+	msg := NewGetHistoryMinuteTimeData(&GetHistoryMinuteTimeDataRequest{
 		Date:   20240531,
 		Market: 1,
 		Code:   [6]byte{'6', '0', '0', '0', '0', '0'},
 	})
 
-	raw := mustSerialize(t, msg)
+	raw := mustBuildRequest(t, msg)
 	header := readReqHeader(t, raw)
 	if header.Method != KMSG_HISTORYMINUTETIMEDATE {
 		t.Fatalf("unexpected method: %#x", header.Method)
@@ -246,11 +242,11 @@ func TestGetHistoryMinuteTimeDataSerializeAndDeserialize(t *testing.T) {
 	buf.Write(encodePrice(100000))
 	buf.Write(encodePrice(20))
 
-	if err := msg.UnSerialize(&RespHeader{}, buf.Bytes()); err != nil {
-		t.Fatalf("deserialize failed: %v", err)
+	if err := msg.ParseResponse(&RespHeader{}, buf.Bytes()); err != nil {
+		t.Fatalf("parse response failed: %v", err)
 	}
 
-	reply := msg.Reply()
+	reply := msg.Response()
 	if reply.Count != 1 {
 		t.Fatalf("unexpected count: %d", reply.Count)
 	}
@@ -259,9 +255,8 @@ func TestGetHistoryMinuteTimeDataSerializeAndDeserialize(t *testing.T) {
 	}
 }
 
-func TestGetSecurityBarsSerializeAndDeserialize(t *testing.T) {
-	msg := NewGetSecurityBars()
-	msg.SetParams(&GetSecurityBarsRequest{
+func TestGetSecurityBarsBuildRequestAndParseResponse(t *testing.T) {
+	msg := NewGetSecurityBars(&GetSecurityBarsRequest{
 		Market:   1,
 		Code:     [6]byte{'6', '0', '0', '0', '0', '0'},
 		Category: KLINE_TYPE_DAILY,
@@ -271,7 +266,7 @@ func TestGetSecurityBarsSerializeAndDeserialize(t *testing.T) {
 		Adjust:   1,
 	})
 
-	raw := mustSerialize(t, msg)
+	raw := mustBuildRequest(t, msg)
 	header := readReqHeader(t, raw)
 	if header.Method != KMSG_SECURITYBARS {
 		t.Fatalf("unexpected method: %#x", header.Method)
@@ -309,11 +304,11 @@ func TestGetSecurityBarsSerializeAndDeserialize(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := msg.UnSerialize(&RespHeader{}, buf.Bytes()); err != nil {
-		t.Fatalf("deserialize failed: %v", err)
+	if err := msg.ParseResponse(&RespHeader{}, buf.Bytes()); err != nil {
+		t.Fatalf("parse response failed: %v", err)
 	}
 
-	reply := msg.Reply()
+	reply := msg.Response()
 	if reply.Count != 1 {
 		t.Fatalf("unexpected count: %d", reply.Count)
 	}
@@ -332,13 +327,12 @@ func TestGetSecurityBarsSerializeAndDeserialize(t *testing.T) {
 	}
 }
 
-func TestGetSecurityQuotesSerializeAndDeserialize(t *testing.T) {
-	msg := NewGetSecurityQuotes()
-	msg.SetParams(&GetSecurityQuotesRequest{
+func TestGetSecurityQuotesBuildRequestAndParseResponse(t *testing.T) {
+	msg := NewGetSecurityQuotes(&GetSecurityQuotesRequest{
 		StockList: []Stock{{Market: 1, Code: "600000"}},
 	})
 
-	raw := mustSerialize(t, msg)
+	raw := mustBuildRequest(t, msg)
 	header := readReqHeader(t, raw)
 	if header.Method != KMSG_SECURITYQUOTES {
 		t.Fatalf("unexpected method: %#x", header.Method)
@@ -395,11 +389,11 @@ func TestGetSecurityQuotesSerializeAndDeserialize(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := msg.UnSerialize(&RespHeader{}, buf.Bytes()); err != nil {
-		t.Fatalf("deserialize failed: %v", err)
+	if err := msg.ParseResponse(&RespHeader{}, buf.Bytes()); err != nil {
+		t.Fatalf("parse response failed: %v", err)
 	}
 
-	reply := msg.Reply()
+	reply := msg.Response()
 	if reply.Count != 1 {
 		t.Fatalf("unexpected count: %d", reply.Count)
 	}
@@ -427,14 +421,13 @@ func TestGetSecurityQuotesSerializeAndDeserialize(t *testing.T) {
 	}
 }
 
-func TestGetIndexMomentumSerializeAndDeserialize(t *testing.T) {
-	msg := NewGetIndexMomentum()
-	msg.SetParams(&GetIndexMomentumRequest{
+func TestGetIndexMomentumBuildRequestAndParseResponse(t *testing.T) {
+	msg := NewGetIndexMomentum(&GetIndexMomentumRequest{
 		Market: 1,
 		Code:   [6]byte{'0', '0', '0', '0', '0', '1'},
 	})
 
-	raw := mustSerialize(t, msg)
+	raw := mustBuildRequest(t, msg)
 	header := readReqHeader(t, raw)
 	if header.Method != KMSG_INDEXMOMENTUM {
 		t.Fatalf("unexpected method: %#x", header.Method)
@@ -448,11 +441,11 @@ func TestGetIndexMomentumSerializeAndDeserialize(t *testing.T) {
 	buf.Write(encodePrice(2))
 	buf.Write(encodePrice(-1))
 
-	if err := msg.UnSerialize(&RespHeader{}, buf.Bytes()); err != nil {
-		t.Fatalf("deserialize failed: %v", err)
+	if err := msg.ParseResponse(&RespHeader{}, buf.Bytes()); err != nil {
+		t.Fatalf("parse response failed: %v", err)
 	}
 
-	reply := msg.Reply()
+	reply := msg.Response()
 	if reply.Count != 3 {
 		t.Fatalf("unexpected count: %d", reply.Count)
 	}
@@ -464,14 +457,13 @@ func TestGetIndexMomentumSerializeAndDeserialize(t *testing.T) {
 	}
 }
 
-func TestGetChartSamplingSerializeAndDeserialize(t *testing.T) {
-	msg := NewGetChartSampling()
-	msg.SetParams(&GetChartSamplingRequest{
+func TestGetChartSamplingBuildRequestAndParseResponse(t *testing.T) {
+	msg := NewGetChartSampling(&GetChartSamplingRequest{
 		Market: 1,
 		Code:   [6]byte{'0', '0', '0', '0', '0', '1'},
 	})
 
-	raw := mustSerialize(t, msg)
+	raw := mustBuildRequest(t, msg)
 	header := readReqHeader(t, raw)
 	if header.Method != KMSG_CHARTSAMPLING {
 		t.Fatalf("unexpected method: %#x", header.Method)
@@ -503,11 +495,11 @@ func TestGetChartSamplingSerializeAndDeserialize(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := msg.UnSerialize(&RespHeader{}, buf.Bytes()); err != nil {
-		t.Fatalf("deserialize failed: %v", err)
+	if err := msg.ParseResponse(&RespHeader{}, buf.Bytes()); err != nil {
+		t.Fatalf("parse response failed: %v", err)
 	}
 
-	reply := msg.Reply()
+	reply := msg.Response()
 	if reply.Market != 1 || reply.Code != "000001" || reply.Count != 2 {
 		t.Fatalf("unexpected reply: %+v", reply)
 	}
@@ -516,16 +508,15 @@ func TestGetChartSamplingSerializeAndDeserialize(t *testing.T) {
 	}
 }
 
-func TestGetAuctionSerializeAndDeserialize(t *testing.T) {
-	msg := NewGetAuction()
-	msg.SetParams(&GetAuctionRequest{
+func TestGetAuctionBuildRequestAndParseResponse(t *testing.T) {
+	msg := NewGetAuction(&GetAuctionRequest{
 		Market: 1,
 		Code:   [6]byte{'6', '0', '0', '0', '0', '0'},
 		Start:  2,
 		Count:  3,
 	})
 
-	raw := mustSerialize(t, msg)
+	raw := mustBuildRequest(t, msg)
 	header := readReqHeader(t, raw)
 	if header.Method != KMSG_AUCTION {
 		t.Fatalf("unexpected method: %#x", header.Method)
@@ -562,25 +553,24 @@ func TestGetAuctionSerializeAndDeserialize(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := msg.UnSerialize(&RespHeader{}, buf.Bytes()); err != nil {
-		t.Fatalf("deserialize failed: %v", err)
+	if err := msg.ParseResponse(&RespHeader{}, buf.Bytes()); err != nil {
+		t.Fatalf("parse response failed: %v", err)
 	}
 
-	item := msg.Reply().List[0]
+	item := msg.Response().List[0]
 	if item.Time != "09:25:30" || math.Abs(item.Price-12.34) > 0.001 || item.Matched != 1000 || item.Unmatched != 200 {
 		t.Fatalf("unexpected auction item: %+v", item)
 	}
 }
 
-func TestGetUnusualSerializeAndDeserialize(t *testing.T) {
-	msg := NewGetUnusual()
-	msg.SetParams(&GetUnusualRequest{
+func TestGetUnusualBuildRequestAndParseResponse(t *testing.T) {
+	msg := NewGetUnusual(&GetUnusualRequest{
 		Market: 1,
 		Start:  10,
 		Count:  20,
 	})
 
-	raw := mustSerialize(t, msg)
+	raw := mustBuildRequest(t, msg)
 	header := readReqHeader(t, raw)
 	if header.Method != KMSG_UNUSUAL {
 		t.Fatalf("unexpected method: %#x", header.Method)
@@ -640,25 +630,24 @@ func TestGetUnusualSerializeAndDeserialize(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := msg.UnSerialize(&RespHeader{}, buf.Bytes()); err != nil {
-		t.Fatalf("deserialize failed: %v", err)
+	if err := msg.ParseResponse(&RespHeader{}, buf.Bytes()); err != nil {
+		t.Fatalf("parse response failed: %v", err)
 	}
 
-	item := msg.Reply().List[0]
+	item := msg.Response().List[0]
 	if item.Code != "600000" || item.Time != "09:30:15" || item.Desc != "加速拉升" || item.Value != "1.23%" || item.UnusualType != 0x04 {
 		t.Fatalf("unexpected unusual item: %+v", item)
 	}
 }
 
-func TestGetHistoryOrdersSerializeAndDeserialize(t *testing.T) {
-	msg := NewGetHistoryOrders()
-	msg.SetParams(&GetHistoryOrdersRequest{
+func TestGetHistoryOrdersBuildRequestAndParseResponse(t *testing.T) {
+	msg := NewGetHistoryOrders(&GetHistoryOrdersRequest{
 		Date:   20240531,
 		Market: 1,
 		Code:   [6]byte{'6', '0', '0', '0', '0', '0'},
 	})
 
-	raw := mustSerialize(t, msg)
+	raw := mustBuildRequest(t, msg)
 	header := readReqHeader(t, raw)
 	if header.Method != KMSG_HISTORYORDERS {
 		t.Fatalf("unexpected method: %#x", header.Method)
@@ -675,11 +664,11 @@ func TestGetHistoryOrdersSerializeAndDeserialize(t *testing.T) {
 	buf.Write(encodePrice(7))
 	buf.Write(encodePrice(100))
 
-	if err := msg.UnSerialize(&RespHeader{}, buf.Bytes()); err != nil {
-		t.Fatalf("deserialize failed: %v", err)
+	if err := msg.ParseResponse(&RespHeader{}, buf.Bytes()); err != nil {
+		t.Fatalf("parse response failed: %v", err)
 	}
 
-	reply := msg.Reply()
+	reply := msg.Response()
 	if reply.Count != 1 || math.Abs(reply.PreClose-12.34) > 0.001 {
 		t.Fatalf("unexpected reply: %+v", reply)
 	}
@@ -689,14 +678,13 @@ func TestGetHistoryOrdersSerializeAndDeserialize(t *testing.T) {
 	}
 }
 
-func TestGetTopBoardSerializeAndDeserialize(t *testing.T) {
-	msg := NewGetTopBoard()
-	msg.SetParams(&GetTopBoardRequest{
+func TestGetTopBoardBuildRequestAndParseResponse(t *testing.T) {
+	msg := NewGetTopBoard(&GetTopBoardRequest{
 		Category: 6,
 		Size:     1,
 	})
 
-	raw := mustSerialize(t, msg)
+	raw := mustBuildRequest(t, msg)
 	header := readReqHeader(t, raw)
 	if header.Method != KMSG_TOPBOARD {
 		t.Fatalf("unexpected method: %#x", header.Method)
@@ -721,11 +709,11 @@ func TestGetTopBoardSerializeAndDeserialize(t *testing.T) {
 		}
 	}
 
-	if err := msg.UnSerialize(&RespHeader{}, buf.Bytes()); err != nil {
-		t.Fatalf("deserialize failed: %v", err)
+	if err := msg.ParseResponse(&RespHeader{}, buf.Bytes()); err != nil {
+		t.Fatalf("parse response failed: %v", err)
 	}
 
-	reply := msg.Reply()
+	reply := msg.Response()
 	if reply.Size != 1 || len(reply.Increase) != 1 || len(reply.Turnover) != 1 {
 		t.Fatalf("unexpected reply sizes: %+v", reply)
 	}
@@ -734,14 +722,13 @@ func TestGetTopBoardSerializeAndDeserialize(t *testing.T) {
 	}
 }
 
-func TestGetIndexInfoSerializeAndDeserialize(t *testing.T) {
-	msg := NewGetIndexInfo()
-	msg.SetParams(&GetIndexInfoRequest{
+func TestGetIndexInfoBuildRequestAndParseResponse(t *testing.T) {
+	msg := NewGetIndexInfo(&GetIndexInfoRequest{
 		Market: 1,
 		Code:   [6]byte{'0', '0', '0', '0', '0', '1'},
 	})
 
-	raw := mustSerialize(t, msg)
+	raw := mustBuildRequest(t, msg)
 	header := readReqHeader(t, raw)
 	if header.Method != KMSG_INDEXINFO {
 		t.Fatalf("unexpected method: %#x", header.Method)
@@ -780,11 +767,11 @@ func TestGetIndexInfoSerializeAndDeserialize(t *testing.T) {
 	buf.Write(encodePrice(7))
 	buf.Write(encodePrice(100))
 
-	if err := msg.UnSerialize(&RespHeader{}, buf.Bytes()); err != nil {
-		t.Fatalf("deserialize failed: %v", err)
+	if err := msg.ParseResponse(&RespHeader{}, buf.Bytes()); err != nil {
+		t.Fatalf("parse response failed: %v", err)
 	}
 
-	reply := msg.Reply()
+	reply := msg.Response()
 	if reply.OrderCount != 1 || reply.Code != "000001" || reply.Active != 7 {
 		t.Fatalf("unexpected reply: %+v", reply)
 	}
@@ -802,9 +789,8 @@ func TestGetIndexInfoSerializeAndDeserialize(t *testing.T) {
 	}
 }
 
-func TestGetQuotesListSerializeAndDeserialize(t *testing.T) {
-	msg := NewGetQuotesList()
-	msg.SetParams(&GetQuotesListRequest{
+func TestGetQuotesListBuildRequestAndParseResponse(t *testing.T) {
+	msg := NewGetQuotesList(&GetQuotesListRequest{
 		Category:    6,
 		SortType:    6,
 		Start:       1,
@@ -813,7 +799,7 @@ func TestGetQuotesListSerializeAndDeserialize(t *testing.T) {
 		Filter:      4,
 	})
 
-	raw := mustSerialize(t, msg)
+	raw := mustBuildRequest(t, msg)
 	header := readReqHeader(t, raw)
 	if header.Method != KMSG_QUOTESLIST {
 		t.Fatalf("unexpected method: %#x", header.Method)
@@ -886,11 +872,11 @@ func TestGetQuotesListSerializeAndDeserialize(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := msg.UnSerialize(&RespHeader{}, buf.Bytes()); err != nil {
-		t.Fatalf("deserialize failed: %v", err)
+	if err := msg.ParseResponse(&RespHeader{}, buf.Bytes()); err != nil {
+		t.Fatalf("parse response failed: %v", err)
 	}
 
-	reply := msg.Reply()
+	reply := msg.Response()
 	if reply.Block != 5 || reply.Count != 1 {
 		t.Fatalf("unexpected reply: %+v", reply)
 	}
@@ -906,13 +892,12 @@ func TestGetQuotesListSerializeAndDeserialize(t *testing.T) {
 	}
 }
 
-func TestGetQuotesSerializeAndDeserialize(t *testing.T) {
-	msg := NewGetQuotes()
-	msg.SetParams(&GetQuotesRequest{
+func TestGetQuotesBuildRequestAndParseResponse(t *testing.T) {
+	msg := NewGetQuotes(&GetQuotesRequest{
 		Stocks: []Stock{{Market: 1, Code: "600000"}},
 	})
 
-	raw := mustSerialize(t, msg)
+	raw := mustBuildRequest(t, msg)
 	header := readReqHeader(t, raw)
 	if header.Method != KMSG_QUOTES {
 		t.Fatalf("unexpected method: %#x", header.Method)
@@ -989,22 +974,21 @@ func TestGetQuotesSerializeAndDeserialize(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := msg.UnSerialize(&RespHeader{}, buf.Bytes()); err != nil {
-		t.Fatalf("deserialize failed: %v", err)
+	if err := msg.ParseResponse(&RespHeader{}, buf.Bytes()); err != nil {
+		t.Fatalf("parse response failed: %v", err)
 	}
-	if msg.Reply().Count != 1 || msg.Reply().List[0].Code != "600000" {
-		t.Fatalf("unexpected reply: %+v", msg.Reply())
+	if msg.Response().Count != 1 || msg.Response().List[0].Code != "600000" {
+		t.Fatalf("unexpected reply: %+v", msg.Response())
 	}
 }
 
-func TestGetVolumeProfileSerializeAndDeserialize(t *testing.T) {
-	msg := NewGetVolumeProfile()
-	msg.SetParams(&GetVolumeProfileRequest{
+func TestGetVolumeProfileBuildRequestAndParseResponse(t *testing.T) {
+	msg := NewGetVolumeProfile(&GetVolumeProfileRequest{
 		Market: 1,
 		Code:   [6]byte{'6', '0', '0', '0', '0', '0'},
 	})
 
-	raw := mustSerialize(t, msg)
+	raw := mustBuildRequest(t, msg)
 	header := readReqHeader(t, raw)
 	if header.Method != KMSG_VOLUMEPROFILE {
 		t.Fatalf("unexpected method: %#x", header.Method)
@@ -1057,10 +1041,10 @@ func TestGetVolumeProfileSerializeAndDeserialize(t *testing.T) {
 	buf.Write(encodePrice(20))
 	buf.Write(encodePrice(30))
 
-	if err := msg.UnSerialize(&RespHeader{}, buf.Bytes()); err != nil {
-		t.Fatalf("deserialize failed: %v", err)
+	if err := msg.ParseResponse(&RespHeader{}, buf.Bytes()); err != nil {
+		t.Fatalf("parse response failed: %v", err)
 	}
-	reply := msg.Reply()
+	reply := msg.Response()
 	if reply.Count != 2 || reply.Code != "600000" || len(reply.VolProfiles) != 2 {
 		t.Fatalf("unexpected reply: %+v", reply)
 	}
@@ -1069,14 +1053,13 @@ func TestGetVolumeProfileSerializeAndDeserialize(t *testing.T) {
 	}
 }
 
-func TestGetCompanyCategorySerializeAndDeserialize(t *testing.T) {
-	msg := NewGetCompanyCategory()
-	msg.SetParams(&GetCompanyCategoryRequest{
+func TestGetCompanyCategoryBuildRequestAndParseResponse(t *testing.T) {
+	msg := NewGetCompanyCategory(&GetCompanyCategoryRequest{
 		Market: 1,
 		Code:   [6]byte{'6', '0', '0', '0', '0', '0'},
 	})
 
-	raw := mustSerialize(t, msg)
+	raw := mustBuildRequest(t, msg)
 	header := readReqHeader(t, raw)
 	if header.Method != KMSG_COMPANYCATEGORY {
 		t.Fatalf("unexpected method: %#x", header.Method)
@@ -1101,17 +1084,17 @@ func TestGetCompanyCategorySerializeAndDeserialize(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := msg.UnSerialize(&RespHeader{}, buf.Bytes()); err != nil {
-		t.Fatalf("deserialize failed: %v", err)
+	if err := msg.ParseResponse(&RespHeader{}, buf.Bytes()); err != nil {
+		t.Fatalf("parse response failed: %v", err)
 	}
-	reply := msg.Reply()
+	reply := msg.Response()
 	if reply.Count != 1 || reply.Categories[0].Name != "F10" || reply.Categories[0].Filename != "test.txt" {
 		t.Fatalf("unexpected reply: %+v", reply)
 	}
 }
 
 func TestGetCompanyCategoryTrimsFixedStringGarbage(t *testing.T) {
-	msg := NewGetCompanyCategory()
+	msg := NewGetCompanyCategory(nil)
 
 	buf := new(bytes.Buffer)
 	if err := binary.Write(buf, binary.LittleEndian, uint16(1)); err != nil {
@@ -1141,11 +1124,11 @@ func TestGetCompanyCategoryTrimsFixedStringGarbage(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := msg.UnSerialize(&RespHeader{}, buf.Bytes()); err != nil {
-		t.Fatalf("deserialize failed: %v", err)
+	if err := msg.ParseResponse(&RespHeader{}, buf.Bytes()); err != nil {
+		t.Fatalf("parse response failed: %v", err)
 	}
 
-	reply := msg.Reply()
+	reply := msg.Response()
 	if got := reply.Categories[0].Name; got != "资金动向" {
 		t.Fatalf("unexpected category name: %q", got)
 	}
@@ -1154,8 +1137,7 @@ func TestGetCompanyCategoryTrimsFixedStringGarbage(t *testing.T) {
 	}
 }
 
-func TestGetCompanyContentSerializeAndDeserialize(t *testing.T) {
-	msg := NewGetCompanyContent()
+func TestGetCompanyContentBuildRequestAndParseResponse(t *testing.T) {
 	req := GetCompanyContentRequest{
 		Market: 1,
 		Code:   [6]byte{'6', '0', '0', '0', '0', '0'},
@@ -1163,9 +1145,9 @@ func TestGetCompanyContentSerializeAndDeserialize(t *testing.T) {
 		Length: 4,
 	}
 	copy(req.Filename[:], "test.txt")
-	msg.SetParams(&req)
+	msg := NewGetCompanyContent(&req)
 
-	raw := mustSerialize(t, msg)
+	raw := mustBuildRequest(t, msg)
 	header := readReqHeader(t, raw)
 	if header.Method != KMSG_COMPANYCONTENT {
 		t.Fatalf("unexpected method: %#x", header.Method)
@@ -1188,22 +1170,21 @@ func TestGetCompanyContentSerializeAndDeserialize(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := msg.UnSerialize(&RespHeader{}, buf.Bytes()); err != nil {
-		t.Fatalf("deserialize failed: %v", err)
+	if err := msg.ParseResponse(&RespHeader{}, buf.Bytes()); err != nil {
+		t.Fatalf("parse response failed: %v", err)
 	}
-	if msg.Reply().Content != "ABCD" || msg.Reply().Code != "600000" {
-		t.Fatalf("unexpected reply: %+v", msg.Reply())
+	if msg.Response().Content != "ABCD" || msg.Response().Code != "600000" {
+		t.Fatalf("unexpected reply: %+v", msg.Response())
 	}
 }
 
-func TestGetFinanceInfoSerializeAndDeserialize(t *testing.T) {
-	msg := NewGetFinanceInfo()
-	msg.SetParams(&GetFinanceInfoRequest{
+func TestGetFinanceInfoBuildRequestAndParseResponse(t *testing.T) {
+	msg := NewGetFinanceInfo(&GetFinanceInfoRequest{
 		Market: 1,
 		Code:   [6]byte{'6', '0', '0', '0', '0', '0'},
 	})
 
-	raw := mustSerialize(t, msg)
+	raw := mustBuildRequest(t, msg)
 	header := readReqHeader(t, raw)
 	if header.Method != KMSG_FINANCEINFO {
 		t.Fatalf("unexpected method: %#x", header.Method)
@@ -1240,10 +1221,10 @@ func TestGetFinanceInfoSerializeAndDeserialize(t *testing.T) {
 		}
 	}
 
-	if err := msg.UnSerialize(&RespHeader{}, buf.Bytes()); err != nil {
-		t.Fatalf("deserialize failed: %v", err)
+	if err := msg.ParseResponse(&RespHeader{}, buf.Bytes()); err != nil {
+		t.Fatalf("parse response failed: %v", err)
 	}
-	reply := msg.Reply()
+	reply := msg.Response()
 	if reply.Code != "600000" || reply.Province != 2 || reply.Industry != 3 || math.Abs(float64(reply.FloatShares-123.45)) > 0.001 {
 		t.Fatalf("unexpected finance reply: %+v", reply)
 	}
@@ -1252,14 +1233,13 @@ func TestGetFinanceInfoSerializeAndDeserialize(t *testing.T) {
 	}
 }
 
-func TestGetXDXRInfoSerializeAndDeserialize(t *testing.T) {
-	msg := NewGetXDXRInfo()
-	msg.SetParams(&GetXDXRInfoRequest{
+func TestGetXDXRInfoBuildRequestAndParseResponse(t *testing.T) {
+	msg := NewGetXDXRInfo(&GetXDXRInfoRequest{
 		Market: 1,
 		Code:   [6]byte{'6', '0', '0', '0', '0', '0'},
 	})
 
-	raw := mustSerialize(t, msg)
+	raw := mustBuildRequest(t, msg)
 	header := readReqHeader(t, raw)
 	if header.Method != KMSG_XDXRINFO {
 		t.Fatalf("unexpected method: %#x", header.Method)
@@ -1299,10 +1279,10 @@ func TestGetXDXRInfoSerializeAndDeserialize(t *testing.T) {
 		}
 	}
 
-	if err := msg.UnSerialize(&RespHeader{}, buf.Bytes()); err != nil {
-		t.Fatalf("deserialize failed: %v", err)
+	if err := msg.ParseResponse(&RespHeader{}, buf.Bytes()); err != nil {
+		t.Fatalf("parse response failed: %v", err)
 	}
-	reply := msg.Reply()
+	reply := msg.Response()
 	if reply.Code != "600000" || reply.Count != 1 || reply.List[0].Name != "除权除息" {
 		t.Fatalf("unexpected xdxr reply: %+v", reply)
 	}
@@ -1311,13 +1291,12 @@ func TestGetXDXRInfoSerializeAndDeserialize(t *testing.T) {
 	}
 }
 
-func TestGetFileMetaSerializeAndDeserialize(t *testing.T) {
-	msg := NewGetFileMeta()
+func TestGetFileMetaBuildRequestAndParseResponse(t *testing.T) {
 	req := GetFileMetaRequest{}
 	copy(req.Filename[:], "block.dat")
-	msg.SetParams(&req)
+	msg := NewGetFileMeta(&req)
 
-	raw := mustSerialize(t, msg)
+	raw := mustBuildRequest(t, msg)
 	header := readReqHeader(t, raw)
 	if header.Method != KMSG_BLOCKINFOMETA {
 		t.Fatalf("unexpected method: %#x", header.Method)
@@ -1338,21 +1317,20 @@ func TestGetFileMetaSerializeAndDeserialize(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := msg.UnSerialize(&RespHeader{}, buf.Bytes()); err != nil {
-		t.Fatalf("deserialize failed: %v", err)
+	if err := msg.ParseResponse(&RespHeader{}, buf.Bytes()); err != nil {
+		t.Fatalf("parse response failed: %v", err)
 	}
-	if msg.Reply().Size != 123 || msg.Reply().Unknown1 != 1 || msg.Reply().Unknown2 != 2 {
-		t.Fatalf("unexpected meta reply: %+v", msg.Reply())
+	if msg.Response().Size != 123 || msg.Response().Unknown1 != 1 || msg.Response().Unknown2 != 2 {
+		t.Fatalf("unexpected meta reply: %+v", msg.Response())
 	}
 }
 
-func TestDownloadFileSerializeAndDeserialize(t *testing.T) {
-	msg := NewDownloadFile()
+func TestDownloadFileBuildRequestAndParseResponse(t *testing.T) {
 	req := DownloadFileRequest{Start: 10, Size: 20}
 	copy(req.Filename[:], "block.dat")
-	msg.SetParams(&req)
+	msg := NewDownloadFile(&req)
 
-	raw := mustSerialize(t, msg)
+	raw := mustBuildRequest(t, msg)
 	header := readReqHeader(t, raw)
 	if header.Method != KMSG_BLOCKINFO {
 		t.Fatalf("unexpected method: %#x", header.Method)
@@ -1366,10 +1344,10 @@ func TestDownloadFileSerializeAndDeserialize(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := msg.UnSerialize(&RespHeader{}, buf.Bytes()); err != nil {
-		t.Fatalf("deserialize failed: %v", err)
+	if err := msg.ParseResponse(&RespHeader{}, buf.Bytes()); err != nil {
+		t.Fatalf("parse response failed: %v", err)
 	}
-	if msg.Reply().Size != 4 || string(msg.Reply().Data) != "DATA" {
-		t.Fatalf("unexpected download reply: %+v", msg.Reply())
+	if msg.Response().Size != 4 || string(msg.Response().Data) != "DATA" {
+		t.Fatalf("unexpected download reply: %+v", msg.Response())
 	}
 }

@@ -47,7 +47,7 @@ type IndexInfoOrder struct {
 	Vol     int     // 档位挂单量。
 }
 
-func NewGetIndexInfo() *GetIndexInfo {
+func NewGetIndexInfo(req *GetIndexInfoRequest) *GetIndexInfo {
 	obj := new(GetIndexInfo)
 	obj.reqHeader = new(ReqHeader)
 	obj.respHeader = new(RespHeader)
@@ -58,14 +58,17 @@ func NewGetIndexInfo() *GetIndexInfo {
 	obj.reqHeader.SeqID = seqID()
 	obj.reqHeader.PacketType = 0x00
 	obj.reqHeader.Method = KMSG_INDEXINFO
+	if req != nil {
+		obj.applyRequest(req)
+	}
 	return obj
 }
 
-func (obj *GetIndexInfo) SetParams(req *GetIndexInfoRequest) {
+func (obj *GetIndexInfo) applyRequest(req *GetIndexInfoRequest) {
 	obj.request = req
 }
 
-func (obj *GetIndexInfo) Serialize() ([]byte, error) {
+func (obj *GetIndexInfo) BuildRequest() ([]byte, error) {
 	obj.reqHeader.PkgLen1 = 0x0e
 	obj.reqHeader.PkgLen2 = 0x0e
 
@@ -75,8 +78,8 @@ func (obj *GetIndexInfo) Serialize() ([]byte, error) {
 	return buf.Bytes(), err
 }
 
-func (obj *GetIndexInfo) UnSerialize(header interface{}, data []byte) error {
-	obj.respHeader = header.(*RespHeader)
+func (obj *GetIndexInfo) ParseResponse(header *RespHeader, data []byte) error {
+	obj.respHeader = header
 
 	pos := 0
 	if err := binary.Read(bytes.NewBuffer(data[pos:pos+4]), binary.LittleEndian, &obj.reply.OrderCount); err != nil {
@@ -150,6 +153,6 @@ func (obj *GetIndexInfo) UnSerialize(header interface{}, data []byte) error {
 	return nil
 }
 
-func (obj *GetIndexInfo) Reply() *GetIndexInfoReply {
+func (obj *GetIndexInfo) Response() *GetIndexInfoReply {
 	return obj.reply
 }

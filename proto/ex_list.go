@@ -30,12 +30,12 @@ func NewExGetCount() *ExGetCount {
 	return obj
 }
 
-func (obj *ExGetCount) Serialize() ([]byte, error) {
-	return serializeExRequest(KMSG_EXCOUNT, nil)
+func (obj *ExGetCount) BuildRequest() ([]byte, error) {
+	return buildExRequest(KMSG_EXCOUNT, nil)
 }
 
-func (obj *ExGetCount) UnSerialize(header interface{}, data []byte) error {
-	obj.respHeader = header.(*RespHeader)
+func (obj *ExGetCount) ParseResponse(header *RespHeader, data []byte) error {
+	obj.respHeader = header
 	if len(data) < 23 {
 		return fmt.Errorf("invalid ex count response length: %d", len(data))
 	}
@@ -43,7 +43,7 @@ func (obj *ExGetCount) UnSerialize(header interface{}, data []byte) error {
 	return nil
 }
 
-func (obj *ExGetCount) Reply() *ExGetCountReply {
+func (obj *ExGetCount) Response() *ExGetCountReply {
 	return obj.reply
 }
 
@@ -78,12 +78,12 @@ func NewExGetCategoryList() *ExGetCategoryList {
 	return obj
 }
 
-func (obj *ExGetCategoryList) Serialize() ([]byte, error) {
-	return serializeExRequest(KMSG_EXCATEGORYLIST, nil)
+func (obj *ExGetCategoryList) BuildRequest() ([]byte, error) {
+	return buildExRequest(KMSG_EXCATEGORYLIST, nil)
 }
 
-func (obj *ExGetCategoryList) UnSerialize(header interface{}, data []byte) error {
-	obj.respHeader = header.(*RespHeader)
+func (obj *ExGetCategoryList) ParseResponse(header *RespHeader, data []byte) error {
+	obj.respHeader = header
 	if len(data) < 2 {
 		return fmt.Errorf("invalid ex category list response length: %d", len(data))
 	}
@@ -104,7 +104,7 @@ func (obj *ExGetCategoryList) UnSerialize(header interface{}, data []byte) error
 	return nil
 }
 
-func (obj *ExGetCategoryList) Reply() *ExGetCategoryListReply {
+func (obj *ExGetCategoryList) Response() *ExGetCategoryListReply {
 	return obj.reply
 }
 
@@ -134,7 +134,7 @@ type ExListItem struct {
 	Desc     []float64
 }
 
-func NewExGetList() *ExGetList {
+func NewExGetList(req *ExGetListRequest) *ExGetList {
 	obj := &ExGetList{
 		reqHeader:  new(ReqHeader),
 		respHeader: new(RespHeader),
@@ -145,23 +145,26 @@ func NewExGetList() *ExGetList {
 	obj.reqHeader.SeqID = seqID()
 	obj.reqHeader.PacketType = 0x01
 	obj.reqHeader.Method = KMSG_EXLIST
+	if req != nil {
+		obj.applyRequest(req)
+	}
 	return obj
 }
 
-func (obj *ExGetList) SetParams(req *ExGetListRequest) {
+func (obj *ExGetList) applyRequest(req *ExGetListRequest) {
 	obj.request = req
 }
 
-func (obj *ExGetList) Serialize() ([]byte, error) {
+func (obj *ExGetList) BuildRequest() ([]byte, error) {
 	payload := new(bytes.Buffer)
 	if err := binary.Write(payload, binary.LittleEndian, obj.request); err != nil {
 		return nil, err
 	}
-	return serializeExRequest(KMSG_EXLIST, payload.Bytes())
+	return buildExRequest(KMSG_EXLIST, payload.Bytes())
 }
 
-func (obj *ExGetList) UnSerialize(header interface{}, data []byte) error {
-	obj.respHeader = header.(*RespHeader)
+func (obj *ExGetList) ParseResponse(header *RespHeader, data []byte) error {
+	obj.respHeader = header
 	if len(data) < 6 {
 		return fmt.Errorf("invalid ex list response length: %d", len(data))
 	}
@@ -198,6 +201,6 @@ func (obj *ExGetList) UnSerialize(header interface{}, data []byte) error {
 	return nil
 }
 
-func (obj *ExGetList) Reply() *ExGetListReply {
+func (obj *ExGetList) Response() *ExGetListReply {
 	return obj.reply
 }

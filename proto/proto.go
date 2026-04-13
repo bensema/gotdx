@@ -102,9 +102,21 @@ const (
 	KLINE_TYPE_YEARLY    = 11 // 年K 线
 )
 
-type Msg interface {
-	Serialize() ([]byte, error)
-	UnSerialize(head interface{}, in []byte) error
+// RequestBuilder builds a wire-level request packet for a protocol call.
+type RequestBuilder interface {
+	BuildRequest() ([]byte, error)
+}
+
+// ResponseParser parses a protocol response payload into a typed result.
+type ResponseParser interface {
+	ParseResponse(head *RespHeader, in []byte) error
+}
+
+// Protocol combines request construction, response parsing, and typed access.
+type Protocol[T any] interface {
+	RequestBuilder
+	ResponseParser
+	Response() T
 }
 
 var _seqId uint32
@@ -146,7 +158,7 @@ func seqID() uint32 {
 	return _seqId
 }
 
-func serializeGenericRequest(head uint8, customize uint32, packetType uint8, method uint16, payload []byte) ([]byte, error) {
+func buildGenericRequest(head uint8, customize uint32, packetType uint8, method uint16, payload []byte) ([]byte, error) {
 	body := new(bytes.Buffer)
 	if err := binary.Write(body, binary.LittleEndian, method); err != nil {
 		return nil, err

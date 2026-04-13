@@ -31,7 +31,7 @@ type HistoryOrderData struct {
 	Vol     int
 }
 
-func NewGetHistoryOrders() *GetHistoryOrders {
+func NewGetHistoryOrders(req *GetHistoryOrdersRequest) *GetHistoryOrders {
 	obj := new(GetHistoryOrders)
 	obj.reqHeader = new(ReqHeader)
 	obj.respHeader = new(RespHeader)
@@ -42,14 +42,17 @@ func NewGetHistoryOrders() *GetHistoryOrders {
 	obj.reqHeader.SeqID = seqID()
 	obj.reqHeader.PacketType = 0x00
 	obj.reqHeader.Method = KMSG_HISTORYORDERS
+	if req != nil {
+		obj.applyRequest(req)
+	}
 	return obj
 }
 
-func (obj *GetHistoryOrders) SetParams(req *GetHistoryOrdersRequest) {
+func (obj *GetHistoryOrders) applyRequest(req *GetHistoryOrdersRequest) {
 	obj.request = req
 }
 
-func (obj *GetHistoryOrders) Serialize() ([]byte, error) {
+func (obj *GetHistoryOrders) BuildRequest() ([]byte, error) {
 	obj.reqHeader.PkgLen1 = 0x0d
 	obj.reqHeader.PkgLen2 = 0x0d
 
@@ -59,8 +62,8 @@ func (obj *GetHistoryOrders) Serialize() ([]byte, error) {
 	return buf.Bytes(), err
 }
 
-func (obj *GetHistoryOrders) UnSerialize(header interface{}, data []byte) error {
-	obj.respHeader = header.(*RespHeader)
+func (obj *GetHistoryOrders) ParseResponse(header *RespHeader, data []byte) error {
+	obj.respHeader = header
 
 	pos := 0
 	if err := binary.Read(bytes.NewBuffer(data[pos:pos+2]), binary.LittleEndian, &obj.reply.Count); err != nil {
@@ -86,6 +89,6 @@ func (obj *GetHistoryOrders) UnSerialize(header interface{}, data []byte) error 
 	return nil
 }
 
-func (obj *GetHistoryOrders) Reply() *GetHistoryOrdersReply {
+func (obj *GetHistoryOrders) Response() *GetHistoryOrdersReply {
 	return obj.reply
 }

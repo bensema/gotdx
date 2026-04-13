@@ -79,7 +79,7 @@ type Level struct {
 	Vol   int     // 档位挂单量。
 }
 
-func NewGetSecurityQuotes() *GetSecurityQuotes {
+func NewGetSecurityQuotes(req *GetSecurityQuotesRequest) *GetSecurityQuotes {
 	obj := new(GetSecurityQuotes)
 	obj.reqHeader = new(ReqHeader)
 	obj.respHeader = new(RespHeader)
@@ -90,14 +90,17 @@ func NewGetSecurityQuotes() *GetSecurityQuotes {
 	obj.reqHeader.SeqID = seqID()
 	obj.reqHeader.PacketType = 0x01
 	obj.reqHeader.Method = KMSG_SECURITYQUOTES
+	if req != nil {
+		obj.applyRequest(req)
+	}
 	return obj
 }
 
-func (obj *GetSecurityQuotes) SetParams(req *GetSecurityQuotesRequest) {
+func (obj *GetSecurityQuotes) applyRequest(req *GetSecurityQuotesRequest) {
 	obj.request = req
 }
 
-func (obj *GetSecurityQuotes) Serialize() ([]byte, error) {
+func (obj *GetSecurityQuotes) BuildRequest() ([]byte, error) {
 	obj.reqHeader.PkgLen1 = 2 + uint16(len(obj.request.StockList)*7) + 10
 	obj.reqHeader.PkgLen2 = 2 + uint16(len(obj.request.StockList)*7) + 10
 
@@ -131,8 +134,8 @@ func (obj *GetSecurityQuotes) Serialize() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func (obj *GetSecurityQuotes) UnSerialize(header interface{}, data []byte) error {
-	obj.respHeader = header.(*RespHeader)
+func (obj *GetSecurityQuotes) ParseResponse(header *RespHeader, data []byte) error {
+	obj.respHeader = header
 
 	pos := 0
 	pos += 2
@@ -252,6 +255,6 @@ func (obj *GetSecurityQuotes) UnSerialize(header interface{}, data []byte) error
 	return nil
 }
 
-func (obj *GetSecurityQuotes) Reply() *GetSecurityQuotesReply {
+func (obj *GetSecurityQuotes) Response() *GetSecurityQuotesReply {
 	return obj.reply
 }

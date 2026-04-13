@@ -43,7 +43,7 @@ type ExKLineItem struct {
 	Vol      uint32
 }
 
-func NewExGetKLine() *ExGetKLine {
+func NewExGetKLine(req *ExGetKLineRequest) *ExGetKLine {
 	obj := &ExGetKLine{
 		reqHeader:  new(ReqHeader),
 		respHeader: new(RespHeader),
@@ -54,26 +54,29 @@ func NewExGetKLine() *ExGetKLine {
 	obj.reqHeader.SeqID = seqID()
 	obj.reqHeader.PacketType = 0x01
 	obj.reqHeader.Method = KMSG_EXKLINE
+	if req != nil {
+		obj.applyRequest(req)
+	}
 	return obj
 }
 
-func (obj *ExGetKLine) SetParams(req *ExGetKLineRequest) {
+func (obj *ExGetKLine) applyRequest(req *ExGetKLineRequest) {
 	if req.Times == 0 {
 		req.Times = 1
 	}
 	obj.request = req
 }
 
-func (obj *ExGetKLine) Serialize() ([]byte, error) {
+func (obj *ExGetKLine) BuildRequest() ([]byte, error) {
 	payload := new(bytes.Buffer)
 	if err := binary.Write(payload, binary.LittleEndian, obj.request); err != nil {
 		return nil, err
 	}
-	return serializeExRequest(KMSG_EXKLINE, payload.Bytes())
+	return buildExRequest(KMSG_EXKLINE, payload.Bytes())
 }
 
-func (obj *ExGetKLine) UnSerialize(header interface{}, data []byte) error {
-	obj.respHeader = header.(*RespHeader)
+func (obj *ExGetKLine) ParseResponse(header *RespHeader, data []byte) error {
+	obj.respHeader = header
 	if len(data) < 20 {
 		return fmt.Errorf("invalid ex kline response length: %d", len(data))
 	}
@@ -110,7 +113,7 @@ func (obj *ExGetKLine) UnSerialize(header interface{}, data []byte) error {
 	return nil
 }
 
-func (obj *ExGetKLine) Reply() *ExGetKLineReply {
+func (obj *ExGetKLine) Response() *ExGetKLineReply {
 	return obj.reply
 }
 
@@ -144,7 +147,7 @@ type ExHistoryTransactionItem struct {
 	Action string
 }
 
-func NewExGetHistoryTransaction() *ExGetHistoryTransaction {
+func NewExGetHistoryTransaction(req *ExGetHistoryTransactionRequest) *ExGetHistoryTransaction {
 	obj := &ExGetHistoryTransaction{
 		reqHeader:  new(ReqHeader),
 		respHeader: new(RespHeader),
@@ -156,26 +159,29 @@ func NewExGetHistoryTransaction() *ExGetHistoryTransaction {
 	obj.reqHeader.PacketType = 0x01
 	obj.reqHeader.Method = KMSG_EXHISTORYTRANSACTION
 	obj.request.Count = 0x78
+	if req != nil {
+		obj.applyRequest(req)
+	}
 	return obj
 }
 
-func (obj *ExGetHistoryTransaction) SetParams(req *ExGetHistoryTransactionRequest) {
+func (obj *ExGetHistoryTransaction) applyRequest(req *ExGetHistoryTransactionRequest) {
 	if req.Count == 0 {
 		req.Count = 0x78
 	}
 	obj.request = req
 }
 
-func (obj *ExGetHistoryTransaction) Serialize() ([]byte, error) {
+func (obj *ExGetHistoryTransaction) BuildRequest() ([]byte, error) {
 	payload := new(bytes.Buffer)
 	if err := binary.Write(payload, binary.LittleEndian, obj.request); err != nil {
 		return nil, err
 	}
-	return serializeExRequest(KMSG_EXHISTORYTRANSACTION, payload.Bytes())
+	return buildExRequest(KMSG_EXHISTORYTRANSACTION, payload.Bytes())
 }
 
-func (obj *ExGetHistoryTransaction) UnSerialize(header interface{}, data []byte) error {
-	obj.respHeader = header.(*RespHeader)
+func (obj *ExGetHistoryTransaction) ParseResponse(header *RespHeader, data []byte) error {
+	obj.respHeader = header
 	if len(data) < 58 {
 		return fmt.Errorf("invalid ex history transaction response length: %d", len(data))
 	}
@@ -206,7 +212,7 @@ func (obj *ExGetHistoryTransaction) UnSerialize(header interface{}, data []byte)
 	return nil
 }
 
-func (obj *ExGetHistoryTransaction) Reply() *ExGetHistoryTransactionReply {
+func (obj *ExGetHistoryTransaction) Response() *ExGetHistoryTransactionReply {
 	return obj.reply
 }
 

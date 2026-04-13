@@ -29,7 +29,7 @@ type MACBoardCountReply struct {
 	Total    uint16
 }
 
-func NewMACBoardCount() *MACBoardCount {
+func NewMACBoardCount(req *MACBoardListRequest) *MACBoardCount {
 	obj := &MACBoardCount{
 		reqHeader:  new(ReqHeader),
 		respHeader: new(RespHeader),
@@ -43,10 +43,13 @@ func NewMACBoardCount() *MACBoardCount {
 	obj.request.PageSize = 150
 	obj.request.SortOrder = 1
 	obj.request.One = 1
+	if req != nil {
+		obj.applyRequest(req)
+	}
 	return obj
 }
 
-func (obj *MACBoardCount) SetParams(req *MACBoardListRequest) {
+func (obj *MACBoardCount) applyRequest(req *MACBoardListRequest) {
 	if req.PageSize == 0 {
 		req.PageSize = 150
 	}
@@ -59,16 +62,16 @@ func (obj *MACBoardCount) SetParams(req *MACBoardListRequest) {
 	obj.request = req
 }
 
-func (obj *MACBoardCount) Serialize() ([]byte, error) {
+func (obj *MACBoardCount) BuildRequest() ([]byte, error) {
 	payload := new(bytes.Buffer)
 	if err := binary.Write(payload, binary.LittleEndian, obj.request); err != nil {
 		return nil, err
 	}
-	return serializeExRequest(KMSG_EXBOARDLIST, payload.Bytes())
+	return buildExRequest(KMSG_EXBOARDLIST, payload.Bytes())
 }
 
-func (obj *MACBoardCount) UnSerialize(header interface{}, data []byte) error {
-	obj.respHeader = header.(*RespHeader)
+func (obj *MACBoardCount) ParseResponse(header *RespHeader, data []byte) error {
+	obj.respHeader = header
 	if len(data) < 4 {
 		return fmt.Errorf("invalid mac board count response length: %d", len(data))
 	}
@@ -77,7 +80,7 @@ func (obj *MACBoardCount) UnSerialize(header interface{}, data []byte) error {
 	return nil
 }
 
-func (obj *MACBoardCount) Reply() *MACBoardCountReply {
+func (obj *MACBoardCount) Response() *MACBoardCountReply {
 	return obj.reply
 }
 
@@ -110,7 +113,7 @@ type MACBoardListItem struct {
 	SymbolPreClose  float64
 }
 
-func NewMACBoardList() *MACBoardList {
+func NewMACBoardList(req *MACBoardListRequest) *MACBoardList {
 	obj := &MACBoardList{
 		reqHeader:  new(ReqHeader),
 		respHeader: new(RespHeader),
@@ -124,10 +127,13 @@ func NewMACBoardList() *MACBoardList {
 	obj.request.PageSize = 150
 	obj.request.SortOrder = 1
 	obj.request.One = 1
+	if req != nil {
+		obj.applyRequest(req)
+	}
 	return obj
 }
 
-func (obj *MACBoardList) SetParams(req *MACBoardListRequest) {
+func (obj *MACBoardList) applyRequest(req *MACBoardListRequest) {
 	if req.PageSize == 0 {
 		req.PageSize = 150
 	}
@@ -140,16 +146,16 @@ func (obj *MACBoardList) SetParams(req *MACBoardListRequest) {
 	obj.request = req
 }
 
-func (obj *MACBoardList) Serialize() ([]byte, error) {
+func (obj *MACBoardList) BuildRequest() ([]byte, error) {
 	payload := new(bytes.Buffer)
 	if err := binary.Write(payload, binary.LittleEndian, obj.request); err != nil {
 		return nil, err
 	}
-	return serializeExRequest(KMSG_EXBOARDLIST, payload.Bytes())
+	return buildExRequest(KMSG_EXBOARDLIST, payload.Bytes())
 }
 
-func (obj *MACBoardList) UnSerialize(header interface{}, data []byte) error {
-	obj.respHeader = header.(*RespHeader)
+func (obj *MACBoardList) ParseResponse(header *RespHeader, data []byte) error {
+	obj.respHeader = header
 	if len(data) < 4 {
 		return fmt.Errorf("invalid mac board list response length: %d", len(data))
 	}
@@ -187,6 +193,6 @@ func (obj *MACBoardList) UnSerialize(header interface{}, data []byte) error {
 	return nil
 }
 
-func (obj *MACBoardList) Reply() *MACBoardListReply {
+func (obj *MACBoardList) Response() *MACBoardListReply {
 	return obj.reply
 }

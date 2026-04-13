@@ -37,7 +37,7 @@ type HistoryTransactionData struct {
 	BuyOrSell int     // 买卖方向标记。
 }
 
-func NewGetHistoryTransactionData() *GetHistoryTransactionData {
+func NewGetHistoryTransactionData(req *GetHistoryTransactionDataRequest) *GetHistoryTransactionData {
 	obj := new(GetHistoryTransactionData)
 	obj.reqHeader = new(ReqHeader)
 	obj.respHeader = new(RespHeader)
@@ -52,14 +52,17 @@ func NewGetHistoryTransactionData() *GetHistoryTransactionData {
 	obj.reqHeader.Method = KMSG_HISTORYTRANSACTIONDATA
 	//obj.reqHeader.Method = KMSG_MINUTETIMEDATA
 	obj.contentHex = ""
+	if req != nil {
+		obj.applyRequest(req)
+	}
 	return obj
 }
 
-func (obj *GetHistoryTransactionData) SetParams(req *GetHistoryTransactionDataRequest) {
+func (obj *GetHistoryTransactionData) applyRequest(req *GetHistoryTransactionDataRequest) {
 	obj.request = req
 }
 
-func (obj *GetHistoryTransactionData) Serialize() ([]byte, error) {
+func (obj *GetHistoryTransactionData) BuildRequest() ([]byte, error) {
 	obj.reqHeader.PkgLen1 = 0x12
 	obj.reqHeader.PkgLen2 = 0x12
 
@@ -77,8 +80,8 @@ func (obj *GetHistoryTransactionData) Serialize() ([]byte, error) {
 	return buf.Bytes(), err
 }
 
-func (obj *GetHistoryTransactionData) UnSerialize(header interface{}, data []byte) error {
-	obj.respHeader = header.(*RespHeader)
+func (obj *GetHistoryTransactionData) ParseResponse(header *RespHeader, data []byte) error {
+	obj.respHeader = header
 
 	pos := 0
 	err := binary.Read(bytes.NewBuffer(data[pos:pos+2]), binary.LittleEndian, &obj.reply.Count)
@@ -102,6 +105,6 @@ func (obj *GetHistoryTransactionData) UnSerialize(header interface{}, data []byt
 	return err
 }
 
-func (obj *GetHistoryTransactionData) Reply() *GetHistoryTransactionDataReply {
+func (obj *GetHistoryTransactionData) Response() *GetHistoryTransactionDataReply {
 	return obj.reply
 }

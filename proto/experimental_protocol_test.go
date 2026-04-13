@@ -7,10 +7,10 @@ import (
 	"testing"
 )
 
-func TestRawMainProtocolSerializeAndDeserialize(t *testing.T) {
+func TestRawMainProtocolBuildRequestAndParseResponse(t *testing.T) {
 	t.Run("todo_b", func(t *testing.T) {
 		msg := NewTodoB()
-		raw := mustSerialize(t, msg)
+		raw := mustBuildRequest(t, msg)
 		header := readReqHeader(t, raw)
 		if header.Method != KMSG_TODOB {
 			t.Fatalf("unexpected method: %#x", header.Method)
@@ -18,10 +18,10 @@ func TestRawMainProtocolSerializeAndDeserialize(t *testing.T) {
 		if len(raw) <= 12 {
 			t.Fatalf("unexpected raw length: %d", len(raw))
 		}
-		if err := msg.UnSerialize(&RespHeader{}, []byte{0x01, 0x02, 0x03}); err != nil {
-			t.Fatalf("deserialize failed: %v", err)
+		if err := msg.ParseResponse(&RespHeader{}, []byte{0x01, 0x02, 0x03}); err != nil {
+			t.Fatalf("parse response failed: %v", err)
 		}
-		reply := msg.Reply()
+		reply := msg.Response()
 		if reply.Length != 3 || reply.Hex != "010203" {
 			t.Fatalf("unexpected raw reply: %+v", reply)
 		}
@@ -29,7 +29,7 @@ func TestRawMainProtocolSerializeAndDeserialize(t *testing.T) {
 
 	t.Run("client_26ad", func(t *testing.T) {
 		msg := NewClient26AD()
-		raw := mustSerialize(t, msg)
+		raw := mustBuildRequest(t, msg)
 		header := readReqHeader(t, raw)
 		if header.Method != KMSG_CLIENT26AD {
 			t.Fatalf("unexpected method: %#x", header.Method)
@@ -40,11 +40,10 @@ func TestRawMainProtocolSerializeAndDeserialize(t *testing.T) {
 	})
 }
 
-func TestGetSecurityFeature452SerializeAndDeserialize(t *testing.T) {
-	msg := NewGetSecurityFeature452()
-	msg.SetParams(&GetSecurityFeature452Request{Start: 9, Count: 2})
+func TestGetSecurityFeature452BuildRequestAndParseResponse(t *testing.T) {
+	msg := NewGetSecurityFeature452(&GetSecurityFeature452Request{Start: 9, Count: 2})
 
-	raw := mustSerialize(t, msg)
+	raw := mustBuildRequest(t, msg)
 	header := readReqHeader(t, raw)
 	if header.Method != KMSG_SECURITYFEATURE452 {
 		t.Fatalf("unexpected method: %#x", header.Method)
@@ -79,10 +78,10 @@ func TestGetSecurityFeature452SerializeAndDeserialize(t *testing.T) {
 	writeFloat32(t, buf, 3.75)
 	writeFloat32(t, buf, 4.5)
 
-	if err := msg.UnSerialize(&RespHeader{}, buf.Bytes()); err != nil {
-		t.Fatalf("deserialize failed: %v", err)
+	if err := msg.ParseResponse(&RespHeader{}, buf.Bytes()); err != nil {
+		t.Fatalf("parse response failed: %v", err)
 	}
-	reply := msg.Reply()
+	reply := msg.Response()
 	if reply.Count != 2 || len(reply.List) != 2 {
 		t.Fatalf("unexpected reply: %+v", reply)
 	}
@@ -91,12 +90,11 @@ func TestGetSecurityFeature452SerializeAndDeserialize(t *testing.T) {
 	}
 }
 
-func TestExExperimentalMessagesSerializeAndDeserialize(t *testing.T) {
+func TestExExperimentalMessagesBuildRequestAndParseResponse(t *testing.T) {
 	t.Run("23f6", func(t *testing.T) {
-		msg := NewExGetListExtra()
-		msg.SetParams(&ExGetListExtraRequest{A: 1, B: 2, Count: 3})
+		msg := NewExGetListExtra(&ExGetListExtraRequest{A: 1, B: 2, Count: 3})
 
-		raw := mustSerialize(t, msg)
+		raw := mustBuildRequest(t, msg)
 		header := readExReqHeader(t, raw)
 		if header.Head != 0x01 || binary.LittleEndian.Uint16(raw[10:12]) != KMSG_EXLIST_EXTRA {
 			t.Fatalf("unexpected ex request header: head=%#x method=%#x", header.Head, binary.LittleEndian.Uint16(raw[10:12]))
@@ -132,10 +130,10 @@ func TestExExperimentalMessagesSerializeAndDeserialize(t *testing.T) {
 			}
 		}
 
-		if err := msg.UnSerialize(&RespHeader{}, buf.Bytes()); err != nil {
-			t.Fatalf("deserialize failed: %v", err)
+		if err := msg.ParseResponse(&RespHeader{}, buf.Bytes()); err != nil {
+			t.Fatalf("parse response failed: %v", err)
 		}
-		reply := msg.Reply()
+		reply := msg.Response()
 		if reply.Start != 7 || reply.Count != 1 || len(reply.List) != 1 {
 			t.Fatalf("unexpected reply: %+v", reply)
 		}
@@ -145,10 +143,9 @@ func TestExExperimentalMessagesSerializeAndDeserialize(t *testing.T) {
 	})
 
 	t.Run("2487", func(t *testing.T) {
-		msg := NewExExperiment2487()
-		msg.SetParams(&ExExperiment2487Request{Category: 74, Code: [23]byte{'T', 'S', 'L', 'A'}})
+		msg := NewExExperiment2487(&ExExperiment2487Request{Category: 74, Code: [23]byte{'T', 'S', 'L', 'A'}})
 
-		raw := mustSerialize(t, msg)
+		raw := mustBuildRequest(t, msg)
 		if binary.LittleEndian.Uint16(raw[10:12]) != KMSG_EXQUOTES_EXPERIMENT1 {
 			t.Fatalf("unexpected method: %#x", binary.LittleEndian.Uint16(raw[10:12]))
 		}
@@ -180,20 +177,19 @@ func TestExExperimentalMessagesSerializeAndDeserialize(t *testing.T) {
 		writeFloat32(t, buf, 1234.5)
 		buf.Write([]byte{0xaa, 0xbb})
 
-		if err := msg.UnSerialize(&RespHeader{}, buf.Bytes()); err != nil {
-			t.Fatalf("deserialize failed: %v", err)
+		if err := msg.ParseResponse(&RespHeader{}, buf.Bytes()); err != nil {
+			t.Fatalf("parse response failed: %v", err)
 		}
-		reply := msg.Reply()
+		reply := msg.Response()
 		if reply.Code != "TSLA" || reply.Active != 99 || reply.TailHex != "aabb" {
 			t.Fatalf("unexpected reply: %+v", reply)
 		}
 	})
 
 	t.Run("2488", func(t *testing.T) {
-		msg := NewExExperiment2488()
-		msg.SetParams(&ExExperiment2488Request{Category: 31, Code: [23]byte{'0', '9', '9', '8', '8'}, Mode: 55})
+		msg := NewExExperiment2488(&ExExperiment2488Request{Category: 31, Code: [23]byte{'0', '9', '9', '8', '8'}, Mode: 55})
 
-		raw := mustSerialize(t, msg)
+		raw := mustBuildRequest(t, msg)
 		if binary.LittleEndian.Uint16(raw[10:12]) != KMSG_EXQUOTES_EXPERIMENT2 {
 			t.Fatalf("unexpected method: %#x", binary.LittleEndian.Uint16(raw[10:12]))
 		}
@@ -219,10 +215,10 @@ func TestExExperimentalMessagesSerializeAndDeserialize(t *testing.T) {
 			}
 		}
 
-		if err := msg.UnSerialize(&RespHeader{}, buf.Bytes()); err != nil {
-			t.Fatalf("deserialize failed: %v", err)
+		if err := msg.ParseResponse(&RespHeader{}, buf.Bytes()); err != nil {
+			t.Fatalf("parse response failed: %v", err)
 		}
-		reply := msg.Reply()
+		reply := msg.Response()
 		if reply.Code != "09988" || reply.Count != 1 || len(reply.List) != 1 {
 			t.Fatalf("unexpected reply: %+v", reply)
 		}
@@ -232,8 +228,7 @@ func TestExExperimentalMessagesSerializeAndDeserialize(t *testing.T) {
 	})
 
 	t.Run("2489", func(t *testing.T) {
-		msg := NewExGetKLine2()
-		msg.SetParams(&ExGetKLine2Request{
+		msg := NewExGetKLine2(&ExGetKLine2Request{
 			Category: 74,
 			Code:     [23]byte{'T', 'S', 'L', 'A'},
 			Period:   4,
@@ -242,7 +237,7 @@ func TestExExperimentalMessagesSerializeAndDeserialize(t *testing.T) {
 			Count:    2,
 		})
 
-		raw := mustSerialize(t, msg)
+		raw := mustBuildRequest(t, msg)
 		if binary.LittleEndian.Uint16(raw[10:12]) != KMSG_EXKLINE2 {
 			t.Fatalf("unexpected method: %#x", binary.LittleEndian.Uint16(raw[10:12]))
 		}
@@ -288,10 +283,10 @@ func TestExExperimentalMessagesSerializeAndDeserialize(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		if err := msg.UnSerialize(&RespHeader{}, buf.Bytes()); err != nil {
-			t.Fatalf("deserialize failed: %v", err)
+		if err := msg.ParseResponse(&RespHeader{}, buf.Bytes()); err != nil {
+			t.Fatalf("parse response failed: %v", err)
 		}
-		reply := msg.Reply()
+		reply := msg.Response()
 		if reply.Name != "Tesla" || reply.Count != 1 || len(reply.List) != 1 {
 			t.Fatalf("unexpected reply: %+v", reply)
 		}
@@ -301,10 +296,9 @@ func TestExExperimentalMessagesSerializeAndDeserialize(t *testing.T) {
 	})
 
 	t.Run("2562", func(t *testing.T) {
-		msg := NewExMapping2562()
-		msg.SetParams(&ExMapping2562Request{Market: 47, Start: 5, Count: 2})
+		msg := NewExMapping2562(&ExMapping2562Request{Market: 47, Start: 5, Count: 2})
 
-		raw := mustSerialize(t, msg)
+		raw := mustBuildRequest(t, msg)
 		if binary.LittleEndian.Uint16(raw[10:12]) != KMSG_EXMAPPING2562 {
 			t.Fatalf("unexpected method: %#x", binary.LittleEndian.Uint16(raw[10:12]))
 		}
@@ -339,10 +333,10 @@ func TestExExperimentalMessagesSerializeAndDeserialize(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		if err := msg.UnSerialize(&RespHeader{}, buf.Bytes()); err != nil {
-			t.Fatalf("deserialize failed: %v", err)
+		if err := msg.ParseResponse(&RespHeader{}, buf.Bytes()); err != nil {
+			t.Fatalf("parse response failed: %v", err)
 		}
-		reply := msg.Reply()
+		reply := msg.Response()
 		if reply.Count != 1 || len(reply.List) != 1 {
 			t.Fatalf("unexpected reply: %+v", reply)
 		}

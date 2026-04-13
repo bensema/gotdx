@@ -37,7 +37,7 @@ type AuctionData struct {
 	Unmatched uint32
 }
 
-func NewGetAuction() *GetAuction {
+func NewGetAuction(req *GetAuctionRequest) *GetAuction {
 	obj := new(GetAuction)
 	obj.reqHeader = new(ReqHeader)
 	obj.respHeader = new(RespHeader)
@@ -49,10 +49,13 @@ func NewGetAuction() *GetAuction {
 	obj.reqHeader.PacketType = 0x00
 	obj.reqHeader.Method = KMSG_AUCTION
 	obj.request.Mode = 3
+	if req != nil {
+		obj.applyRequest(req)
+	}
 	return obj
 }
 
-func (obj *GetAuction) SetParams(req *GetAuctionRequest) {
+func (obj *GetAuction) applyRequest(req *GetAuctionRequest) {
 	if req.Mode == 0 {
 		req.Mode = 3
 	}
@@ -62,7 +65,7 @@ func (obj *GetAuction) SetParams(req *GetAuctionRequest) {
 	obj.request = req
 }
 
-func (obj *GetAuction) Serialize() ([]byte, error) {
+func (obj *GetAuction) BuildRequest() ([]byte, error) {
 	obj.reqHeader.PkgLen1 = 0x1e
 	obj.reqHeader.PkgLen2 = 0x1e
 
@@ -72,8 +75,8 @@ func (obj *GetAuction) Serialize() ([]byte, error) {
 	return buf.Bytes(), err
 }
 
-func (obj *GetAuction) UnSerialize(header interface{}, data []byte) error {
-	obj.respHeader = header.(*RespHeader)
+func (obj *GetAuction) ParseResponse(header *RespHeader, data []byte) error {
+	obj.respHeader = header
 
 	if err := binary.Read(bytes.NewBuffer(data[:2]), binary.LittleEndian, &obj.reply.Count); err != nil {
 		return err
@@ -102,6 +105,6 @@ func (obj *GetAuction) UnSerialize(header interface{}, data []byte) error {
 	return nil
 }
 
-func (obj *GetAuction) Reply() *GetAuctionReply {
+func (obj *GetAuction) Response() *GetAuctionReply {
 	return obj.reply
 }

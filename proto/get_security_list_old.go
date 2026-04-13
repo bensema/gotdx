@@ -24,7 +24,7 @@ type GetSecurityListOldReply struct {
 	List  []Security
 }
 
-func NewGetSecurityListOld() *GetSecurityListOld {
+func NewGetSecurityListOld(req *GetSecurityListOldRequest) *GetSecurityListOld {
 	obj := &GetSecurityListOld{
 		reqHeader:  new(ReqHeader),
 		respHeader: new(RespHeader),
@@ -35,14 +35,17 @@ func NewGetSecurityListOld() *GetSecurityListOld {
 	obj.reqHeader.SeqID = seqID()
 	obj.reqHeader.PacketType = 0x01
 	obj.reqHeader.Method = KMSG_SECURITYLIST_OLD
+	if req != nil {
+		obj.applyRequest(req)
+	}
 	return obj
 }
 
-func (obj *GetSecurityListOld) SetParams(req *GetSecurityListOldRequest) {
+func (obj *GetSecurityListOld) applyRequest(req *GetSecurityListOldRequest) {
 	obj.request = req
 }
 
-func (obj *GetSecurityListOld) Serialize() ([]byte, error) {
+func (obj *GetSecurityListOld) BuildRequest() ([]byte, error) {
 	obj.reqHeader.PkgLen1 = 6
 	obj.reqHeader.PkgLen2 = 6
 	buf := new(bytes.Buffer)
@@ -53,8 +56,8 @@ func (obj *GetSecurityListOld) Serialize() ([]byte, error) {
 	return buf.Bytes(), err
 }
 
-func (obj *GetSecurityListOld) UnSerialize(header interface{}, data []byte) error {
-	obj.respHeader = header.(*RespHeader)
+func (obj *GetSecurityListOld) ParseResponse(header *RespHeader, data []byte) error {
+	obj.respHeader = header
 	if len(data) < 2 {
 		return fmt.Errorf("invalid security list old response length: %d", len(data))
 	}
@@ -80,6 +83,6 @@ func (obj *GetSecurityListOld) UnSerialize(header interface{}, data []byte) erro
 	return nil
 }
 
-func (obj *GetSecurityListOld) Reply() *GetSecurityListOldReply {
+func (obj *GetSecurityListOld) Response() *GetSecurityListOldReply {
 	return obj.reply
 }

@@ -45,7 +45,7 @@ type ExBoardListItem struct {
 	SymbolPreClose  float64
 }
 
-func NewExGetBoardList() *ExGetBoardList {
+func NewExGetBoardList(req *ExGetBoardListRequest) *ExGetBoardList {
 	obj := &ExGetBoardList{
 		reqHeader:  new(ReqHeader),
 		respHeader: new(RespHeader),
@@ -59,10 +59,13 @@ func NewExGetBoardList() *ExGetBoardList {
 	obj.request.PageSize = 300
 	obj.request.SortOrder = 1
 	obj.request.One = 1
+	if req != nil {
+		obj.applyRequest(req)
+	}
 	return obj
 }
 
-func (obj *ExGetBoardList) SetParams(req *ExGetBoardListRequest) {
+func (obj *ExGetBoardList) applyRequest(req *ExGetBoardListRequest) {
 	if req.PageSize == 0 {
 		req.PageSize = 300
 	}
@@ -75,16 +78,16 @@ func (obj *ExGetBoardList) SetParams(req *ExGetBoardListRequest) {
 	obj.request = req
 }
 
-func (obj *ExGetBoardList) Serialize() ([]byte, error) {
+func (obj *ExGetBoardList) BuildRequest() ([]byte, error) {
 	payload := new(bytes.Buffer)
 	if err := binary.Write(payload, binary.LittleEndian, obj.request); err != nil {
 		return nil, err
 	}
-	return serializeExRequest(KMSG_EXBOARDLIST, payload.Bytes())
+	return buildExRequest(KMSG_EXBOARDLIST, payload.Bytes())
 }
 
-func (obj *ExGetBoardList) UnSerialize(header interface{}, data []byte) error {
-	obj.respHeader = header.(*RespHeader)
+func (obj *ExGetBoardList) ParseResponse(header *RespHeader, data []byte) error {
+	obj.respHeader = header
 	if len(data) < 4 {
 		return fmt.Errorf("invalid ex board list response length: %d", len(data))
 	}
@@ -117,6 +120,6 @@ func (obj *ExGetBoardList) UnSerialize(header interface{}, data []byte) error {
 	return nil
 }
 
-func (obj *ExGetBoardList) Reply() *ExGetBoardListReply {
+func (obj *ExGetBoardList) Response() *ExGetBoardListReply {
 	return obj.reply
 }

@@ -46,7 +46,7 @@ type IndexBar struct {
 	DownCount uint16
 }
 
-func NewGetIndexBars() *GetIndexBars {
+func NewGetIndexBars(req *GetIndexBarsRequest) *GetIndexBars {
 	obj := new(GetIndexBars)
 	obj.reqHeader = new(ReqHeader)
 	obj.respHeader = new(RespHeader)
@@ -57,17 +57,20 @@ func NewGetIndexBars() *GetIndexBars {
 	obj.reqHeader.SeqID = seqID()
 	obj.reqHeader.PacketType = 0x00
 	obj.reqHeader.Method = KMSG_INDEXBARS
+	if req != nil {
+		obj.applyRequest(req)
+	}
 	return obj
 }
 
-func (obj *GetIndexBars) SetParams(req *GetIndexBarsRequest) {
+func (obj *GetIndexBars) applyRequest(req *GetIndexBarsRequest) {
 	if req.Times == 0 {
 		req.Times = 1
 	}
 	obj.request = req
 }
 
-func (obj *GetIndexBars) Serialize() ([]byte, error) {
+func (obj *GetIndexBars) BuildRequest() ([]byte, error) {
 	obj.reqHeader.PkgLen1 = 0x1c
 	obj.reqHeader.PkgLen2 = 0x1c
 
@@ -77,8 +80,8 @@ func (obj *GetIndexBars) Serialize() ([]byte, error) {
 	return buf.Bytes(), err
 }
 
-func (obj *GetIndexBars) UnSerialize(header interface{}, data []byte) error {
-	obj.respHeader = header.(*RespHeader)
+func (obj *GetIndexBars) ParseResponse(header *RespHeader, data []byte) error {
+	obj.respHeader = header
 
 	pos := 0
 	if err := binary.Read(bytes.NewBuffer(data[pos:pos+2]), binary.LittleEndian, &obj.reply.Count); err != nil {
@@ -135,6 +138,6 @@ func (obj *GetIndexBars) UnSerialize(header interface{}, data []byte) error {
 	return nil
 }
 
-func (obj *GetIndexBars) Reply() *GetIndexBarsReply {
+func (obj *GetIndexBars) Response() *GetIndexBarsReply {
 	return obj.reply
 }

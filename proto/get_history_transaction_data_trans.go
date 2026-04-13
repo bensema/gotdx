@@ -28,7 +28,7 @@ type HistoryTransactionDataWithTrans struct {
 	Action string  // 成交方向，如 BUY/SELL/NEUTRAL。
 }
 
-func NewGetHistoryTransactionDataWithTrans() *GetHistoryTransactionDataWithTrans {
+func NewGetHistoryTransactionDataWithTrans(req *GetHistoryTransactionDataRequest) *GetHistoryTransactionDataWithTrans {
 	obj := &GetHistoryTransactionDataWithTrans{
 		reqHeader:  new(ReqHeader),
 		respHeader: new(RespHeader),
@@ -39,14 +39,17 @@ func NewGetHistoryTransactionDataWithTrans() *GetHistoryTransactionDataWithTrans
 	obj.reqHeader.SeqID = seqID()
 	obj.reqHeader.PacketType = 0x00
 	obj.reqHeader.Method = KMSG_TRANSACTIONDATA_TRANS
+	if req != nil {
+		obj.applyRequest(req)
+	}
 	return obj
 }
 
-func (obj *GetHistoryTransactionDataWithTrans) SetParams(req *GetHistoryTransactionDataRequest) {
+func (obj *GetHistoryTransactionDataWithTrans) applyRequest(req *GetHistoryTransactionDataRequest) {
 	obj.request = req
 }
 
-func (obj *GetHistoryTransactionDataWithTrans) Serialize() ([]byte, error) {
+func (obj *GetHistoryTransactionDataWithTrans) BuildRequest() ([]byte, error) {
 	obj.reqHeader.PkgLen1 = 0x12
 	obj.reqHeader.PkgLen2 = 0x12
 	buf := new(bytes.Buffer)
@@ -57,8 +60,8 @@ func (obj *GetHistoryTransactionDataWithTrans) Serialize() ([]byte, error) {
 	return buf.Bytes(), err
 }
 
-func (obj *GetHistoryTransactionDataWithTrans) UnSerialize(header interface{}, data []byte) error {
-	obj.respHeader = header.(*RespHeader)
+func (obj *GetHistoryTransactionDataWithTrans) ParseResponse(header *RespHeader, data []byte) error {
+	obj.respHeader = header
 	if len(data) < 6 {
 		return fmt.Errorf("invalid history transaction with trans response length: %d", len(data))
 	}
@@ -98,6 +101,6 @@ func (obj *GetHistoryTransactionDataWithTrans) UnSerialize(header interface{}, d
 	return nil
 }
 
-func (obj *GetHistoryTransactionDataWithTrans) Reply() *GetHistoryTransactionDataWithTransReply {
+func (obj *GetHistoryTransactionDataWithTrans) Response() *GetHistoryTransactionDataWithTransReply {
 	return obj.reply
 }

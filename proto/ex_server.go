@@ -35,16 +35,16 @@ func NewExLogin() *ExLogin {
 	return obj
 }
 
-func (obj *ExLogin) Serialize() ([]byte, error) {
+func (obj *ExLogin) BuildRequest() ([]byte, error) {
 	payload, err := hex.DecodeString(obj.contentHex)
 	if err != nil {
 		return nil, err
 	}
-	return serializeExRequest(KMSG_EXLOGIN, payload)
+	return buildExRequest(KMSG_EXLOGIN, payload)
 }
 
-func (obj *ExLogin) UnSerialize(header interface{}, data []byte) error {
-	obj.respHeader = header.(*RespHeader)
+func (obj *ExLogin) ParseResponse(header *RespHeader, data []byte) error {
+	obj.respHeader = header
 	if len(data) < 294 {
 		return fmt.Errorf("invalid ex login response length: %d", len(data))
 	}
@@ -63,7 +63,7 @@ func (obj *ExLogin) UnSerialize(header interface{}, data []byte) error {
 	return nil
 }
 
-func (obj *ExLogin) Reply() *ExLoginReply {
+func (obj *ExLogin) Response() *ExLoginReply {
 	return obj.reply
 }
 
@@ -95,12 +95,12 @@ func NewExServerInfo() *ExServerInfo {
 	return obj
 }
 
-func (obj *ExServerInfo) Serialize() ([]byte, error) {
-	return serializeExRequest(KMSG_EXSERVERINFO, nil)
+func (obj *ExServerInfo) BuildRequest() ([]byte, error) {
+	return buildExRequest(KMSG_EXSERVERINFO, nil)
 }
 
-func (obj *ExServerInfo) UnSerialize(header interface{}, data []byte) error {
-	obj.respHeader = header.(*RespHeader)
+func (obj *ExServerInfo) ParseResponse(header *RespHeader, data []byte) error {
+	obj.respHeader = header
 	if len(data) < 327 {
 		return fmt.Errorf("invalid ex server info response length: %d", len(data))
 	}
@@ -123,6 +123,6 @@ func (obj *ExServerInfo) UnSerialize(header interface{}, data []byte) error {
 	return nil
 }
 
-func (obj *ExServerInfo) Reply() *ExServerInfoReply {
+func (obj *ExServerInfo) Response() *ExServerInfoReply {
 	return obj.reply
 }

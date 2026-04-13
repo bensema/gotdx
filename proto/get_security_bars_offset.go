@@ -4,8 +4,8 @@ type GetSecurityBarsOffset = GetSecurityBars
 type GetSecurityBarsOffsetRequest = GetSecurityBarsRequest
 type GetSecurityBarsOffsetReply = GetSecurityBarsReply
 
-func NewGetSecurityBarsOffset() *GetSecurityBarsOffset {
-	obj := NewGetSecurityBars()
+func NewGetSecurityBarsOffset(req *GetSecurityBarsOffsetRequest) *GetSecurityBarsOffset {
+	obj := NewGetSecurityBars(req)
 	obj.reqHeader.Method = KMSG_SECURITYBARS_OFFSET
 	return obj
 }

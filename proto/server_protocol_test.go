@@ -7,31 +7,31 @@ import (
 	"testing"
 )
 
-func TestServerMessagesSerializeAndDeserialize(t *testing.T) {
+func TestServerMessagesBuildRequestAndParseResponse(t *testing.T) {
 	t.Run("heartbeat", func(t *testing.T) {
 		msg := NewHeartBeat()
-		raw := mustSerialize(t, msg)
+		raw := mustBuildRequest(t, msg)
 		header := readReqHeader(t, raw)
 		if header.Method != KMSG_HEARTBEAT {
 			t.Fatalf("unexpected method: %#x", header.Method)
 		}
 		payload := make([]byte, 10)
 		binary.LittleEndian.PutUint32(payload[6:10], 20250512)
-		if err := msg.UnSerialize(&RespHeader{}, payload); err != nil {
-			t.Fatalf("deserialize failed: %v", err)
+		if err := msg.ParseResponse(&RespHeader{}, payload); err != nil {
+			t.Fatalf("parse response failed: %v", err)
 		}
-		if msg.Reply().Date != 20250512 {
-			t.Fatalf("unexpected heartbeat date: %d", msg.Reply().Date)
+		if msg.Response().Date != 20250512 {
+			t.Fatalf("unexpected heartbeat date: %d", msg.Response().Date)
 		}
 	})
 
 	t.Run("exchange_announcement", func(t *testing.T) {
 		msg := NewExchangeAnnouncement()
-		if err := msg.UnSerialize(&RespHeader{}, append([]byte{1}, []byte("hello")...)); err != nil {
-			t.Fatalf("deserialize failed: %v", err)
+		if err := msg.ParseResponse(&RespHeader{}, append([]byte{1}, []byte("hello")...)); err != nil {
+			t.Fatalf("parse response failed: %v", err)
 		}
-		if msg.Reply().Version != 1 || msg.Reply().Content != "hello" {
-			t.Fatalf("unexpected reply: %+v", msg.Reply())
+		if msg.Response().Version != 1 || msg.Response().Content != "hello" {
+			t.Fatalf("unexpected reply: %+v", msg.Response())
 		}
 	})
 
@@ -54,10 +54,10 @@ func TestServerMessagesSerializeAndDeserialize(t *testing.T) {
 		buf.WriteString("title")
 		buf.WriteString("author")
 		buf.WriteString("content")
-		if err := msg.UnSerialize(&RespHeader{}, buf.Bytes()); err != nil {
-			t.Fatalf("deserialize failed: %v", err)
+		if err := msg.ParseResponse(&RespHeader{}, buf.Bytes()); err != nil {
+			t.Fatalf("parse response failed: %v", err)
 		}
-		reply := msg.Reply()
+		reply := msg.Response()
 		if !reply.HasContent || reply.ExpireDate != "2026-04-11" || reply.Title != "title" || reply.Author != "author" || reply.Content != "content" {
 			t.Fatalf("unexpected reply: %+v", reply)
 		}
@@ -74,10 +74,10 @@ func TestServerMessagesSerializeAndDeserialize(t *testing.T) {
 		binary.LittleEndian.PutUint16(payload[395:397], 1)
 		binary.LittleEndian.PutUint32(payload[397:401], 20260411)
 		binary.LittleEndian.PutUint32(payload[401:405], 93015)
-		if err := msg.UnSerialize(&RespHeader{}, payload); err != nil {
-			t.Fatalf("deserialize failed: %v", err)
+		if err := msg.ParseResponse(&RespHeader{}, payload); err != nil {
+			t.Fatalf("parse response failed: %v", err)
 		}
-		reply := msg.Reply()
+		reply := msg.Response()
 		if reply.Delay != 123 || reply.Info != "server-info" || reply.Content != "server-content" || reply.ServerSign != "sign" {
 			t.Fatalf("unexpected info reply: %+v", reply)
 		}
@@ -87,11 +87,10 @@ func TestServerMessagesSerializeAndDeserialize(t *testing.T) {
 	})
 }
 
-func TestGetSecurityListOldSerializeAndDeserialize(t *testing.T) {
-	msg := NewGetSecurityListOld()
-	msg.SetParams(&GetSecurityListOldRequest{Market: 1, Start: 8})
+func TestGetSecurityListOldBuildRequestAndParseResponse(t *testing.T) {
+	msg := NewGetSecurityListOld(&GetSecurityListOldRequest{Market: 1, Start: 8})
 
-	raw := mustSerialize(t, msg)
+	raw := mustBuildRequest(t, msg)
 	header := readReqHeader(t, raw)
 	if header.Method != KMSG_SECURITYLIST_OLD {
 		t.Fatalf("unexpected method: %#x", header.Method)
@@ -138,25 +137,24 @@ func TestGetSecurityListOldSerializeAndDeserialize(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := msg.UnSerialize(&RespHeader{}, buf.Bytes()); err != nil {
-		t.Fatalf("deserialize failed: %v", err)
+	if err := msg.ParseResponse(&RespHeader{}, buf.Bytes()); err != nil {
+		t.Fatalf("parse response failed: %v", err)
 	}
-	item := msg.Reply().List[0]
+	item := msg.Response().List[0]
 	if item.Code != "600000" || item.Name != "TEST" || item.DecimalPoint != 2 || math.Abs(item.PreClose-12.34) > 0.001 {
 		t.Fatalf("unexpected item: %+v", item)
 	}
 }
 
-func TestGetHistoryTransactionDataWithTransSerializeAndDeserialize(t *testing.T) {
-	msg := NewGetHistoryTransactionDataWithTrans()
-	msg.SetParams(&GetHistoryTransactionDataRequest{
+func TestGetHistoryTransactionDataWithTransBuildRequestAndParseResponse(t *testing.T) {
+	msg := NewGetHistoryTransactionDataWithTrans(&GetHistoryTransactionDataRequest{
 		Date:   20260411,
 		Market: 1,
 		Code:   [6]byte{'6', '0', '0', '0', '0', '0'},
 		Start:  0,
 		Count:  1,
 	})
-	raw := mustSerialize(t, msg)
+	raw := mustBuildRequest(t, msg)
 	header := readReqHeader(t, raw)
 	if header.Method != KMSG_TRANSACTIONDATA_TRANS {
 		t.Fatalf("unexpected method: %#x", header.Method)
@@ -178,10 +176,10 @@ func TestGetHistoryTransactionDataWithTransSerializeAndDeserialize(t *testing.T)
 	if err := binary.Write(buf, binary.LittleEndian, uint16(1)); err != nil {
 		t.Fatal(err)
 	}
-	if err := msg.UnSerialize(&RespHeader{}, buf.Bytes()); err != nil {
-		t.Fatalf("deserialize failed: %v", err)
+	if err := msg.ParseResponse(&RespHeader{}, buf.Bytes()); err != nil {
+		t.Fatalf("parse response failed: %v", err)
 	}
-	reply := msg.Reply()
+	reply := msg.Response()
 	if reply.Count != 1 || math.Abs(reply.PreClose-12.3) > 0.001 {
 		t.Fatalf("unexpected reply: %+v", reply)
 	}
@@ -191,10 +189,9 @@ func TestGetHistoryTransactionDataWithTransSerializeAndDeserialize(t *testing.T)
 	}
 }
 
-func TestGetQuotesEncryptSerializeAndDeserialize(t *testing.T) {
-	msg := NewGetQuotesEncrypt()
-	msg.SetParams(&GetQuotesEncryptRequest{Stocks: []Stock{{Market: 1, Code: "600000"}}})
-	raw := mustSerialize(t, msg)
+func TestGetQuotesEncryptBuildRequestAndParseResponse(t *testing.T) {
+	msg := NewGetQuotesEncrypt(&GetQuotesEncryptRequest{Stocks: []Stock{{Market: 1, Code: "600000"}}})
+	raw := mustBuildRequest(t, msg)
 	header := readReqHeader(t, raw)
 	if header.Method != KMSG_QUOTESENCRYPT {
 		t.Fatalf("unexpected method: %#x", header.Method)
@@ -247,10 +244,10 @@ func TestGetQuotesEncryptSerializeAndDeserialize(t *testing.T) {
 	for i := range xor {
 		xor[i] ^= 0x93
 	}
-	if err := msg.UnSerialize(&RespHeader{}, xor); err != nil {
-		t.Fatalf("deserialize failed: %v", err)
+	if err := msg.ParseResponse(&RespHeader{}, xor); err != nil {
+		t.Fatalf("parse response failed: %v", err)
 	}
-	reply := msg.Reply()
+	reply := msg.Response()
 	if reply.Count != 1 || len(reply.List) != 1 {
 		t.Fatalf("unexpected reply: %+v", reply)
 	}

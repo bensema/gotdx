@@ -52,7 +52,7 @@ type MACSymbolBar struct {
 	FloatShares float64
 }
 
-func NewMACSymbolBars() *MACSymbolBars {
+func NewMACSymbolBars(req *MACSymbolBarsRequest) *MACSymbolBars {
 	obj := &MACSymbolBars{
 		reqHeader:  new(ReqHeader),
 		respHeader: new(RespHeader),
@@ -68,10 +68,13 @@ func NewMACSymbolBars() *MACSymbolBars {
 	obj.request.Flag1 = 1
 	obj.request.Flag2 = 1
 	obj.request.Flag4 = 1
+	if req != nil {
+		obj.applyRequest(req)
+	}
 	return obj
 }
 
-func (obj *MACSymbolBars) SetParams(req *MACSymbolBarsRequest) {
+func (obj *MACSymbolBars) applyRequest(req *MACSymbolBarsRequest) {
 	if req.Times == 0 {
 		req.Times = 1
 	}
@@ -90,16 +93,16 @@ func (obj *MACSymbolBars) SetParams(req *MACSymbolBarsRequest) {
 	obj.request = req
 }
 
-func (obj *MACSymbolBars) Serialize() ([]byte, error) {
+func (obj *MACSymbolBars) BuildRequest() ([]byte, error) {
 	payload := new(bytes.Buffer)
 	if err := binary.Write(payload, binary.LittleEndian, obj.request); err != nil {
 		return nil, err
 	}
-	return serializeExRequest(KMSG_MACSYMBOLBARS, payload.Bytes())
+	return buildExRequest(KMSG_MACSYMBOLBARS, payload.Bytes())
 }
 
-func (obj *MACSymbolBars) UnSerialize(header interface{}, data []byte) error {
-	obj.respHeader = header.(*RespHeader)
+func (obj *MACSymbolBars) ParseResponse(header *RespHeader, data []byte) error {
+	obj.respHeader = header
 	if len(data) < 33 {
 		return fmt.Errorf("invalid mac symbol bars response length: %d", len(data))
 	}
@@ -137,7 +140,7 @@ func (obj *MACSymbolBars) UnSerialize(header interface{}, data []byte) error {
 	return nil
 }
 
-func (obj *MACSymbolBars) Reply() *MACSymbolBarsReply {
+func (obj *MACSymbolBars) Response() *MACSymbolBarsReply {
 	return obj.reply
 }
 

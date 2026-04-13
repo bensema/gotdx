@@ -36,7 +36,7 @@ type TransactionData struct {
 	BuyOrSell int     // 买卖方向标记。
 }
 
-func NewGetTransactionData() *GetTransactionData {
+func NewGetTransactionData(req *GetTransactionDataRequest) *GetTransactionData {
 	obj := new(GetTransactionData)
 	obj.reqHeader = new(ReqHeader)
 	obj.respHeader = new(RespHeader)
@@ -51,14 +51,17 @@ func NewGetTransactionData() *GetTransactionData {
 	obj.reqHeader.Method = KMSG_TRANSACTIONDATA
 	//obj.reqHeader.Method = KMSG_MINUTETIMEDATA
 	obj.contentHex = ""
+	if req != nil {
+		obj.applyRequest(req)
+	}
 	return obj
 }
 
-func (obj *GetTransactionData) SetParams(req *GetTransactionDataRequest) {
+func (obj *GetTransactionData) applyRequest(req *GetTransactionDataRequest) {
 	obj.request = req
 }
 
-func (obj *GetTransactionData) Serialize() ([]byte, error) {
+func (obj *GetTransactionData) BuildRequest() ([]byte, error) {
 	obj.reqHeader.PkgLen1 = 0x0e
 	obj.reqHeader.PkgLen2 = 0x0e
 
@@ -76,8 +79,8 @@ func (obj *GetTransactionData) Serialize() ([]byte, error) {
 	return buf.Bytes(), err
 }
 
-func (obj *GetTransactionData) UnSerialize(header interface{}, data []byte) error {
-	obj.respHeader = header.(*RespHeader)
+func (obj *GetTransactionData) ParseResponse(header *RespHeader, data []byte) error {
+	obj.respHeader = header
 
 	pos := 0
 	err := binary.Read(bytes.NewBuffer(data[pos:pos+2]), binary.LittleEndian, &obj.reply.Count)
@@ -100,6 +103,6 @@ func (obj *GetTransactionData) UnSerialize(header interface{}, data []byte) erro
 	return err
 }
 
-func (obj *GetTransactionData) Reply() *GetTransactionDataReply {
+func (obj *GetTransactionData) Response() *GetTransactionDataReply {
 	return obj.reply
 }

@@ -51,7 +51,7 @@ type VolumeProfileItem struct {
 	Sell  int     // 主卖量。
 }
 
-func NewGetVolumeProfile() *GetVolumeProfile {
+func NewGetVolumeProfile(req *GetVolumeProfileRequest) *GetVolumeProfile {
 	obj := new(GetVolumeProfile)
 	obj.reqHeader = new(ReqHeader)
 	obj.respHeader = new(RespHeader)
@@ -62,14 +62,17 @@ func NewGetVolumeProfile() *GetVolumeProfile {
 	obj.reqHeader.SeqID = seqID()
 	obj.reqHeader.PacketType = 0x00
 	obj.reqHeader.Method = KMSG_VOLUMEPROFILE
+	if req != nil {
+		obj.applyRequest(req)
+	}
 	return obj
 }
 
-func (obj *GetVolumeProfile) SetParams(req *GetVolumeProfileRequest) {
+func (obj *GetVolumeProfile) applyRequest(req *GetVolumeProfileRequest) {
 	obj.request = req
 }
 
-func (obj *GetVolumeProfile) Serialize() ([]byte, error) {
+func (obj *GetVolumeProfile) BuildRequest() ([]byte, error) {
 	obj.reqHeader.PkgLen1 = 0x0a
 	obj.reqHeader.PkgLen2 = 0x0a
 
@@ -79,8 +82,8 @@ func (obj *GetVolumeProfile) Serialize() ([]byte, error) {
 	return buf.Bytes(), err
 }
 
-func (obj *GetVolumeProfile) UnSerialize(header interface{}, data []byte) error {
-	obj.respHeader = header.(*RespHeader)
+func (obj *GetVolumeProfile) ParseResponse(header *RespHeader, data []byte) error {
+	obj.respHeader = header
 
 	obj.reply.Count = binary.LittleEndian.Uint16(data[:2])
 	obj.reply.Market = data[2]
@@ -142,6 +145,6 @@ func (obj *GetVolumeProfile) UnSerialize(header interface{}, data []byte) error 
 	return nil
 }
 
-func (obj *GetVolumeProfile) Reply() *GetVolumeProfileReply {
+func (obj *GetVolumeProfile) Response() *GetVolumeProfileReply {
 	return obj.reply
 }

@@ -38,7 +38,7 @@ func NewHello1() *Hello1 {
 	return obj
 }
 
-func (obj *Hello1) Serialize() ([]byte, error) {
+func (obj *Hello1) BuildRequest() ([]byte, error) {
 	b, err := hex.DecodeString(obj.contentHex)
 
 	obj.reqHeader.PkgLen1 = 2 + uint16(len(b))
@@ -56,8 +56,8 @@ func (obj *Hello1) Serialize() ([]byte, error) {
 
 	分  时    秒                                                                      日期
 */
-func (obj *Hello1) UnSerialize(header interface{}, data []byte) error {
-	obj.respHeader = header.(*RespHeader)
+func (obj *Hello1) ParseResponse(header *RespHeader, data []byte) error {
+	obj.respHeader = header
 
 	serverInfo := Utf8ToGbk(data[68:])
 
@@ -65,6 +65,6 @@ func (obj *Hello1) UnSerialize(header interface{}, data []byte) error {
 	return nil
 }
 
-func (obj *Hello1) Reply() *Hello1Reply {
+func (obj *Hello1) Response() *Hello1Reply {
 	return obj.reply
 }

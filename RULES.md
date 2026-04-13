@@ -41,8 +41,8 @@
 1. `proto/`
    - 请求结构
    - 响应结构
-   - `Serialize`
-   - `UnSerialize`
+   - `BuildRequest`
+   - `ParseResponse`
    - 对应测试
 2. `client`
    - 低层 `Get*` / `ExGet*` / `GetMAC*`

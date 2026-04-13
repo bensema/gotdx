@@ -104,24 +104,23 @@ func buildExQuoteRecord(t *testing.T, codeLen int, category byte, code string) [
 	return buf.Bytes()
 }
 
-func TestExGetCountDeserialize(t *testing.T) {
+func TestExGetCountParseResponse(t *testing.T) {
 	msg := NewExGetCount()
 	payload := make([]byte, 31)
 	binary.LittleEndian.PutUint32(payload[19:23], 4321)
 
-	if err := msg.UnSerialize(&RespHeader{}, payload); err != nil {
-		t.Fatalf("deserialize failed: %v", err)
+	if err := msg.ParseResponse(&RespHeader{}, payload); err != nil {
+		t.Fatalf("parse response failed: %v", err)
 	}
-	if msg.Reply().Count != 4321 {
-		t.Fatalf("unexpected count: %d", msg.Reply().Count)
+	if msg.Response().Count != 4321 {
+		t.Fatalf("unexpected count: %d", msg.Response().Count)
 	}
 }
 
-func TestExGetListSerializeAndDeserialize(t *testing.T) {
-	msg := NewExGetList()
-	msg.SetParams(&ExGetListRequest{Start: 10, Count: 2})
+func TestExGetListBuildRequestAndParseResponse(t *testing.T) {
+	msg := NewExGetList(&ExGetListRequest{Start: 10, Count: 2})
 
-	raw := mustSerialize(t, msg)
+	raw := mustBuildRequest(t, msg)
 	header := readExReqHeader(t, raw)
 	if header.Head != 0x01 || binary.LittleEndian.Uint16(raw[10:12]) != KMSG_EXLIST {
 		t.Fatalf("unexpected ex request header: head=%#x method=%#x", header.Head, binary.LittleEndian.Uint16(raw[10:12]))
@@ -168,11 +167,11 @@ func TestExGetListSerializeAndDeserialize(t *testing.T) {
 		}
 	}
 
-	if err := msg.UnSerialize(&RespHeader{}, buf.Bytes()); err != nil {
-		t.Fatalf("deserialize failed: %v", err)
+	if err := msg.ParseResponse(&RespHeader{}, buf.Bytes()); err != nil {
+		t.Fatalf("parse response failed: %v", err)
 	}
 
-	reply := msg.Reply()
+	reply := msg.Response()
 	if reply.Start != 10 || reply.Count != 1 {
 		t.Fatalf("unexpected reply header: %+v", reply)
 	}
@@ -184,9 +183,8 @@ func TestExGetListSerializeAndDeserialize(t *testing.T) {
 	}
 }
 
-func TestExGetQuotesListSerializeAndDeserialize(t *testing.T) {
-	msg := NewExGetQuotesList()
-	msg.SetParams(&ExGetQuotesListRequest{
+func TestExGetQuotesListBuildRequestAndParseResponse(t *testing.T) {
+	msg := NewExGetQuotesList(&ExGetQuotesListRequest{
 		Category:    74,
 		SortType:    0x0a,
 		Start:       7,
@@ -194,7 +192,7 @@ func TestExGetQuotesListSerializeAndDeserialize(t *testing.T) {
 		SortReverse: 2,
 	})
 
-	raw := mustSerialize(t, msg)
+	raw := mustBuildRequest(t, msg)
 	header := readExReqHeader(t, raw)
 	if header.Head != 0x01 || binary.LittleEndian.Uint16(raw[10:12]) != KMSG_EXQUOTESLIST {
 		t.Fatalf("unexpected ex request header: head=%#x method=%#x", header.Head, binary.LittleEndian.Uint16(raw[10:12]))
@@ -220,11 +218,11 @@ func TestExGetQuotesListSerializeAndDeserialize(t *testing.T) {
 	}
 	buf.Write(buildExQuoteRecord(t, 23, 74, "TSLA"))
 
-	if err := msg.UnSerialize(&RespHeader{}, buf.Bytes()); err != nil {
-		t.Fatalf("deserialize failed: %v", err)
+	if err := msg.ParseResponse(&RespHeader{}, buf.Bytes()); err != nil {
+		t.Fatalf("parse response failed: %v", err)
 	}
 
-	reply := msg.Reply()
+	reply := msg.Response()
 	if reply.Count != 1 || len(reply.List) != 1 {
 		t.Fatalf("unexpected reply: %+v", reply)
 	}
@@ -237,24 +235,23 @@ func TestExGetQuotesListSerializeAndDeserialize(t *testing.T) {
 	}
 }
 
-func TestExGetQuoteDeserialize(t *testing.T) {
-	msg := NewExGetQuote()
-	if err := msg.UnSerialize(&RespHeader{}, buildExQuoteRecord(t, 9, 31, "09988")); err != nil {
-		t.Fatalf("deserialize failed: %v", err)
+func TestExGetQuoteParseResponse(t *testing.T) {
+	msg := NewExGetQuote(nil)
+	if err := msg.ParseResponse(&RespHeader{}, buildExQuoteRecord(t, 9, 31, "09988")); err != nil {
+		t.Fatalf("parse response failed: %v", err)
 	}
-	item := msg.Reply().Item
+	item := msg.Response().Item
 	if item.Code != "09988" || item.Category != 31 {
 		t.Fatalf("unexpected quote item: %+v", item)
 	}
 }
 
-func TestExGetQuotes2SerializeAndDeserialize(t *testing.T) {
-	msg := NewExGetQuotes2()
-	msg.SetParams(&ExGetQuotesRequest{
+func TestExGetQuotes2BuildRequestAndParseResponse(t *testing.T) {
+	msg := NewExGetQuotes2(&ExGetQuotesRequest{
 		Stocks: []ExStock{{Category: 74, Code: "TSLA"}},
 	})
 
-	raw := mustSerialize(t, msg)
+	raw := mustBuildRequest(t, msg)
 	header := readExReqHeader(t, raw)
 	if header.Head != 0x01 || binary.LittleEndian.Uint16(raw[10:12]) != KMSG_EXQUOTES2 {
 		t.Fatalf("unexpected ex request header: head=%#x method=%#x", header.Head, binary.LittleEndian.Uint16(raw[10:12]))
@@ -275,17 +272,16 @@ func TestExGetQuotes2SerializeAndDeserialize(t *testing.T) {
 	}
 	buf.Write(buildExQuoteRecord(t, 23, 74, "TSLA"))
 
-	if err := msg.UnSerialize(&RespHeader{}, buf.Bytes()); err != nil {
-		t.Fatalf("deserialize failed: %v", err)
+	if err := msg.ParseResponse(&RespHeader{}, buf.Bytes()); err != nil {
+		t.Fatalf("parse response failed: %v", err)
 	}
-	if len(msg.Reply().List) != 1 || msg.Reply().List[0].Code != "TSLA" {
-		t.Fatalf("unexpected reply: %+v", msg.Reply())
+	if len(msg.Response().List) != 1 || msg.Response().List[0].Code != "TSLA" {
+		t.Fatalf("unexpected reply: %+v", msg.Response())
 	}
 }
 
-func TestExGetKLineSerializeAndDeserialize(t *testing.T) {
-	msg := NewExGetKLine()
-	msg.SetParams(&ExGetKLineRequest{
+func TestExGetKLineBuildRequestAndParseResponse(t *testing.T) {
+	msg := NewExGetKLine(&ExGetKLineRequest{
 		Category: 74,
 		Code:     [9]byte{'T', 'S', 'L', 'A'},
 		Period:   KLINE_TYPE_DAILY,
@@ -294,7 +290,7 @@ func TestExGetKLineSerializeAndDeserialize(t *testing.T) {
 		Count:    2,
 	})
 
-	raw := mustSerialize(t, msg)
+	raw := mustBuildRequest(t, msg)
 	header := readExReqHeader(t, raw)
 	if header.Head != 0x01 || binary.LittleEndian.Uint16(raw[10:12]) != KMSG_EXKLINE {
 		t.Fatalf("unexpected ex request header: head=%#x method=%#x", header.Head, binary.LittleEndian.Uint16(raw[10:12]))
@@ -330,10 +326,10 @@ func TestExGetKLineSerializeAndDeserialize(t *testing.T) {
 	}
 	writeFloat32(t, buf, 0)
 
-	if err := msg.UnSerialize(&RespHeader{}, buf.Bytes()); err != nil {
-		t.Fatalf("deserialize failed: %v", err)
+	if err := msg.ParseResponse(&RespHeader{}, buf.Bytes()); err != nil {
+		t.Fatalf("parse response failed: %v", err)
 	}
-	reply := msg.Reply()
+	reply := msg.Response()
 	if reply.Count != 1 || len(reply.List) != 1 {
 		t.Fatalf("unexpected reply: %+v", reply)
 	}
@@ -342,8 +338,8 @@ func TestExGetKLineSerializeAndDeserialize(t *testing.T) {
 	}
 }
 
-func TestExGetTickChartAndSamplingDeserialize(t *testing.T) {
-	tickMsg := NewExGetTickChart()
+func TestExGetTickChartAndSamplingParseResponse(t *testing.T) {
+	tickMsg := NewExGetTickChart(nil)
 	tickBuf := new(bytes.Buffer)
 	tickBuf.WriteByte(74)
 	code := make([]byte, 31)
@@ -364,14 +360,14 @@ func TestExGetTickChartAndSamplingDeserialize(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := tickMsg.UnSerialize(&RespHeader{}, tickBuf.Bytes()); err != nil {
-		t.Fatalf("tick deserialize failed: %v", err)
+	if err := tickMsg.ParseResponse(&RespHeader{}, tickBuf.Bytes()); err != nil {
+		t.Fatalf("tick parse response failed: %v", err)
 	}
-	if len(tickMsg.Reply().List) != 1 || tickMsg.Reply().List[0].Time != "09:31" {
-		t.Fatalf("unexpected tick reply: %+v", tickMsg.Reply())
+	if len(tickMsg.Response().List) != 1 || tickMsg.Response().List[0].Time != "09:31" {
+		t.Fatalf("unexpected tick reply: %+v", tickMsg.Response())
 	}
 
-	samplingMsg := NewExGetChartSampling()
+	samplingMsg := NewExGetChartSampling(nil)
 	samplingBuf := new(bytes.Buffer)
 	if err := binary.Write(samplingBuf, binary.LittleEndian, uint16(74)); err != nil {
 		t.Fatal(err)
@@ -390,23 +386,22 @@ func TestExGetTickChartAndSamplingDeserialize(t *testing.T) {
 	writeFloat32(t, samplingBuf, 100.1)
 	writeFloat32(t, samplingBuf, 100.2)
 
-	if err := samplingMsg.UnSerialize(&RespHeader{}, samplingBuf.Bytes()); err != nil {
-		t.Fatalf("sampling deserialize failed: %v", err)
+	if err := samplingMsg.ParseResponse(&RespHeader{}, samplingBuf.Bytes()); err != nil {
+		t.Fatalf("sampling parse response failed: %v", err)
 	}
-	if len(samplingMsg.Reply().Prices) != 2 || math.Abs(samplingMsg.Reply().Prices[1]-100.2) > 0.001 {
-		t.Fatalf("unexpected sampling reply: %+v", samplingMsg.Reply())
+	if len(samplingMsg.Response().Prices) != 2 || math.Abs(samplingMsg.Response().Prices[1]-100.2) > 0.001 {
+		t.Fatalf("unexpected sampling reply: %+v", samplingMsg.Response())
 	}
 }
 
-func TestExGetBoardListSerializeAndDeserialize(t *testing.T) {
-	msg := NewExGetBoardList()
-	msg.SetParams(&ExGetBoardListRequest{
+func TestExGetBoardListBuildRequestAndParseResponse(t *testing.T) {
+	msg := NewExGetBoardList(&ExGetBoardListRequest{
 		PageSize:  2,
 		BoardType: 4,
 		Start:     5,
 	})
 
-	raw := mustSerialize(t, msg)
+	raw := mustBuildRequest(t, msg)
 	header := readExReqHeader(t, raw)
 	if header.Head != 0x01 || binary.LittleEndian.Uint16(raw[10:12]) != KMSG_EXBOARDLIST {
 		t.Fatalf("unexpected ex request header: head=%#x method=%#x", header.Head, binary.LittleEndian.Uint16(raw[10:12]))
@@ -452,10 +447,10 @@ func TestExGetBoardListSerializeAndDeserialize(t *testing.T) {
 	writeFloat32(t, buf, 0.4)
 	writeFloat32(t, buf, 11.8)
 
-	if err := msg.UnSerialize(&RespHeader{}, buf.Bytes()); err != nil {
-		t.Fatalf("deserialize failed: %v", err)
+	if err := msg.ParseResponse(&RespHeader{}, buf.Bytes()); err != nil {
+		t.Fatalf("parse response failed: %v", err)
 	}
-	reply := msg.Reply()
+	reply := msg.Response()
 	if reply.Count != 1 || len(reply.List) != 1 {
 		t.Fatalf("unexpected reply: %+v", reply)
 	}

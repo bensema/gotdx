@@ -37,11 +37,10 @@ func TestExchangeMACBoardCode(t *testing.T) {
 	}
 }
 
-func TestMACBoardCountSerializeAndDeserialize(t *testing.T) {
-	msg := NewMACBoardCount()
-	msg.SetParams(&MACBoardListRequest{BoardType: 5})
+func TestMACBoardCountBuildRequestAndParseResponse(t *testing.T) {
+	msg := NewMACBoardCount(&MACBoardListRequest{BoardType: 5})
 
-	raw := mustSerialize(t, msg)
+	raw := mustBuildRequest(t, msg)
 	header := readExReqHeader(t, raw)
 	if header.Head != 0x01 || binary.LittleEndian.Uint16(raw[10:12]) != KMSG_EXBOARDLIST {
 		t.Fatalf("unexpected ex request header: head=%#x method=%#x", header.Head, binary.LittleEndian.Uint16(raw[10:12]))
@@ -56,17 +55,17 @@ func TestMACBoardCountSerializeAndDeserialize(t *testing.T) {
 	}
 
 	payload := []byte{0x2c, 0x01, 0x2f, 0x02}
-	if err := msg.UnSerialize(&RespHeader{}, payload); err != nil {
-		t.Fatalf("deserialize failed: %v", err)
+	if err := msg.ParseResponse(&RespHeader{}, payload); err != nil {
+		t.Fatalf("parse response failed: %v", err)
 	}
-	reply := msg.Reply()
+	reply := msg.Response()
 	if reply.CountAll != 300 || reply.Total != 559 {
 		t.Fatalf("unexpected reply: %+v", reply)
 	}
 }
 
-func TestMACBoardListDeserialize(t *testing.T) {
-	msg := NewMACBoardList()
+func TestMACBoardListParseResponse(t *testing.T) {
+	msg := NewMACBoardList(nil)
 
 	buf := new(bytes.Buffer)
 	if err := binary.Write(buf, binary.LittleEndian, uint16(2)); err != nil {
@@ -104,10 +103,10 @@ func TestMACBoardListDeserialize(t *testing.T) {
 	writeMACFloat32(t, buf, 0.1)
 	writeMACFloat32(t, buf, 12.0)
 
-	if err := msg.UnSerialize(&RespHeader{}, buf.Bytes()); err != nil {
-		t.Fatalf("deserialize failed: %v", err)
+	if err := msg.ParseResponse(&RespHeader{}, buf.Bytes()); err != nil {
+		t.Fatalf("parse response failed: %v", err)
 	}
-	reply := msg.Reply()
+	reply := msg.Response()
 	if reply.Count != 1 || len(reply.List) != 1 {
 		t.Fatalf("unexpected reply: %+v", reply)
 	}
@@ -117,18 +116,17 @@ func TestMACBoardListDeserialize(t *testing.T) {
 	}
 }
 
-func TestMACBoardMembersSerializeAndDeserialize(t *testing.T) {
-	msg := NewMACBoardMembers()
+func TestMACBoardMembersBuildRequestAndParseResponse(t *testing.T) {
 	boardCode, err := ExchangeMACBoardCode("880761")
 	if err != nil {
 		t.Fatal(err)
 	}
-	msg.SetParams(&MACBoardMembersRequest{
+	msg := NewMACBoardMembers(&MACBoardMembersRequest{
 		BoardCode: boardCode,
 		Start:     10,
 	})
 
-	raw := mustSerialize(t, msg)
+	raw := mustBuildRequest(t, msg)
 	header := readExReqHeader(t, raw)
 	if header.Head != 0x01 || binary.LittleEndian.Uint16(raw[10:12]) != KMSG_MACBOARDMEMBERS {
 		t.Fatalf("unexpected request header: head=%#x method=%#x", header.Head, binary.LittleEndian.Uint16(raw[10:12]))
@@ -168,10 +166,10 @@ func TestMACBoardMembersSerializeAndDeserialize(t *testing.T) {
 	}
 	buf.Write(make([]byte, 28))
 
-	if err := msg.UnSerialize(&RespHeader{}, buf.Bytes()); err != nil {
-		t.Fatalf("deserialize failed: %v", err)
+	if err := msg.ParseResponse(&RespHeader{}, buf.Bytes()); err != nil {
+		t.Fatalf("parse response failed: %v", err)
 	}
-	reply := msg.Reply()
+	reply := msg.Response()
 	if reply.Count != 1 || reply.Total != 123 || len(reply.Stocks) != 1 {
 		t.Fatalf("unexpected reply: %+v", reply)
 	}
@@ -180,15 +178,14 @@ func TestMACBoardMembersSerializeAndDeserialize(t *testing.T) {
 	}
 }
 
-func TestMACBoardMembersQuotesSerializeAndDeserialize(t *testing.T) {
-	msg := NewMACBoardMembersQuotes()
+func TestMACBoardMembersQuotesBuildRequestAndParseResponse(t *testing.T) {
 	boardCode, err := ExchangeMACBoardCode("880761")
 	if err != nil {
 		t.Fatal(err)
 	}
-	msg.SetParams(&MACBoardMembersQuotesRequest{BoardCode: boardCode})
+	msg := NewMACBoardMembersQuotes(&MACBoardMembersQuotesRequest{BoardCode: boardCode})
 
-	raw := mustSerialize(t, msg)
+	raw := mustBuildRequest(t, msg)
 	header := readExReqHeader(t, raw)
 	if header.Head != 0x01 || binary.LittleEndian.Uint16(raw[10:12]) != KMSG_MACBOARDMEMBERS {
 		t.Fatalf("unexpected request header: head=%#x method=%#x", header.Head, binary.LittleEndian.Uint16(raw[10:12]))
@@ -240,10 +237,10 @@ func TestMACBoardMembersQuotesSerializeAndDeserialize(t *testing.T) {
 		writeMACFloat32(t, buf, float32(i))
 	}
 
-	if err := msg.UnSerialize(&RespHeader{}, buf.Bytes()); err != nil {
-		t.Fatalf("deserialize failed: %v", err)
+	if err := msg.ParseResponse(&RespHeader{}, buf.Bytes()); err != nil {
+		t.Fatalf("parse response failed: %v", err)
 	}
-	reply := msg.Reply()
+	reply := msg.Response()
 	if reply.Count != 1 || len(reply.Stocks) != 1 {
 		t.Fatalf("unexpected reply: %+v", reply)
 	}
@@ -256,14 +253,13 @@ func TestMACBoardMembersQuotesSerializeAndDeserialize(t *testing.T) {
 	}
 }
 
-func TestMACSymbolBelongBoardSerializeAndDeserialize(t *testing.T) {
-	msg := NewMACSymbolBelongBoard()
-	msg.SetParams(&MACSymbolBelongBoardRequest{
+func TestMACSymbolBelongBoardBuildRequestAndParseResponse(t *testing.T) {
+	msg := NewMACSymbolBelongBoard(&MACSymbolBelongBoardRequest{
 		Market: 1,
 		Symbol: makeMACCode8("600000"),
 	})
 
-	raw := mustSerialize(t, msg)
+	raw := mustBuildRequest(t, msg)
 	header := readExReqHeader(t, raw)
 	if header.Head != 0x01 || binary.LittleEndian.Uint16(raw[10:12]) != KMSG_MACSYMBOLBELONGBOARD {
 		t.Fatalf("unexpected request header: head=%#x method=%#x", header.Head, binary.LittleEndian.Uint16(raw[10:12]))
@@ -287,10 +283,10 @@ func TestMACSymbolBelongBoardSerializeAndDeserialize(t *testing.T) {
 	buf.Write(make([]byte, 13))
 	buf.WriteString(`[["HY",1,"880001","Coal",10.5,10.0,1,2,3]]`)
 
-	if err := msg.UnSerialize(&RespHeader{}, buf.Bytes()); err != nil {
-		t.Fatalf("deserialize failed: %v", err)
+	if err := msg.ParseResponse(&RespHeader{}, buf.Bytes()); err != nil {
+		t.Fatalf("parse response failed: %v", err)
 	}
-	reply := msg.Reply()
+	reply := msg.Response()
 	if reply.Market != 1 || reply.Query != "Stock_GLHQ" || len(reply.List) != 1 {
 		t.Fatalf("unexpected reply: %+v", reply)
 	}
@@ -299,16 +295,15 @@ func TestMACSymbolBelongBoardSerializeAndDeserialize(t *testing.T) {
 	}
 }
 
-func TestMACSymbolBarsSerializeAndDeserialize(t *testing.T) {
-	msg := NewMACSymbolBars()
-	msg.SetParams(&MACSymbolBarsRequest{
+func TestMACSymbolBarsBuildRequestAndParseResponse(t *testing.T) {
+	msg := NewMACSymbolBars(&MACSymbolBarsRequest{
 		Market: 1,
 		Code:   makeMACCode22("600000"),
 		Period: KLINE_TYPE_DAILY,
 		Count:  1,
 	})
 
-	raw := mustSerialize(t, msg)
+	raw := mustBuildRequest(t, msg)
 	header := readExReqHeader(t, raw)
 	if header.Head != 0x01 || binary.LittleEndian.Uint16(raw[10:12]) != KMSG_MACSYMBOLBARS {
 		t.Fatalf("unexpected request header: head=%#x method=%#x", header.Head, binary.LittleEndian.Uint16(raw[10:12]))
@@ -356,10 +351,10 @@ func TestMACSymbolBarsSerializeAndDeserialize(t *testing.T) {
 	writeMACFloat32(t, buf, 789.0)
 	writeMACFloat32(t, buf, 456.0)
 
-	if err := msg.UnSerialize(&RespHeader{}, buf.Bytes()); err != nil {
-		t.Fatalf("deserialize failed: %v", err)
+	if err := msg.ParseResponse(&RespHeader{}, buf.Bytes()); err != nil {
+		t.Fatalf("parse response failed: %v", err)
 	}
-	reply := msg.Reply()
+	reply := msg.Response()
 	if reply.Count != 1 || len(reply.List) != 1 {
 		t.Fatalf("unexpected reply: %+v", reply)
 	}

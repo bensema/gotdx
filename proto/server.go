@@ -31,7 +31,7 @@ func NewExchangeAnnouncement() *ExchangeAnnouncement {
 	return obj
 }
 
-func (obj *ExchangeAnnouncement) Serialize() ([]byte, error) {
+func (obj *ExchangeAnnouncement) BuildRequest() ([]byte, error) {
 	obj.reqHeader.PkgLen1 = 2
 	obj.reqHeader.PkgLen2 = 2
 	buf := new(bytes.Buffer)
@@ -39,8 +39,8 @@ func (obj *ExchangeAnnouncement) Serialize() ([]byte, error) {
 	return buf.Bytes(), err
 }
 
-func (obj *ExchangeAnnouncement) UnSerialize(header interface{}, data []byte) error {
-	obj.respHeader = header.(*RespHeader)
+func (obj *ExchangeAnnouncement) ParseResponse(header *RespHeader, data []byte) error {
+	obj.respHeader = header
 	if len(data) == 0 {
 		return fmt.Errorf("invalid exchange announcement response length: %d", len(data))
 	}
@@ -49,7 +49,7 @@ func (obj *ExchangeAnnouncement) UnSerialize(header interface{}, data []byte) er
 	return nil
 }
 
-func (obj *ExchangeAnnouncement) Reply() *ExchangeAnnouncementReply {
+func (obj *ExchangeAnnouncement) Response() *ExchangeAnnouncementReply {
 	return obj.reply
 }
 
@@ -76,7 +76,7 @@ func NewHeartBeat() *HeartBeat {
 	return obj
 }
 
-func (obj *HeartBeat) Serialize() ([]byte, error) {
+func (obj *HeartBeat) BuildRequest() ([]byte, error) {
 	obj.reqHeader.PkgLen1 = 2
 	obj.reqHeader.PkgLen2 = 2
 	buf := new(bytes.Buffer)
@@ -84,8 +84,8 @@ func (obj *HeartBeat) Serialize() ([]byte, error) {
 	return buf.Bytes(), err
 }
 
-func (obj *HeartBeat) UnSerialize(header interface{}, data []byte) error {
-	obj.respHeader = header.(*RespHeader)
+func (obj *HeartBeat) ParseResponse(header *RespHeader, data []byte) error {
+	obj.respHeader = header
 	if len(data) < 10 {
 		return fmt.Errorf("invalid heartbeat response length: %d", len(data))
 	}
@@ -93,7 +93,7 @@ func (obj *HeartBeat) UnSerialize(header interface{}, data []byte) error {
 	return nil
 }
 
-func (obj *HeartBeat) Reply() *HeartBeatReply {
+func (obj *HeartBeat) Response() *HeartBeatReply {
 	return obj.reply
 }
 
@@ -124,7 +124,7 @@ func NewAnnouncement() *Announcement {
 	return obj
 }
 
-func (obj *Announcement) Serialize() ([]byte, error) {
+func (obj *Announcement) BuildRequest() ([]byte, error) {
 	obj.reqHeader.PkgLen1 = 56
 	obj.reqHeader.PkgLen2 = 56
 	buf := new(bytes.Buffer)
@@ -135,8 +135,8 @@ func (obj *Announcement) Serialize() ([]byte, error) {
 	return buf.Bytes(), err
 }
 
-func (obj *Announcement) UnSerialize(header interface{}, data []byte) error {
-	obj.respHeader = header.(*RespHeader)
+func (obj *Announcement) ParseResponse(header *RespHeader, data []byte) error {
+	obj.respHeader = header
 	if len(data) == 0 {
 		return fmt.Errorf("invalid announcement response length: %d", len(data))
 	}
@@ -165,7 +165,7 @@ func (obj *Announcement) UnSerialize(header interface{}, data []byte) error {
 	return nil
 }
 
-func (obj *Announcement) Reply() *AnnouncementReply {
+func (obj *Announcement) Response() *AnnouncementReply {
 	return obj.reply
 }
 
@@ -198,7 +198,7 @@ func NewInfo() *Info {
 	return obj
 }
 
-func (obj *Info) Serialize() ([]byte, error) {
+func (obj *Info) BuildRequest() ([]byte, error) {
 	obj.reqHeader.PkgLen1 = 2
 	obj.reqHeader.PkgLen2 = 2
 	buf := new(bytes.Buffer)
@@ -206,8 +206,8 @@ func (obj *Info) Serialize() ([]byte, error) {
 	return buf.Bytes(), err
 }
 
-func (obj *Info) UnSerialize(header interface{}, data []byte) error {
-	obj.respHeader = header.(*RespHeader)
+func (obj *Info) ParseResponse(header *RespHeader, data []byte) error {
+	obj.respHeader = header
 	if len(data) < 427 {
 		return fmt.Errorf("invalid info response length: %d", len(data))
 	}
@@ -236,6 +236,6 @@ func (obj *Info) UnSerialize(header interface{}, data []byte) error {
 	return nil
 }
 
-func (obj *Info) Reply() *InfoReply {
+func (obj *Info) Response() *InfoReply {
 	return obj.reply
 }

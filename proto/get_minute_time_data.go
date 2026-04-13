@@ -30,7 +30,7 @@ type MinuteTimeData struct {
 	Vol   int     // 成交量。
 }
 
-func NewGetMinuteTimeData() *GetMinuteTimeData {
+func NewGetMinuteTimeData(req *GetMinuteTimeDataRequest) *GetMinuteTimeData {
 	obj := new(GetMinuteTimeData)
 	obj.reqHeader = new(ReqHeader)
 	obj.respHeader = new(RespHeader)
@@ -41,14 +41,17 @@ func NewGetMinuteTimeData() *GetMinuteTimeData {
 	obj.reqHeader.SeqID = seqID()
 	obj.reqHeader.PacketType = 0x00
 	obj.reqHeader.Method = KMSG_MINUTETIMEDATA
+	if req != nil {
+		obj.applyRequest(req)
+	}
 	return obj
 }
 
-func (obj *GetMinuteTimeData) SetParams(req *GetMinuteTimeDataRequest) {
+func (obj *GetMinuteTimeData) applyRequest(req *GetMinuteTimeDataRequest) {
 	obj.request = req
 }
 
-func (obj *GetMinuteTimeData) Serialize() ([]byte, error) {
+func (obj *GetMinuteTimeData) BuildRequest() ([]byte, error) {
 	obj.reqHeader.PkgLen1 = 0x0e
 	obj.reqHeader.PkgLen2 = 0x0e
 
@@ -58,8 +61,8 @@ func (obj *GetMinuteTimeData) Serialize() ([]byte, error) {
 	return buf.Bytes(), err
 }
 
-func (obj *GetMinuteTimeData) UnSerialize(header interface{}, data []byte) error {
-	obj.respHeader = header.(*RespHeader)
+func (obj *GetMinuteTimeData) ParseResponse(header *RespHeader, data []byte) error {
+	obj.respHeader = header
 
 	pos := 0
 	var ignored uint16
@@ -103,6 +106,6 @@ func (obj *GetMinuteTimeData) UnSerialize(header interface{}, data []byte) error
 	return nil
 }
 
-func (obj *GetMinuteTimeData) Reply() *GetMinuteTimeDataReply {
+func (obj *GetMinuteTimeData) Response() *GetMinuteTimeDataReply {
 	return obj.reply
 }

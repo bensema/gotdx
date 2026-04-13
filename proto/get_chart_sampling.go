@@ -28,7 +28,7 @@ type GetChartSamplingReply struct {
 	Prices   []float64
 }
 
-func NewGetChartSampling() *GetChartSampling {
+func NewGetChartSampling(req *GetChartSamplingRequest) *GetChartSampling {
 	obj := new(GetChartSampling)
 	obj.reqHeader = new(ReqHeader)
 	obj.respHeader = new(RespHeader)
@@ -45,26 +45,29 @@ func NewGetChartSampling() *GetChartSampling {
 		0x01, 0x00, 0x14, 0x00, 0x00, 0x00, 0x00, 0x01,
 		0x00, 0x00, 0x00, 0x00,
 	})
+	if req != nil {
+		obj.applyRequest(req)
+	}
 	return obj
 }
 
-func (obj *GetChartSampling) SetParams(req *GetChartSamplingRequest) {
+func (obj *GetChartSampling) applyRequest(req *GetChartSamplingRequest) {
 	if req.Reserved == [28]byte{} {
 		req.Reserved = obj.request.Reserved
 	}
 	obj.request = req
 }
 
-func (obj *GetChartSampling) Serialize() ([]byte, error) {
+func (obj *GetChartSampling) BuildRequest() ([]byte, error) {
 	buf := new(bytes.Buffer)
 	if err := binary.Write(buf, binary.LittleEndian, obj.request); err != nil {
 		return nil, err
 	}
-	return serializeGenericRequest(0x0c, 0, 0x01, KMSG_CHARTSAMPLING, buf.Bytes())
+	return buildGenericRequest(0x0c, 0, 0x01, KMSG_CHARTSAMPLING, buf.Bytes())
 }
 
-func (obj *GetChartSampling) UnSerialize(header interface{}, data []byte) error {
-	obj.respHeader = header.(*RespHeader)
+func (obj *GetChartSampling) ParseResponse(header *RespHeader, data []byte) error {
+	obj.respHeader = header
 
 	if len(data) < 42 {
 		return io.ErrUnexpectedEOF
@@ -84,6 +87,6 @@ func (obj *GetChartSampling) UnSerialize(header interface{}, data []byte) error 
 	return nil
 }
 
-func (obj *GetChartSampling) Reply() *GetChartSamplingReply {
+func (obj *GetChartSampling) Response() *GetChartSamplingReply {
 	return obj.reply
 }

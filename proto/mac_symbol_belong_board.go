@@ -40,7 +40,7 @@ type MACBelongBoardItem struct {
 	Metric3    float64
 }
 
-func NewMACSymbolBelongBoard() *MACSymbolBelongBoard {
+func NewMACSymbolBelongBoard(req *MACSymbolBelongBoardRequest) *MACSymbolBelongBoard {
 	obj := &MACSymbolBelongBoard{
 		reqHeader:  new(ReqHeader),
 		respHeader: new(RespHeader),
@@ -52,26 +52,29 @@ func NewMACSymbolBelongBoard() *MACSymbolBelongBoard {
 	obj.reqHeader.PacketType = 0x01
 	obj.reqHeader.Method = KMSG_MACSYMBOLBELONGBOARD
 	obj.request.Query = makeMACCode21("Stock_GLHQ")
+	if req != nil {
+		obj.applyRequest(req)
+	}
 	return obj
 }
 
-func (obj *MACSymbolBelongBoard) SetParams(req *MACSymbolBelongBoardRequest) {
+func (obj *MACSymbolBelongBoard) applyRequest(req *MACSymbolBelongBoardRequest) {
 	if req.Query == ([21]byte{}) {
 		req.Query = makeMACCode21("Stock_GLHQ")
 	}
 	obj.request = req
 }
 
-func (obj *MACSymbolBelongBoard) Serialize() ([]byte, error) {
+func (obj *MACSymbolBelongBoard) BuildRequest() ([]byte, error) {
 	payload := new(bytes.Buffer)
 	if err := binary.Write(payload, binary.LittleEndian, obj.request); err != nil {
 		return nil, err
 	}
-	return serializeExRequest(KMSG_MACSYMBOLBELONGBOARD, payload.Bytes())
+	return buildExRequest(KMSG_MACSYMBOLBELONGBOARD, payload.Bytes())
 }
 
-func (obj *MACSymbolBelongBoard) UnSerialize(header interface{}, data []byte) error {
-	obj.respHeader = header.(*RespHeader)
+func (obj *MACSymbolBelongBoard) ParseResponse(header *RespHeader, data []byte) error {
+	obj.respHeader = header
 	if len(data) < 27 {
 		return fmt.Errorf("invalid mac belong board response length: %d", len(data))
 	}
@@ -105,7 +108,7 @@ func (obj *MACSymbolBelongBoard) UnSerialize(header interface{}, data []byte) er
 	return nil
 }
 
-func (obj *MACSymbolBelongBoard) Reply() *MACSymbolBelongBoardReply {
+func (obj *MACSymbolBelongBoard) Response() *MACSymbolBelongBoardReply {
 	return obj.reply
 }
 

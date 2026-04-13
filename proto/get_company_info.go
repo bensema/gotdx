@@ -33,7 +33,7 @@ type CompanyCategory struct {
 	Length   uint32
 }
 
-func NewGetCompanyCategory() *GetCompanyCategory {
+func NewGetCompanyCategory(req *GetCompanyCategoryRequest) *GetCompanyCategory {
 	obj := new(GetCompanyCategory)
 	obj.reqHeader = new(ReqHeader)
 	obj.respHeader = new(RespHeader)
@@ -44,14 +44,17 @@ func NewGetCompanyCategory() *GetCompanyCategory {
 	obj.reqHeader.SeqID = seqID()
 	obj.reqHeader.PacketType = 0x00
 	obj.reqHeader.Method = KMSG_COMPANYCATEGORY
+	if req != nil {
+		obj.applyRequest(req)
+	}
 	return obj
 }
 
-func (obj *GetCompanyCategory) SetParams(req *GetCompanyCategoryRequest) {
+func (obj *GetCompanyCategory) applyRequest(req *GetCompanyCategoryRequest) {
 	obj.request = req
 }
 
-func (obj *GetCompanyCategory) Serialize() ([]byte, error) {
+func (obj *GetCompanyCategory) BuildRequest() ([]byte, error) {
 	obj.reqHeader.PkgLen1 = 14
 	obj.reqHeader.PkgLen2 = 14
 
@@ -61,8 +64,8 @@ func (obj *GetCompanyCategory) Serialize() ([]byte, error) {
 	return buf.Bytes(), err
 }
 
-func (obj *GetCompanyCategory) UnSerialize(header interface{}, data []byte) error {
-	obj.respHeader = header.(*RespHeader)
+func (obj *GetCompanyCategory) ParseResponse(header *RespHeader, data []byte) error {
+	obj.respHeader = header
 	obj.reply.Count = binary.LittleEndian.Uint16(data[:2])
 
 	for i := uint16(0); i < obj.reply.Count; i++ {
@@ -77,7 +80,7 @@ func (obj *GetCompanyCategory) UnSerialize(header interface{}, data []byte) erro
 	return nil
 }
 
-func (obj *GetCompanyCategory) Reply() *GetCompanyCategoryReply {
+func (obj *GetCompanyCategory) Response() *GetCompanyCategoryReply {
 	return obj.reply
 }
 
@@ -106,7 +109,7 @@ type GetCompanyContentReply struct {
 	Content  string
 }
 
-func NewGetCompanyContent() *GetCompanyContent {
+func NewGetCompanyContent(req *GetCompanyContentRequest) *GetCompanyContent {
 	obj := new(GetCompanyContent)
 	obj.reqHeader = new(ReqHeader)
 	obj.respHeader = new(RespHeader)
@@ -117,14 +120,17 @@ func NewGetCompanyContent() *GetCompanyContent {
 	obj.reqHeader.SeqID = seqID()
 	obj.reqHeader.PacketType = 0x00
 	obj.reqHeader.Method = KMSG_COMPANYCONTENT
+	if req != nil {
+		obj.applyRequest(req)
+	}
 	return obj
 }
 
-func (obj *GetCompanyContent) SetParams(req *GetCompanyContentRequest) {
+func (obj *GetCompanyContent) applyRequest(req *GetCompanyContentRequest) {
 	obj.request = req
 }
 
-func (obj *GetCompanyContent) Serialize() ([]byte, error) {
+func (obj *GetCompanyContent) BuildRequest() ([]byte, error) {
 	obj.reqHeader.PkgLen1 = 104
 	obj.reqHeader.PkgLen2 = 104
 
@@ -134,8 +140,8 @@ func (obj *GetCompanyContent) Serialize() ([]byte, error) {
 	return buf.Bytes(), err
 }
 
-func (obj *GetCompanyContent) UnSerialize(header interface{}, data []byte) error {
-	obj.respHeader = header.(*RespHeader)
+func (obj *GetCompanyContent) ParseResponse(header *RespHeader, data []byte) error {
+	obj.respHeader = header
 	obj.reply.Market = binary.LittleEndian.Uint16(data[:2])
 	obj.reply.Code = Utf8ToGbk(data[2:8])
 	obj.reply.MarketOR = binary.LittleEndian.Uint16(data[8:10])
@@ -144,7 +150,7 @@ func (obj *GetCompanyContent) UnSerialize(header interface{}, data []byte) error
 	return nil
 }
 
-func (obj *GetCompanyContent) Reply() *GetCompanyContentReply {
+func (obj *GetCompanyContent) Response() *GetCompanyContentReply {
 	return obj.reply
 }
 
@@ -202,7 +208,7 @@ type GetFinanceInfoReply struct {
 	Reserved2           float32
 }
 
-func NewGetFinanceInfo() *GetFinanceInfo {
+func NewGetFinanceInfo(req *GetFinanceInfoRequest) *GetFinanceInfo {
 	obj := new(GetFinanceInfo)
 	obj.reqHeader = new(ReqHeader)
 	obj.respHeader = new(RespHeader)
@@ -214,17 +220,20 @@ func NewGetFinanceInfo() *GetFinanceInfo {
 	obj.reqHeader.PacketType = 0x00
 	obj.reqHeader.Method = KMSG_FINANCEINFO
 	obj.request.One = 1
+	if req != nil {
+		obj.applyRequest(req)
+	}
 	return obj
 }
 
-func (obj *GetFinanceInfo) SetParams(req *GetFinanceInfoRequest) {
+func (obj *GetFinanceInfo) applyRequest(req *GetFinanceInfoRequest) {
 	if req.One == 0 {
 		req.One = 1
 	}
 	obj.request = req
 }
 
-func (obj *GetFinanceInfo) Serialize() ([]byte, error) {
+func (obj *GetFinanceInfo) BuildRequest() ([]byte, error) {
 	obj.reqHeader.PkgLen1 = 11
 	obj.reqHeader.PkgLen2 = 11
 
@@ -234,8 +243,8 @@ func (obj *GetFinanceInfo) Serialize() ([]byte, error) {
 	return buf.Bytes(), err
 }
 
-func (obj *GetFinanceInfo) UnSerialize(header interface{}, data []byte) error {
-	obj.respHeader = header.(*RespHeader)
+func (obj *GetFinanceInfo) ParseResponse(header *RespHeader, data []byte) error {
+	obj.respHeader = header
 	reader := bytes.NewReader(data)
 
 	if err := binary.Read(reader, binary.LittleEndian, &obj.reply.Num); err != nil {
@@ -295,7 +304,7 @@ func (obj *GetFinanceInfo) UnSerialize(header interface{}, data []byte) error {
 	return nil
 }
 
-func (obj *GetFinanceInfo) Reply() *GetFinanceInfoReply {
+func (obj *GetFinanceInfo) Response() *GetFinanceInfoReply {
 	return obj.reply
 }
 
@@ -340,7 +349,7 @@ type XDXRItem struct {
 	PostTotalShares *float32
 }
 
-func NewGetXDXRInfo() *GetXDXRInfo {
+func NewGetXDXRInfo(req *GetXDXRInfoRequest) *GetXDXRInfo {
 	obj := new(GetXDXRInfo)
 	obj.reqHeader = new(ReqHeader)
 	obj.respHeader = new(RespHeader)
@@ -352,17 +361,20 @@ func NewGetXDXRInfo() *GetXDXRInfo {
 	obj.reqHeader.PacketType = 0x00
 	obj.reqHeader.Method = KMSG_XDXRINFO
 	obj.request.One = 1
+	if req != nil {
+		obj.applyRequest(req)
+	}
 	return obj
 }
 
-func (obj *GetXDXRInfo) SetParams(req *GetXDXRInfoRequest) {
+func (obj *GetXDXRInfo) applyRequest(req *GetXDXRInfoRequest) {
 	if req.One == 0 {
 		req.One = 1
 	}
 	obj.request = req
 }
 
-func (obj *GetXDXRInfo) Serialize() ([]byte, error) {
+func (obj *GetXDXRInfo) BuildRequest() ([]byte, error) {
 	obj.reqHeader.PkgLen1 = 11
 	obj.reqHeader.PkgLen2 = 11
 
@@ -372,8 +384,8 @@ func (obj *GetXDXRInfo) Serialize() ([]byte, error) {
 	return buf.Bytes(), err
 }
 
-func (obj *GetXDXRInfo) UnSerialize(header interface{}, data []byte) error {
-	obj.respHeader = header.(*RespHeader)
+func (obj *GetXDXRInfo) ParseResponse(header *RespHeader, data []byte) error {
+	obj.respHeader = header
 
 	obj.reply.Market = data[0]
 	obj.reply.MarketOR = binary.LittleEndian.Uint16(data[1:3])
@@ -417,7 +429,7 @@ func (obj *GetXDXRInfo) UnSerialize(header interface{}, data []byte) error {
 	return nil
 }
 
-func (obj *GetXDXRInfo) Reply() *GetXDXRInfoReply {
+func (obj *GetXDXRInfo) Response() *GetXDXRInfoReply {
 	return obj.reply
 }
 

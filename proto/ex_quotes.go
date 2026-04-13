@@ -72,7 +72,7 @@ type ExGetQuotesListReply struct {
 	List  []ExQuoteItem
 }
 
-func NewExGetQuotesList() *ExGetQuotesList {
+func NewExGetQuotesList(req *ExGetQuotesListRequest) *ExGetQuotesList {
 	obj := &ExGetQuotesList{
 		reqHeader:  new(ReqHeader),
 		respHeader: new(RespHeader),
@@ -83,27 +83,30 @@ func NewExGetQuotesList() *ExGetQuotesList {
 	obj.reqHeader.SeqID = seqID()
 	obj.reqHeader.PacketType = 0x01
 	obj.reqHeader.Method = KMSG_EXQUOTESLIST
+	if req != nil {
+		obj.applyRequest(req)
+	}
 	return obj
 }
 
-func (obj *ExGetQuotesList) SetParams(req *ExGetQuotesListRequest) {
+func (obj *ExGetQuotesList) applyRequest(req *ExGetQuotesListRequest) {
 	obj.request = req
 }
 
-func (obj *ExGetQuotesList) Serialize() ([]byte, error) {
+func (obj *ExGetQuotesList) BuildRequest() ([]byte, error) {
 	payload := new(bytes.Buffer)
 	if err := binary.Write(payload, binary.LittleEndian, obj.request); err != nil {
 		return nil, err
 	}
-	return serializeExRequest(KMSG_EXQUOTESLIST, payload.Bytes())
+	return buildExRequest(KMSG_EXQUOTESLIST, payload.Bytes())
 }
 
-func (obj *ExGetQuotesList) UnSerialize(header interface{}, data []byte) error {
-	obj.respHeader = header.(*RespHeader)
+func (obj *ExGetQuotesList) ParseResponse(header *RespHeader, data []byte) error {
+	obj.respHeader = header
 	return parseExQuotesReply(data, &obj.reply.Count, &obj.reply.List)
 }
 
-func (obj *ExGetQuotesList) Reply() *ExGetQuotesListReply {
+func (obj *ExGetQuotesList) Response() *ExGetQuotesListReply {
 	return obj.reply
 }
 
@@ -123,7 +126,7 @@ type ExGetQuoteReply struct {
 	Item ExQuoteItem
 }
 
-func NewExGetQuote() *ExGetQuote {
+func NewExGetQuote(req *ExGetQuoteRequest) *ExGetQuote {
 	obj := &ExGetQuote{
 		reqHeader:  new(ReqHeader),
 		respHeader: new(RespHeader),
@@ -134,23 +137,26 @@ func NewExGetQuote() *ExGetQuote {
 	obj.reqHeader.SeqID = seqID()
 	obj.reqHeader.PacketType = 0x01
 	obj.reqHeader.Method = KMSG_EXQUOTESINGLE
+	if req != nil {
+		obj.applyRequest(req)
+	}
 	return obj
 }
 
-func (obj *ExGetQuote) SetParams(req *ExGetQuoteRequest) {
+func (obj *ExGetQuote) applyRequest(req *ExGetQuoteRequest) {
 	obj.request = req
 }
 
-func (obj *ExGetQuote) Serialize() ([]byte, error) {
+func (obj *ExGetQuote) BuildRequest() ([]byte, error) {
 	payload := new(bytes.Buffer)
 	if err := binary.Write(payload, binary.LittleEndian, obj.request); err != nil {
 		return nil, err
 	}
-	return serializeExRequest(KMSG_EXQUOTESINGLE, payload.Bytes())
+	return buildExRequest(KMSG_EXQUOTESINGLE, payload.Bytes())
 }
 
-func (obj *ExGetQuote) UnSerialize(header interface{}, data []byte) error {
-	obj.respHeader = header.(*RespHeader)
+func (obj *ExGetQuote) ParseResponse(header *RespHeader, data []byte) error {
+	obj.respHeader = header
 	item, err := parseExQuoteItem(data, 9)
 	if err != nil {
 		return err
@@ -159,7 +165,7 @@ func (obj *ExGetQuote) UnSerialize(header interface{}, data []byte) error {
 	return nil
 }
 
-func (obj *ExGetQuote) Reply() *ExGetQuoteReply {
+func (obj *ExGetQuote) Response() *ExGetQuoteReply {
 	return obj.reply
 }
 
@@ -179,7 +185,7 @@ type ExGetQuotesReply struct {
 	List  []ExQuoteItem
 }
 
-func NewExGetQuotes() *ExGetQuotes {
+func NewExGetQuotes(req *ExGetQuotesRequest) *ExGetQuotes {
 	obj := &ExGetQuotes{
 		reqHeader:  new(ReqHeader),
 		respHeader: new(RespHeader),
@@ -190,14 +196,17 @@ func NewExGetQuotes() *ExGetQuotes {
 	obj.reqHeader.SeqID = seqID()
 	obj.reqHeader.PacketType = 0x01
 	obj.reqHeader.Method = KMSG_EXQUOTES
+	if req != nil {
+		obj.applyRequest(req)
+	}
 	return obj
 }
 
-func (obj *ExGetQuotes) SetParams(req *ExGetQuotesRequest) {
+func (obj *ExGetQuotes) applyRequest(req *ExGetQuotesRequest) {
 	obj.request = req
 }
 
-func (obj *ExGetQuotes) Serialize() ([]byte, error) {
+func (obj *ExGetQuotes) BuildRequest() ([]byte, error) {
 	payload := new(bytes.Buffer)
 	if err := binary.Write(payload, binary.LittleEndian, uint8(5)); err != nil {
 		return nil, err
@@ -218,15 +227,15 @@ func (obj *ExGetQuotes) Serialize() ([]byte, error) {
 			return nil, err
 		}
 	}
-	return serializeExRequest(KMSG_EXQUOTES, payload.Bytes())
+	return buildExRequest(KMSG_EXQUOTES, payload.Bytes())
 }
 
-func (obj *ExGetQuotes) UnSerialize(header interface{}, data []byte) error {
-	obj.respHeader = header.(*RespHeader)
+func (obj *ExGetQuotes) ParseResponse(header *RespHeader, data []byte) error {
+	obj.respHeader = header
 	return parseExQuotesReply(data, &obj.reply.Count, &obj.reply.List)
 }
 
-func (obj *ExGetQuotes) Reply() *ExGetQuotesReply {
+func (obj *ExGetQuotes) Response() *ExGetQuotesReply {
 	return obj.reply
 }
 
@@ -237,7 +246,7 @@ type ExGetQuotes2 struct {
 	reply      *ExGetQuotesReply
 }
 
-func NewExGetQuotes2() *ExGetQuotes2 {
+func NewExGetQuotes2(req *ExGetQuotesRequest) *ExGetQuotes2 {
 	obj := &ExGetQuotes2{
 		reqHeader:  new(ReqHeader),
 		respHeader: new(RespHeader),
@@ -248,14 +257,17 @@ func NewExGetQuotes2() *ExGetQuotes2 {
 	obj.reqHeader.SeqID = seqID()
 	obj.reqHeader.PacketType = 0x01
 	obj.reqHeader.Method = KMSG_EXQUOTES2
+	if req != nil {
+		obj.applyRequest(req)
+	}
 	return obj
 }
 
-func (obj *ExGetQuotes2) SetParams(req *ExGetQuotesRequest) {
+func (obj *ExGetQuotes2) applyRequest(req *ExGetQuotesRequest) {
 	obj.request = req
 }
 
-func (obj *ExGetQuotes2) Serialize() ([]byte, error) {
+func (obj *ExGetQuotes2) BuildRequest() ([]byte, error) {
 	payload := new(bytes.Buffer)
 	if err := binary.Write(payload, binary.LittleEndian, uint16(2)); err != nil {
 		return nil, err
@@ -282,15 +294,15 @@ func (obj *ExGetQuotes2) Serialize() ([]byte, error) {
 			return nil, err
 		}
 	}
-	return serializeExRequest(KMSG_EXQUOTES2, payload.Bytes())
+	return buildExRequest(KMSG_EXQUOTES2, payload.Bytes())
 }
 
-func (obj *ExGetQuotes2) UnSerialize(header interface{}, data []byte) error {
-	obj.respHeader = header.(*RespHeader)
+func (obj *ExGetQuotes2) ParseResponse(header *RespHeader, data []byte) error {
+	obj.respHeader = header
 	return parseExQuotesReply(data, &obj.reply.Count, &obj.reply.List)
 }
 
-func (obj *ExGetQuotes2) Reply() *ExGetQuotesReply {
+func (obj *ExGetQuotes2) Response() *ExGetQuotesReply {
 	return obj.reply
 }
 

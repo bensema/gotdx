@@ -23,7 +23,7 @@ type GetFileMetaReply struct {
 	Unknown2  byte
 }
 
-func NewGetFileMeta() *GetFileMeta {
+func NewGetFileMeta(req *GetFileMetaRequest) *GetFileMeta {
 	obj := new(GetFileMeta)
 	obj.reqHeader = new(ReqHeader)
 	obj.respHeader = new(RespHeader)
@@ -34,14 +34,17 @@ func NewGetFileMeta() *GetFileMeta {
 	obj.reqHeader.SeqID = seqID()
 	obj.reqHeader.PacketType = 0x00
 	obj.reqHeader.Method = KMSG_BLOCKINFOMETA
+	if req != nil {
+		obj.applyRequest(req)
+	}
 	return obj
 }
 
-func (obj *GetFileMeta) SetParams(req *GetFileMetaRequest) {
+func (obj *GetFileMeta) applyRequest(req *GetFileMetaRequest) {
 	obj.request = req
 }
 
-func (obj *GetFileMeta) Serialize() ([]byte, error) {
+func (obj *GetFileMeta) BuildRequest() ([]byte, error) {
 	obj.reqHeader.PkgLen1 = 42
 	obj.reqHeader.PkgLen2 = 42
 
@@ -51,8 +54,8 @@ func (obj *GetFileMeta) Serialize() ([]byte, error) {
 	return buf.Bytes(), err
 }
 
-func (obj *GetFileMeta) UnSerialize(header interface{}, data []byte) error {
-	obj.respHeader = header.(*RespHeader)
+func (obj *GetFileMeta) ParseResponse(header *RespHeader, data []byte) error {
+	obj.respHeader = header
 	obj.reply.Size = binary.LittleEndian.Uint32(data[:4])
 	obj.reply.Unknown1 = data[4]
 	copy(obj.reply.HashValue[:], data[5:37])
@@ -60,7 +63,7 @@ func (obj *GetFileMeta) UnSerialize(header interface{}, data []byte) error {
 	return nil
 }
 
-func (obj *GetFileMeta) Reply() *GetFileMetaReply {
+func (obj *GetFileMeta) Response() *GetFileMetaReply {
 	return obj.reply
 }
 
@@ -82,7 +85,7 @@ type DownloadFileReply struct {
 	Data []byte
 }
 
-func NewDownloadFile() *DownloadFile {
+func NewDownloadFile(req *DownloadFileRequest) *DownloadFile {
 	obj := new(DownloadFile)
 	obj.reqHeader = new(ReqHeader)
 	obj.respHeader = new(RespHeader)
@@ -93,14 +96,17 @@ func NewDownloadFile() *DownloadFile {
 	obj.reqHeader.SeqID = seqID()
 	obj.reqHeader.PacketType = 0x00
 	obj.reqHeader.Method = KMSG_BLOCKINFO
+	if req != nil {
+		obj.applyRequest(req)
+	}
 	return obj
 }
 
-func (obj *DownloadFile) SetParams(req *DownloadFileRequest) {
+func (obj *DownloadFile) applyRequest(req *DownloadFileRequest) {
 	obj.request = req
 }
 
-func (obj *DownloadFile) Serialize() ([]byte, error) {
+func (obj *DownloadFile) BuildRequest() ([]byte, error) {
 	obj.reqHeader.PkgLen1 = 310
 	obj.reqHeader.PkgLen2 = 310
 
@@ -110,13 +116,13 @@ func (obj *DownloadFile) Serialize() ([]byte, error) {
 	return buf.Bytes(), err
 }
 
-func (obj *DownloadFile) UnSerialize(header interface{}, data []byte) error {
-	obj.respHeader = header.(*RespHeader)
+func (obj *DownloadFile) ParseResponse(header *RespHeader, data []byte) error {
+	obj.respHeader = header
 	obj.reply.Size = binary.LittleEndian.Uint32(data[:4])
 	obj.reply.Data = append([]byte(nil), data[4:]...)
 	return nil
 }
 
-func (obj *DownloadFile) Reply() *DownloadFileReply {
+func (obj *DownloadFile) Response() *DownloadFileReply {
 	return obj.reply
 }

@@ -41,7 +41,7 @@ type TopBoardItem struct {
 	Value  float64
 }
 
-func NewGetTopBoard() *GetTopBoard {
+func NewGetTopBoard(req *GetTopBoardRequest) *GetTopBoard {
 	obj := new(GetTopBoard)
 	obj.reqHeader = new(ReqHeader)
 	obj.respHeader = new(RespHeader)
@@ -54,10 +54,13 @@ func NewGetTopBoard() *GetTopBoard {
 	obj.reqHeader.Method = KMSG_TOPBOARD
 	obj.request.Mode = 5
 	copy(obj.request.Reserved[:], []byte{0x00, 0x00, 0x00, 0x00, 0x01, 0x00})
+	if req != nil {
+		obj.applyRequest(req)
+	}
 	return obj
 }
 
-func (obj *GetTopBoard) SetParams(req *GetTopBoardRequest) {
+func (obj *GetTopBoard) applyRequest(req *GetTopBoardRequest) {
 	if req.Mode == 0 {
 		req.Mode = 5
 	}
@@ -70,7 +73,7 @@ func (obj *GetTopBoard) SetParams(req *GetTopBoardRequest) {
 	obj.request = req
 }
 
-func (obj *GetTopBoard) Serialize() ([]byte, error) {
+func (obj *GetTopBoard) BuildRequest() ([]byte, error) {
 	obj.reqHeader.PkgLen1 = 0x0c
 	obj.reqHeader.PkgLen2 = 0x0c
 
@@ -80,8 +83,8 @@ func (obj *GetTopBoard) Serialize() ([]byte, error) {
 	return buf.Bytes(), err
 }
 
-func (obj *GetTopBoard) UnSerialize(header interface{}, data []byte) error {
-	obj.respHeader = header.(*RespHeader)
+func (obj *GetTopBoard) ParseResponse(header *RespHeader, data []byte) error {
+	obj.respHeader = header
 
 	if err := binary.Read(bytes.NewBuffer(data[:1]), binary.LittleEndian, &obj.reply.Size); err != nil {
 		return err
@@ -119,6 +122,6 @@ func (obj *GetTopBoard) UnSerialize(header interface{}, data []byte) error {
 	return nil
 }
 
-func (obj *GetTopBoard) Reply() *GetTopBoardReply {
+func (obj *GetTopBoard) Response() *GetTopBoardReply {
 	return obj.reply
 }

@@ -230,9 +230,9 @@ func (client *Client) connectWithHandshake(handshake func() error) error {
 	return lastErr
 }
 
-func (client *Client) do(msg proto.Msg) error {
+func (client *Client) exchange(builder proto.RequestBuilder) (*proto.RespHeader, []byte, error) {
 	if client.conn == nil {
-		return errors.New("connection is nil")
+		return nil, nil, errors.New("connection is nil")
 	}
 
 	_ = client.conn.SetDeadline(time.Now().Add(client.timeout()))
@@ -240,9 +240,9 @@ func (client *Client) do(msg proto.Msg) error {
 		_ = client.conn.SetDeadline(time.Time{})
 	}()
 
-	sendData, err := msg.Serialize()
+	sendData, err := builder.BuildRequest()
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 
 	retryTimes := 0
@@ -254,11 +254,11 @@ func (client *Client) do(msg proto.Msg) error {
 			if retryTimes <= client.opt.MaxRetryTimes {
 				log.Printf("第%d次重试\n", retryTimes)
 			} else {
-				return err
+				return nil, nil, err
 			}
 		} else {
 			if err != nil {
-				return err
+				return nil, nil, err
 			}
 			break
 		}
@@ -267,37 +267,41 @@ func (client *Client) do(msg proto.Msg) error {
 	headerBytes := make([]byte, proto.MessageHeaderBytes)
 	_, err = io.ReadFull(client.conn, headerBytes)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 
 	headerBuf := bytes.NewReader(headerBytes)
 	var header proto.RespHeader
 	if err := binary.Read(headerBuf, binary.LittleEndian, &header); err != nil {
-		return err
+		return nil, nil, err
 	}
 
 	if header.ZipSize > proto.MessageMaxBytes {
 		log.Printf("msgData has bytes(%d) beyond max %d\n", header.ZipSize, proto.MessageMaxBytes)
-		return ErrBadData
+		return nil, nil, ErrBadData
 	}
 
 	msgData := make([]byte, header.ZipSize)
 	_, err = io.ReadFull(client.conn, msgData)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 
-	var out bytes.Buffer
 	if header.ZipSize != header.UnZipSize {
+		var out bytes.Buffer
 		b := bytes.NewReader(msgData)
-		r, _ := zlib.NewReader(b)
-		io.Copy(&out, r)
-		err = msg.UnSerialize(&header, out.Bytes())
-	} else {
-		err = msg.UnSerialize(&header, msgData)
+		r, err := zlib.NewReader(b)
+		if err != nil {
+			return nil, nil, err
+		}
+		defer r.Close()
+		if _, err := io.Copy(&out, r); err != nil {
+			return nil, nil, err
+		}
+		return &header, out.Bytes(), nil
 	}
 
-	return err
+	return &header, msgData, nil
 }
 
 // Connect 连接券商行情服务器
@@ -315,13 +319,16 @@ func (client *Client) Connect() (*proto.Hello1Reply, error) {
 	client.mu.Lock()
 	defer client.mu.Unlock()
 	obj := proto.NewHello1()
+	var reply *proto.Hello1Reply
 	err := client.connectWithHandshake(func() error {
-		return client.do(obj)
+		var err error
+		reply, err = executeProtocolLocked(client, obj)
+		return err
 	})
 	if err != nil {
 		return nil, err
 	}
-	return obj.Reply(), err
+	return reply, nil
 }
 
 // ConnectEx 连接扩展市场服务器并完成登录
@@ -339,13 +346,16 @@ func (client *Client) ConnectEx() (*proto.ExLoginReply, error) {
 	client.mu.Lock()
 	defer client.mu.Unlock()
 	obj := proto.NewExLogin()
+	var reply *proto.ExLoginReply
 	err := client.connectWithHandshake(func() error {
-		return client.do(obj)
+		var err error
+		reply, err = executeProtocolLocked(client, obj)
+		return err
 	})
 	if err != nil {
 		return nil, err
 	}
-	return obj.Reply(), err
+	return reply, nil
 }
 
 // Disconnect 断开服务器

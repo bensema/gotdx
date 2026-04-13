@@ -29,7 +29,7 @@ type HistoryMinuteTimeData struct {
 	Vol   int     // 成交量。
 }
 
-func NewGetHistoryMinuteTimeData() *GetHistoryMinuteTimeData {
+func NewGetHistoryMinuteTimeData(req *GetHistoryMinuteTimeDataRequest) *GetHistoryMinuteTimeData {
 	obj := new(GetHistoryMinuteTimeData)
 	obj.reqHeader = new(ReqHeader)
 	obj.respHeader = new(RespHeader)
@@ -40,17 +40,20 @@ func NewGetHistoryMinuteTimeData() *GetHistoryMinuteTimeData {
 	obj.reqHeader.SeqID = seqID()
 	obj.reqHeader.PacketType = 0x00
 	obj.reqHeader.Method = KMSG_HISTORYMINUTETIMEDATE
+	if req != nil {
+		obj.applyRequest(req)
+	}
 	return obj
 }
 
-func (obj *GetHistoryMinuteTimeData) SetParams(req *GetHistoryMinuteTimeDataRequest) {
+func (obj *GetHistoryMinuteTimeData) applyRequest(req *GetHistoryMinuteTimeDataRequest) {
 	if req.Date > 0 {
 		req.Date = -req.Date
 	}
 	obj.request = req
 }
 
-func (obj *GetHistoryMinuteTimeData) Serialize() ([]byte, error) {
+func (obj *GetHistoryMinuteTimeData) BuildRequest() ([]byte, error) {
 	obj.reqHeader.PkgLen1 = 0x0d
 	obj.reqHeader.PkgLen2 = 0x0d
 
@@ -60,8 +63,8 @@ func (obj *GetHistoryMinuteTimeData) Serialize() ([]byte, error) {
 	return buf.Bytes(), err
 }
 
-func (obj *GetHistoryMinuteTimeData) UnSerialize(header interface{}, data []byte) error {
-	obj.respHeader = header.(*RespHeader)
+func (obj *GetHistoryMinuteTimeData) ParseResponse(header *RespHeader, data []byte) error {
+	obj.respHeader = header
 
 	pos := 0
 	if err := binary.Read(bytes.NewBuffer(data[pos:pos+2]), binary.LittleEndian, &obj.reply.Count); err != nil {
@@ -100,6 +103,6 @@ func (obj *GetHistoryMinuteTimeData) UnSerialize(header interface{}, data []byte
 	return nil
 }
 
-func (obj *GetHistoryMinuteTimeData) Reply() *GetHistoryMinuteTimeDataReply {
+func (obj *GetHistoryMinuteTimeData) Response() *GetHistoryMinuteTimeDataReply {
 	return obj.reply
 }

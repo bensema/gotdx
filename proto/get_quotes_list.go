@@ -63,7 +63,7 @@ type QuoteListItem struct {
 	Turnover      float64 // 换手率，按高层接口 best-effort 补齐。
 }
 
-func NewGetQuotesList() *GetQuotesList {
+func NewGetQuotesList(req *GetQuotesListRequest) *GetQuotesList {
 	obj := new(GetQuotesList)
 	obj.reqHeader = new(ReqHeader)
 	obj.respHeader = new(RespHeader)
@@ -76,10 +76,13 @@ func NewGetQuotesList() *GetQuotesList {
 	obj.reqHeader.Method = KMSG_QUOTESLIST
 	obj.request.Mode = 5
 	obj.request.One = 1
+	if req != nil {
+		obj.applyRequest(req)
+	}
 	return obj
 }
 
-func (obj *GetQuotesList) SetParams(req *GetQuotesListRequest) {
+func (obj *GetQuotesList) applyRequest(req *GetQuotesListRequest) {
 	if req.Mode == 0 {
 		req.Mode = 5
 	}
@@ -89,7 +92,7 @@ func (obj *GetQuotesList) SetParams(req *GetQuotesListRequest) {
 	obj.request = req
 }
 
-func (obj *GetQuotesList) Serialize() ([]byte, error) {
+func (obj *GetQuotesList) BuildRequest() ([]byte, error) {
 	obj.reqHeader.PkgLen1 = 20
 	obj.reqHeader.PkgLen2 = 20
 
@@ -99,8 +102,8 @@ func (obj *GetQuotesList) Serialize() ([]byte, error) {
 	return buf.Bytes(), err
 }
 
-func (obj *GetQuotesList) UnSerialize(header interface{}, data []byte) error {
-	obj.respHeader = header.(*RespHeader)
+func (obj *GetQuotesList) ParseResponse(header *RespHeader, data []byte) error {
+	obj.respHeader = header
 
 	obj.reply.Block = binary.LittleEndian.Uint16(data[:2])
 	obj.reply.Count = binary.LittleEndian.Uint16(data[2:4])
@@ -118,7 +121,7 @@ func (obj *GetQuotesList) UnSerialize(header interface{}, data []byte) error {
 	return nil
 }
 
-func (obj *GetQuotesList) Reply() *GetQuotesListReply {
+func (obj *GetQuotesList) Response() *GetQuotesListReply {
 	return obj.reply
 }
 
@@ -139,7 +142,7 @@ type GetQuotesReply struct {
 	List  []QuoteListItem // 批量行情列表。
 }
 
-func NewGetQuotes() *GetQuotes {
+func NewGetQuotes(req *GetQuotesRequest) *GetQuotes {
 	obj := new(GetQuotes)
 	obj.reqHeader = new(ReqHeader)
 	obj.respHeader = new(RespHeader)
@@ -150,14 +153,17 @@ func NewGetQuotes() *GetQuotes {
 	obj.reqHeader.SeqID = seqID()
 	obj.reqHeader.PacketType = 0x00
 	obj.reqHeader.Method = KMSG_QUOTES
+	if req != nil {
+		obj.applyRequest(req)
+	}
 	return obj
 }
 
-func (obj *GetQuotes) SetParams(req *GetQuotesRequest) {
+func (obj *GetQuotes) applyRequest(req *GetQuotesRequest) {
 	obj.request = req
 }
 
-func (obj *GetQuotes) Serialize() ([]byte, error) {
+func (obj *GetQuotes) BuildRequest() ([]byte, error) {
 	obj.reqHeader.PkgLen1 = 2 + 10 + uint16(len(obj.request.Stocks)*7)
 	obj.reqHeader.PkgLen2 = 2 + 10 + uint16(len(obj.request.Stocks)*7)
 
@@ -187,8 +193,8 @@ func (obj *GetQuotes) Serialize() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func (obj *GetQuotes) UnSerialize(header interface{}, data []byte) error {
-	obj.respHeader = header.(*RespHeader)
+func (obj *GetQuotes) ParseResponse(header *RespHeader, data []byte) error {
+	obj.respHeader = header
 
 	obj.reply.Block = binary.LittleEndian.Uint16(data[:2])
 	obj.reply.Count = binary.LittleEndian.Uint16(data[2:4])
@@ -206,7 +212,7 @@ func (obj *GetQuotes) UnSerialize(header interface{}, data []byte) error {
 	return nil
 }
 
-func (obj *GetQuotes) Reply() *GetQuotesReply {
+func (obj *GetQuotes) Response() *GetQuotesReply {
 	return obj.reply
 }
 

@@ -34,7 +34,7 @@ type ExTickChartData struct {
 	Vol   int
 }
 
-func NewExGetTickChart() *ExGetTickChart {
+func NewExGetTickChart(req *ExGetTickChartRequest) *ExGetTickChart {
 	obj := &ExGetTickChart{
 		reqHeader:  new(ReqHeader),
 		respHeader: new(RespHeader),
@@ -45,23 +45,26 @@ func NewExGetTickChart() *ExGetTickChart {
 	obj.reqHeader.SeqID = seqID()
 	obj.reqHeader.PacketType = 0x01
 	obj.reqHeader.Method = KMSG_EXTICKCHART
+	if req != nil {
+		obj.applyRequest(req)
+	}
 	return obj
 }
 
-func (obj *ExGetTickChart) SetParams(req *ExGetTickChartRequest) {
+func (obj *ExGetTickChart) applyRequest(req *ExGetTickChartRequest) {
 	obj.request = req
 }
 
-func (obj *ExGetTickChart) Serialize() ([]byte, error) {
+func (obj *ExGetTickChart) BuildRequest() ([]byte, error) {
 	payload := new(bytes.Buffer)
 	if err := binary.Write(payload, binary.LittleEndian, obj.request); err != nil {
 		return nil, err
 	}
-	return serializeExRequest(KMSG_EXTICKCHART, payload.Bytes())
+	return buildExRequest(KMSG_EXTICKCHART, payload.Bytes())
 }
 
-func (obj *ExGetTickChart) UnSerialize(header interface{}, data []byte) error {
-	obj.respHeader = header.(*RespHeader)
+func (obj *ExGetTickChart) ParseResponse(header *RespHeader, data []byte) error {
+	obj.respHeader = header
 	if len(data) < 34 {
 		return fmt.Errorf("invalid ex tick chart response length: %d", len(data))
 	}
@@ -87,7 +90,7 @@ func (obj *ExGetTickChart) UnSerialize(header interface{}, data []byte) error {
 	return nil
 }
 
-func (obj *ExGetTickChart) Reply() *ExGetTickChartReply {
+func (obj *ExGetTickChart) Response() *ExGetTickChartReply {
 	return obj.reply
 }
 
@@ -115,7 +118,7 @@ type ExGetHistoryTickChartReply struct {
 	List     []ExTickChartData
 }
 
-func NewExGetHistoryTickChart() *ExGetHistoryTickChart {
+func NewExGetHistoryTickChart(req *ExGetHistoryTickChartRequest) *ExGetHistoryTickChart {
 	obj := &ExGetHistoryTickChart{
 		reqHeader:  new(ReqHeader),
 		respHeader: new(RespHeader),
@@ -126,23 +129,26 @@ func NewExGetHistoryTickChart() *ExGetHistoryTickChart {
 	obj.reqHeader.SeqID = seqID()
 	obj.reqHeader.PacketType = 0x01
 	obj.reqHeader.Method = KMSG_EXHISTORYTICKCHART
+	if req != nil {
+		obj.applyRequest(req)
+	}
 	return obj
 }
 
-func (obj *ExGetHistoryTickChart) SetParams(req *ExGetHistoryTickChartRequest) {
+func (obj *ExGetHistoryTickChart) applyRequest(req *ExGetHistoryTickChartRequest) {
 	obj.request = req
 }
 
-func (obj *ExGetHistoryTickChart) Serialize() ([]byte, error) {
+func (obj *ExGetHistoryTickChart) BuildRequest() ([]byte, error) {
 	payload := new(bytes.Buffer)
 	if err := binary.Write(payload, binary.LittleEndian, obj.request); err != nil {
 		return nil, err
 	}
-	return serializeExRequest(KMSG_EXHISTORYTICKCHART, payload.Bytes())
+	return buildExRequest(KMSG_EXHISTORYTICKCHART, payload.Bytes())
 }
 
-func (obj *ExGetHistoryTickChart) UnSerialize(header interface{}, data []byte) error {
-	obj.respHeader = header.(*RespHeader)
+func (obj *ExGetHistoryTickChart) ParseResponse(header *RespHeader, data []byte) error {
+	obj.respHeader = header
 	if len(data) < 42 {
 		return fmt.Errorf("invalid ex history tick chart response length: %d", len(data))
 	}
@@ -171,7 +177,7 @@ func (obj *ExGetHistoryTickChart) UnSerialize(header interface{}, data []byte) e
 	return nil
 }
 
-func (obj *ExGetHistoryTickChart) Reply() *ExGetHistoryTickChartReply {
+func (obj *ExGetHistoryTickChart) Response() *ExGetHistoryTickChartReply {
 	return obj.reply
 }
 
@@ -197,7 +203,7 @@ type ExGetChartSamplingReply struct {
 	Prices   []float64
 }
 
-func NewExGetChartSampling() *ExGetChartSampling {
+func NewExGetChartSampling(req *ExGetChartSamplingRequest) *ExGetChartSampling {
 	obj := &ExGetChartSampling{
 		reqHeader:  new(ReqHeader),
 		respHeader: new(RespHeader),
@@ -210,10 +216,13 @@ func NewExGetChartSampling() *ExGetChartSampling {
 	obj.reqHeader.Method = KMSG_EXCHARTSAMPLING
 	obj.request.One = 1
 	obj.request.Count = 20
+	if req != nil {
+		obj.applyRequest(req)
+	}
 	return obj
 }
 
-func (obj *ExGetChartSampling) SetParams(req *ExGetChartSamplingRequest) {
+func (obj *ExGetChartSampling) applyRequest(req *ExGetChartSamplingRequest) {
 	if req.One == 0 {
 		req.One = 1
 	}
@@ -223,16 +232,16 @@ func (obj *ExGetChartSampling) SetParams(req *ExGetChartSamplingRequest) {
 	obj.request = req
 }
 
-func (obj *ExGetChartSampling) Serialize() ([]byte, error) {
+func (obj *ExGetChartSampling) BuildRequest() ([]byte, error) {
 	payload := new(bytes.Buffer)
 	if err := binary.Write(payload, binary.LittleEndian, obj.request); err != nil {
 		return nil, err
 	}
-	return serializeExRequest(KMSG_EXCHARTSAMPLING, payload.Bytes())
+	return buildExRequest(KMSG_EXCHARTSAMPLING, payload.Bytes())
 }
 
-func (obj *ExGetChartSampling) UnSerialize(header interface{}, data []byte) error {
-	obj.respHeader = header.(*RespHeader)
+func (obj *ExGetChartSampling) ParseResponse(header *RespHeader, data []byte) error {
+	obj.respHeader = header
 	if len(data) < 42 {
 		return fmt.Errorf("invalid ex chart sampling response length: %d", len(data))
 	}
@@ -252,6 +261,6 @@ func (obj *ExGetChartSampling) UnSerialize(header interface{}, data []byte) erro
 	return nil
 }
 
-func (obj *ExGetChartSampling) Reply() *ExGetChartSamplingReply {
+func (obj *ExGetChartSampling) Response() *ExGetChartSamplingReply {
 	return obj.reply
 }

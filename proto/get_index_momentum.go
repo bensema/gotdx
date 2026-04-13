@@ -22,7 +22,7 @@ type GetIndexMomentumReply struct {
 	Values []int
 }
 
-func NewGetIndexMomentum() *GetIndexMomentum {
+func NewGetIndexMomentum(req *GetIndexMomentumRequest) *GetIndexMomentum {
 	obj := new(GetIndexMomentum)
 	obj.reqHeader = new(ReqHeader)
 	obj.respHeader = new(RespHeader)
@@ -33,14 +33,17 @@ func NewGetIndexMomentum() *GetIndexMomentum {
 	obj.reqHeader.SeqID = seqID()
 	obj.reqHeader.PacketType = 0x00
 	obj.reqHeader.Method = KMSG_INDEXMOMENTUM
+	if req != nil {
+		obj.applyRequest(req)
+	}
 	return obj
 }
 
-func (obj *GetIndexMomentum) SetParams(req *GetIndexMomentumRequest) {
+func (obj *GetIndexMomentum) applyRequest(req *GetIndexMomentumRequest) {
 	obj.request = req
 }
 
-func (obj *GetIndexMomentum) Serialize() ([]byte, error) {
+func (obj *GetIndexMomentum) BuildRequest() ([]byte, error) {
 	obj.reqHeader.PkgLen1 = 0x0a
 	obj.reqHeader.PkgLen2 = 0x0a
 
@@ -50,8 +53,8 @@ func (obj *GetIndexMomentum) Serialize() ([]byte, error) {
 	return buf.Bytes(), err
 }
 
-func (obj *GetIndexMomentum) UnSerialize(header interface{}, data []byte) error {
-	obj.respHeader = header.(*RespHeader)
+func (obj *GetIndexMomentum) ParseResponse(header *RespHeader, data []byte) error {
+	obj.respHeader = header
 
 	pos := 0
 	if err := binary.Read(bytes.NewBuffer(data[:2]), binary.LittleEndian, &obj.reply.Count); err != nil {
@@ -69,6 +72,6 @@ func (obj *GetIndexMomentum) UnSerialize(header interface{}, data []byte) error 
 	return nil
 }
 
-func (obj *GetIndexMomentum) Reply() *GetIndexMomentumReply {
+func (obj *GetIndexMomentum) Response() *GetIndexMomentumReply {
 	return obj.reply
 }

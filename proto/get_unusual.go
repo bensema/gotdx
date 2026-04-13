@@ -36,7 +36,7 @@ type UnusualData struct {
 	UnusualType uint8  // 异动类型原始编码。
 }
 
-func NewGetUnusual() *GetUnusual {
+func NewGetUnusual(req *GetUnusualRequest) *GetUnusual {
 	obj := new(GetUnusual)
 	obj.reqHeader = new(ReqHeader)
 	obj.respHeader = new(RespHeader)
@@ -47,17 +47,20 @@ func NewGetUnusual() *GetUnusual {
 	obj.reqHeader.SeqID = seqID()
 	obj.reqHeader.PacketType = 0x00
 	obj.reqHeader.Method = KMSG_UNUSUAL
+	if req != nil {
+		obj.applyRequest(req)
+	}
 	return obj
 }
 
-func (obj *GetUnusual) SetParams(req *GetUnusualRequest) {
+func (obj *GetUnusual) applyRequest(req *GetUnusualRequest) {
 	if req.Count == 0 {
 		req.Count = 600
 	}
 	obj.request = req
 }
 
-func (obj *GetUnusual) Serialize() ([]byte, error) {
+func (obj *GetUnusual) BuildRequest() ([]byte, error) {
 	obj.reqHeader.PkgLen1 = 0x0c
 	obj.reqHeader.PkgLen2 = 0x0c
 
@@ -67,8 +70,8 @@ func (obj *GetUnusual) Serialize() ([]byte, error) {
 	return buf.Bytes(), err
 }
 
-func (obj *GetUnusual) UnSerialize(header interface{}, data []byte) error {
-	obj.respHeader = header.(*RespHeader)
+func (obj *GetUnusual) ParseResponse(header *RespHeader, data []byte) error {
+	obj.respHeader = header
 
 	if err := binary.Read(bytes.NewBuffer(data[:2]), binary.LittleEndian, &obj.reply.Count); err != nil {
 		return err
@@ -102,7 +105,7 @@ func (obj *GetUnusual) UnSerialize(header interface{}, data []byte) error {
 	return nil
 }
 
-func (obj *GetUnusual) Reply() *GetUnusualReply {
+func (obj *GetUnusual) Response() *GetUnusualReply {
 	return obj.reply
 }
 

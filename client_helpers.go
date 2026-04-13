@@ -8,14 +8,24 @@ import (
 
 var ErrMarketCodeCount = errors.New("market code count error")
 
-func executeMsg[T any](client *Client, msg proto.Msg, reply func() *T) (*T, error) {
+func executeProtocol[T any](client *Client, protocol proto.Protocol[T]) (T, error) {
 	client.mu.Lock()
 	defer client.mu.Unlock()
 
-	if err := client.do(msg); err != nil {
-		return nil, err
+	return executeProtocolLocked(client, protocol)
+}
+
+func executeProtocolLocked[T any](client *Client, protocol proto.Protocol[T]) (T, error) {
+	var zero T
+
+	header, payload, err := client.exchange(protocol)
+	if err != nil {
+		return zero, err
 	}
-	return reply(), nil
+	if err := protocol.ParseResponse(header, payload); err != nil {
+		return zero, err
+	}
+	return protocol.Response(), nil
 }
 
 func makeCode6(code string) [6]byte {

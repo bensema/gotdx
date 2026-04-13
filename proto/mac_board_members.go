@@ -38,7 +38,7 @@ type MACBoardMemberItem struct {
 	Symbol string
 }
 
-func NewMACBoardMembers() *MACBoardMembers {
+func NewMACBoardMembers(req *MACBoardMembersRequest) *MACBoardMembers {
 	obj := &MACBoardMembers{
 		reqHeader:  new(ReqHeader),
 		respHeader: new(RespHeader),
@@ -52,10 +52,13 @@ func NewMACBoardMembers() *MACBoardMembers {
 	obj.request.SortType = 14
 	obj.request.PageSize = 80
 	obj.request.SortOrder = 1
+	if req != nil {
+		obj.applyRequest(req)
+	}
 	return obj
 }
 
-func (obj *MACBoardMembers) SetParams(req *MACBoardMembersRequest) {
+func (obj *MACBoardMembers) applyRequest(req *MACBoardMembersRequest) {
 	if req.PageSize == 0 {
 		req.PageSize = 80
 	}
@@ -68,16 +71,16 @@ func (obj *MACBoardMembers) SetParams(req *MACBoardMembersRequest) {
 	obj.request = req
 }
 
-func (obj *MACBoardMembers) Serialize() ([]byte, error) {
+func (obj *MACBoardMembers) BuildRequest() ([]byte, error) {
 	payload := new(bytes.Buffer)
 	if err := binary.Write(payload, binary.LittleEndian, obj.request); err != nil {
 		return nil, err
 	}
-	return serializeExRequest(KMSG_MACBOARDMEMBERS, payload.Bytes())
+	return buildExRequest(KMSG_MACBOARDMEMBERS, payload.Bytes())
 }
 
-func (obj *MACBoardMembers) UnSerialize(header interface{}, data []byte) error {
-	obj.respHeader = header.(*RespHeader)
+func (obj *MACBoardMembers) ParseResponse(header *RespHeader, data []byte) error {
+	obj.respHeader = header
 	if len(data) < 26 {
 		return fmt.Errorf("invalid mac board members response length: %d", len(data))
 	}
@@ -103,7 +106,7 @@ func (obj *MACBoardMembers) UnSerialize(header interface{}, data []byte) error {
 	return nil
 }
 
-func (obj *MACBoardMembers) Reply() *MACBoardMembersReply {
+func (obj *MACBoardMembers) Response() *MACBoardMembersReply {
 	return obj.reply
 }
 
@@ -170,7 +173,7 @@ type MACBoardMemberQuoteItem struct {
 	Unknown31    float64
 }
 
-func NewMACBoardMembersQuotes() *MACBoardMembersQuotes {
+func NewMACBoardMembersQuotes(req *MACBoardMembersQuotesRequest) *MACBoardMembersQuotes {
 	obj := &MACBoardMembersQuotes{
 		reqHeader:  new(ReqHeader),
 		respHeader: new(RespHeader),
@@ -189,10 +192,13 @@ func NewMACBoardMembersQuotes() *MACBoardMembersQuotes {
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 		0x00,
 	}
+	if req != nil {
+		obj.applyRequest(req)
+	}
 	return obj
 }
 
-func (obj *MACBoardMembersQuotes) SetParams(req *MACBoardMembersQuotesRequest) {
+func (obj *MACBoardMembersQuotes) applyRequest(req *MACBoardMembersQuotesRequest) {
 	if req.PageSize == 0 {
 		req.PageSize = 80
 	}
@@ -208,7 +214,7 @@ func (obj *MACBoardMembersQuotes) SetParams(req *MACBoardMembersQuotesRequest) {
 	obj.request = req
 }
 
-func (obj *MACBoardMembersQuotes) Serialize() ([]byte, error) {
+func (obj *MACBoardMembersQuotes) BuildRequest() ([]byte, error) {
 	payload := new(bytes.Buffer)
 	if err := binary.Write(payload, binary.LittleEndian, obj.request.BoardCode); err != nil {
 		return nil, err
@@ -234,11 +240,11 @@ func (obj *MACBoardMembersQuotes) Serialize() ([]byte, error) {
 	if _, err := payload.Write(obj.request.Extra[:]); err != nil {
 		return nil, err
 	}
-	return serializeExRequest(KMSG_MACBOARDMEMBERS, payload.Bytes())
+	return buildExRequest(KMSG_MACBOARDMEMBERS, payload.Bytes())
 }
 
-func (obj *MACBoardMembersQuotes) UnSerialize(header interface{}, data []byte) error {
-	obj.respHeader = header.(*RespHeader)
+func (obj *MACBoardMembersQuotes) ParseResponse(header *RespHeader, data []byte) error {
+	obj.respHeader = header
 	if len(data) < 26 {
 		return fmt.Errorf("invalid mac board members quotes response length: %d", len(data))
 	}
@@ -316,6 +322,6 @@ func (obj *MACBoardMembersQuotes) UnSerialize(header interface{}, data []byte) e
 	return nil
 }
 
-func (obj *MACBoardMembersQuotes) Reply() *MACBoardMembersQuotesReply {
+func (obj *MACBoardMembersQuotes) Response() *MACBoardMembersQuotesReply {
 	return obj.reply
 }

@@ -13,7 +13,7 @@ type exReqHeader struct {
 	PkgLen2    uint16
 }
 
-func serializeExRequest(method uint16, payload []byte) ([]byte, error) {
+func buildExRequest(method uint16, payload []byte) ([]byte, error) {
 	body := new(bytes.Buffer)
 	if err := binary.Write(body, binary.LittleEndian, method); err != nil {
 		return nil, err

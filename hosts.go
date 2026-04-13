@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-// HostInfo describes a built-in TDX server entry migrated from opentdx.
+// HostInfo describes a built-in TDX server entry.
 type HostInfo struct {
 	Name string `json:"name"`
 	IP   string `json:"ip"`
@@ -143,27 +143,27 @@ var macExHostList = []HostInfo{
 	{Name: "扩展行情2", IP: "121.37.232.167", Port: 7727},
 }
 
-// MainHosts returns the built-in main quote servers from opentdx.
+// MainHosts returns the built-in main quote servers.
 func MainHosts() []HostInfo {
 	return cloneHosts(mainHostList)
 }
 
-// BrokerHosts returns the built-in broker quote servers from opentdx.
+// BrokerHosts returns the built-in broker quote servers.
 func BrokerHosts() []HostInfo {
 	return cloneHosts(brokerHostList)
 }
 
-// ExHosts returns the built-in extended-market servers from opentdx.
+// ExHosts returns the built-in extended-market servers.
 func ExHosts() []HostInfo {
 	return cloneHosts(exHostList)
 }
 
-// MACHosts returns the built-in MAC quote servers from opentdx.
+// MACHosts returns the built-in MAC quote servers.
 func MACHosts() []HostInfo {
 	return cloneHosts(macHostList)
 }
 
-// MACExHosts returns the built-in MAC extended-market servers from opentdx.
+// MACExHosts returns the built-in MAC extended-market servers.
 func MACExHosts() []HostInfo {
 	return cloneHosts(macExHostList)
 }

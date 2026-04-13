@@ -26,10 +26,10 @@
 - 一个 `Client` 同时管理主站和扩展市场，适合做统一监控和跨市场抓取。
 - 提供两套入口：高阶统一接口 `Stock* / Ex* / MAC*`，以及面向协议细节的底层 `Get* / ExGet*`。
 - 地址池、超时、重试都可配，适合对接不稳定的真实行情站点。
-- 内置从 `opentdx` 搬运的主站、扩展、MAC、券商 host/IP 列表，并支持 TCP 测速选最快节点。
+- 内置主站、扩展、MAC、券商 host/IP 列表，并支持 TCP 测速选最快节点。
 - 自带 30+ 个示例，覆盖从列表、快照、K 线、分时到 F10、板块、扩展表格。
 - 自带 `cmd/webviewer`，不写代码也能直接调方法、填参数、看返回字段。
-- 已整理 `opentdx` 对照文档，便于继续补协议、核字段和排查差异。
+- 协议实现、示例和 Web Viewer 已整理为统一风格，便于继续补协议、核字段和排查差异。
 
 <a id="quickstart"></a>
 ## 快速开始
@@ -138,7 +138,6 @@ client := gotdx.New(
 - `client_unified.go`: `Stock* / Ex* / MAC*` 高阶统一入口。
 - `cmd/webviewer/`: 浏览器调试界面。
 - `examples/`: 可直接运行的示例。
-- `docs/opentdx_protocol_compare.md`: 与 `opentdx` 的协议对照说明。
 
 <a id="examples"></a>
 ## 示例
@@ -251,7 +250,7 @@ http://127.0.0.1:8080
 
 ### 高阶统一入口
 
-- `StockQuotesDetail`、`StockQuotesList`、`StockQuotes`、`StockKLine`、`StockKLineOffset`、`StockVolumeProfile` 会在可获取到流通股本时，按 `opentdx` 逻辑尽力补齐 `Turnover`。
+- `StockQuotesDetail`、`StockQuotesList`、`StockQuotes`、`StockKLine`、`StockKLineOffset`、`StockVolumeProfile` 会在可获取到流通股本时尽力补齐 `Turnover`。
 - 主行情：`StockCount`, `StockList`, `StockQuotesDetail`, `StockKLine`, `StockTickChart`, `StockIndexInfo`, `StockIndexMomentum`, `StockChartSampling`, `StockAuction`, `StockTopBoard`, `StockUnusual`, `StockVolumeProfile`, `StockHistoryOrders`, `StockHistoryTransaction`, `StockF10`
 - 扩展市场：`ExCount`, `ExList`, `ExQuote`, `ExQuotes`, `ExKLine`, `ExTickChart`, `ExHistoryTransaction`, `ExTable`
 - MAC：`MACBoardList`, `MACBoardMembers`, `MACBoardMembersQuotes`, `MACSymbolBelongBoard`, `MACSymbolBars`
@@ -334,7 +333,6 @@ GOTDX_INTEGRATION=1 go test ./...
 ## 相关文档
 
 - [TdxProtocol.md](TdxProtocol.md): 协议分析笔记
-- [docs/opentdx_protocol_compare.md](docs/opentdx_protocol_compare.md): 与 `opentdx` 的协议对照说明
 - [docs/images/webviewer-screenshot.png](docs/images/webviewer-screenshot.png): Web Viewer 截图
 
 ## License

@@ -844,7 +844,7 @@ var methodDefs = []methodDef{
 		Label:       "券商地址列表",
 		Group:       "连接状态",
 		Target:      "main",
-		Description: "显示从 opentdx 搬运的券商行情 host 列表。",
+		Description: "显示内置的券商行情 host 列表。",
 	},
 }
 

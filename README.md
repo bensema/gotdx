@@ -336,3 +336,7 @@ GOTDX_INTEGRATION=1 go test ./...
 - [TdxProtocol.md](TdxProtocol.md): 协议分析笔记
 - [docs/opentdx_protocol_compare.md](docs/opentdx_protocol_compare.md): 与 `opentdx` 的协议对照说明
 - [docs/images/webviewer-screenshot.png](docs/images/webviewer-screenshot.png): Web Viewer 截图
+
+## License
+
+本项目使用 MIT License 开源，详见 [LICENSE](LICENSE)。

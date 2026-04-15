@@ -35,6 +35,7 @@ type AuctionData struct {
 	Price     float64
 	Matched   uint32
 	Unmatched uint32
+	Flag      int8 //标志,1表示未匹配量是买单，-1表示未匹配量是卖单
 }
 
 func NewGetAuction(req *GetAuctionRequest) *GetAuction {
@@ -91,14 +92,24 @@ func (obj *GetAuction) ParseResponse(header *RespHeader, data []byte) error {
 		timeRaw := binary.LittleEndian.Uint16(data[base : base+2])
 		priceBits := binary.LittleEndian.Uint32(data[base+2 : base+6])
 		matched := binary.LittleEndian.Uint32(data[base+6 : base+10])
-		unmatched := binary.LittleEndian.Uint32(data[base+10 : base+14])
+		// unmatched := binary.LittleEndian.Uint32(data[base+10 : base+14])
 		second := data[base+15]
-
+		unmatchedRaw := int32(binary.LittleEndian.Uint32(data[base+10 : base+14]))
+		var flag int8 = 1 // 默认买单
+		var unmatched uint32
+		if unmatchedRaw < 0 {
+			flag = -1
+			unmatched = uint32(-unmatchedRaw)
+		} else {
+			flag = 1
+			unmatched = uint32(unmatchedRaw)
+		}
 		obj.reply.List = append(obj.reply.List, AuctionData{
 			Time:      fmt.Sprintf("%02d:%02d:%02d", timeRaw/60, timeRaw%60, second),
 			Price:     float64(math.Float32frombits(priceBits)),
 			Matched:   matched,
 			Unmatched: unmatched,
+			Flag:      flag,
 		})
 	}
 

@@ -1656,7 +1656,7 @@ func runMethod(def methodDef, params map[string]string) (queryPayload, map[strin
 				return queryPayload{}, err
 			}
 			return queryPayload{
-				columns: []string{"time", "price", "matched", "unmatched"},
+				columns: []string{"time", "price", "matched", "unmatched", "flag"},
 				rows:    rowsFromAuction(reply.List),
 				raw:     reply.List,
 			}, nil
@@ -3007,6 +3007,7 @@ func rowsFromAuction(items []proto.AuctionData) [][]string {
 			formatFloat(item.Price),
 			fmt.Sprintf("%d", item.Matched),
 			fmt.Sprintf("%d", item.Unmatched),
+			fmt.Sprintf("%d", item.Flag),
 		})
 	}
 	return rows

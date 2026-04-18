@@ -1348,7 +1348,7 @@ func runMethod(def methodDef, params map[string]string) (queryPayload, map[strin
 				return queryPayload{}, err
 			}
 			return queryPayload{
-				columns: []string{"datetime", "open", "high", "low", "close", "vol", "amount", "turnover"},
+				columns: []string{"datetime", "last", "open", "high", "low", "close", "vol", "amount", "turnover", "rise_price", "rise_rate"},
 				rows:    rowsFromSecurityBars(reply),
 				raw:     reply,
 			}, nil
@@ -1387,7 +1387,8 @@ func runMethod(def methodDef, params map[string]string) (queryPayload, map[strin
 				return queryPayload{}, err
 			}
 			return queryPayload{
-				columns: []string{"datetime", "open", "high", "low", "close", "vol", "amount", "turnover"},
+				// columns: []string{"datetime", "open", "high", "low", "close", "vol", "amount", "turnover"},
+				columns: []string{"datetime", "last", "open", "high", "low", "close", "vol", "amount", "turnover", "rise_price", "rise_rate"},
 				rows:    rowsFromSecurityBars(reply),
 				raw:     reply,
 			}, nil
@@ -1544,14 +1545,23 @@ func runMethod(def methodDef, params map[string]string) (queryPayload, map[strin
 		}
 		request := map[string]any{"date": date, "market": market, "code": code, "start": start, "count": count}
 		payload, err := withMainClient(func(client *gotdx.Client) (queryPayload, error) {
-			reply, err := client.GetHistoryTransactionDataWithTrans(date, market, code, start, count)
-			if err != nil {
-				return queryPayload{}, err
+			resp := &proto.GetHistoryTransactionDataWithTransReply{}
+			size := uint16(1800)
+			for startto := uint16(0); ; startto += size {
+				reply, err := client.GetHistoryTransactionDataWithTrans(date, market, code, startto, size)
+				if err != nil {
+					return queryPayload{}, err
+				}
+				resp.Count += reply.Count
+				resp.List = append(reply.List, resp.List...)
+				if reply.Count < size {
+					break
+				}
 			}
 			return queryPayload{
 				columns: []string{"time", "price", "vol", "num", "action"},
-				rows:    rowsFromHistoryTransactionWithTrans(reply.List),
-				raw:     reply.List,
+				rows:    rowsFromHistoryTransactionWithTrans(resp.List),
+				raw:     resp.List,
 			}, nil
 		})
 		return payload, request, err
@@ -2857,6 +2867,7 @@ func rowsFromSecurityBars(items []proto.SecurityBar) [][]string {
 	for _, item := range items {
 		rows = append(rows, []string{
 			item.DateTime,
+			formatFloat(item.Last),
 			formatFloat(item.Open),
 			formatFloat(item.High),
 			formatFloat(item.Low),
@@ -2864,6 +2875,8 @@ func rowsFromSecurityBars(items []proto.SecurityBar) [][]string {
 			formatFloat(item.Vol),
 			formatFloat(item.Amount),
 			formatFloat(item.Turnover),
+			formatFloat(item.RisePrice),
+			formatFloat(item.RiseRate),
 		})
 	}
 	return rows

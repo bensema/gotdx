@@ -30,6 +30,7 @@ type GetSecurityBarsReply struct {
 }
 
 type SecurityBar struct {
+	Last      float64 // 昨收盘价
 	Open      float64 // 开盘价。
 	Close     float64 // 收盘价。
 	High      float64 // 最高价。
@@ -37,6 +38,8 @@ type SecurityBar struct {
 	Vol       float64 // 成交量。
 	Amount    float64 // 成交额。
 	Turnover  float64 // 换手率，按高层接口 best-effort 补齐。
+	RisePrice float64 // 涨跌价
+	RiseRate  float64 // 涨跌幅
 	Year      int     // 年。
 	Month     int     // 月。
 	Day       int     // 日。
@@ -48,6 +51,8 @@ type SecurityBar struct {
 }
 
 func NewGetSecurityBars(req *GetSecurityBarsRequest) *GetSecurityBars {
+	// 为了去获取上一个价格的收盘价,从而去计算涨跌价何涨跌幅
+	req.Count = req.Count + 1
 	obj := new(GetSecurityBars)
 	obj.reqHeader = new(ReqHeader)
 	obj.respHeader = new(RespHeader)
@@ -58,6 +63,7 @@ func NewGetSecurityBars(req *GetSecurityBarsRequest) *GetSecurityBars {
 	obj.reqHeader.SeqID = seqID()
 	obj.reqHeader.PacketType = 0x00
 	obj.reqHeader.Method = KMSG_SECURITYBARS
+
 	if req != nil {
 		obj.applyRequest(req)
 	}
@@ -90,6 +96,7 @@ func (obj *GetSecurityBars) ParseResponse(header *RespHeader, data []byte) error
 	}
 	pos += 2
 
+	var lastRaw int // 昨收盘价
 	for index := uint16(0); index < obj.reply.Count; index++ {
 		var dateNum uint32
 		if err := binary.Read(bytes.NewBuffer(data[pos:pos+4]), binary.LittleEndian, &dateNum); err != nil {
@@ -123,6 +130,11 @@ func (obj *GetSecurityBars) ParseResponse(header *RespHeader, data []byte) error
 			Minute:   dateTime.Minute(),
 			DateTime: dateTime.Format("2006-01-02 15:04:05"),
 		}
+		bar.Last = float64(lastRaw) / 1000.0
+		lastRaw = closeRaw
+
+		bar.RiseRate = bar.GetRiseRate()
+		bar.RisePrice = bar.GetRisePrice()
 
 		if pos+4 <= len(data) {
 			tryDateNum := binary.LittleEndian.Uint32(data[pos : pos+4])
@@ -132,11 +144,31 @@ func (obj *GetSecurityBars) ParseResponse(header *RespHeader, data []byte) error
 				pos += 4
 			}
 		}
-
+		// 由于在 NewGetSecurityBars 中多请求了一条数据,故而第一条数据我们先舍弃
+		if index == 0 {
+			continue
+		}
 		obj.reply.List = append(obj.reply.List, bar)
 	}
+	obj.reply.Count = obj.reply.Count - 1
 
 	return nil
+}
+
+func (bar SecurityBar) GetRisePrice() float64 {
+	if bar.Last == 0 {
+		//稍微数据准确点，没减去0这么夸张，还是不准的
+		return bar.Close - bar.Open
+	}
+	return bar.Close - bar.Last
+}
+
+// RiseRate 涨跌比例/涨跌幅
+func (bar SecurityBar) GetRiseRate() float64 {
+	if bar.Last == 0 {
+		return float64(bar.Close-bar.Open) / float64(bar.Open) * 100
+	}
+	return float64(bar.Close-bar.Last) / float64(bar.Last) * 100
 }
 
 func (obj *GetSecurityBars) Response() *GetSecurityBarsReply {

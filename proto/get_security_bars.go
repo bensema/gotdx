@@ -132,10 +132,7 @@ func (obj *GetSecurityBars) ParseResponse(header *RespHeader, data []byte) error
 		}
 		bar.Last = float64(lastRaw) / 1000.0
 		lastRaw = closeRaw
-		// 由于在 NewGetSecurityBars 中多请求了一条数据,故而第一条数据我们先舍弃
-		if index == 0 {
-			continue
-		}
+
 		bar.RiseRate = bar.GetRiseRate()
 		bar.RisePrice = bar.GetRisePrice()
 
@@ -147,7 +144,10 @@ func (obj *GetSecurityBars) ParseResponse(header *RespHeader, data []byte) error
 				pos += 4
 			}
 		}
-
+		// 由于在 NewGetSecurityBars 中多请求了一条数据,故而第一条数据我们先舍弃
+		if index == 0 {
+			continue
+		}
 		obj.reply.List = append(obj.reply.List, bar)
 	}
 	obj.reply.Count = obj.reply.Count - 1

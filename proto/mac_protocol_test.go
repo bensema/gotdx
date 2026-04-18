@@ -7,6 +7,13 @@ import (
 	"testing"
 )
 
+func assertNearFloat64(t *testing.T, got float64, want float64, label string) {
+	t.Helper()
+	if math.Abs(got-want) > 0.001 {
+		t.Fatalf("unexpected %s: got=%.6f want=%.6f", label, got, want)
+	}
+}
+
 func writeMACFloat32(t *testing.T, buf *bytes.Buffer, value float32) {
 	t.Helper()
 	if err := binary.Write(buf, binary.LittleEndian, math.Float32bits(value)); err != nil {
@@ -250,6 +257,193 @@ func TestMACBoardMembersQuotesBuildRequestAndParseResponse(t *testing.T) {
 	}
 	if item.Close != 5 || item.CurrentVol != 321 || item.PEStatic != 29 || item.PETTM != 30 {
 		t.Fatalf("unexpected metrics: %+v", item)
+	}
+}
+
+func TestMACBoardMembersQuotesDynamicBuildRequestAndParseResponse(t *testing.T) {
+	boardCode, err := ExchangeMACBoardCode("880761")
+	if err != nil {
+		t.Fatal(err)
+	}
+	bitmap := [20]byte{0x31} // bits: 0=pre_close 4=close 5=vol
+	msg := NewMACBoardMembersQuotesDynamic(&MACBoardMembersQuotesDynamicRequest{
+		BoardCode:   boardCode,
+		SortType:    14,
+		Start:       0,
+		PageSize:    10,
+		SortOrder:   1,
+		FieldBitmap: bitmap,
+	})
+
+	raw := mustBuildRequest(t, msg)
+	header := readExReqHeader(t, raw)
+	if header.Head != 0x01 || binary.LittleEndian.Uint16(raw[10:12]) != KMSG_MACBOARDMEMBERS {
+		t.Fatalf("unexpected request header: head=%#x method=%#x", header.Head, binary.LittleEndian.Uint16(raw[10:12]))
+	}
+
+	var req MACBoardMembersQuotesDynamicRequest
+	if err := binary.Read(bytes.NewReader(raw[12:]), binary.LittleEndian, &req); err != nil {
+		t.Fatalf("read request failed: %v", err)
+	}
+	if req.BoardCode != boardCode || req.PageSize != 10 || req.SortOrder != 1 {
+		t.Fatalf("unexpected request: %+v", req)
+	}
+	if req.FieldBitmap != bitmap {
+		t.Fatalf("unexpected field bitmap: %#v", req.FieldBitmap)
+	}
+
+	buf := new(bytes.Buffer)
+	buf.Write(bitmap[:])
+	if err := binary.Write(buf, binary.LittleEndian, uint32(88)); err != nil {
+		t.Fatal(err)
+	}
+	if err := binary.Write(buf, binary.LittleEndian, uint16(1)); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := binary.Write(buf, binary.LittleEndian, uint16(1)); err != nil {
+		t.Fatal(err)
+	}
+	code := make([]byte, 22)
+	copy(code, "600000")
+	buf.Write(code)
+	name := make([]byte, 44)
+	copy(name, "BANK")
+	buf.Write(name)
+	writeMACFloat32(t, buf, 10.1)
+	writeMACFloat32(t, buf, 10.5)
+	if err := binary.Write(buf, binary.LittleEndian, uint32(1234)); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := msg.ParseResponse(&RespHeader{}, buf.Bytes()); err != nil {
+		t.Fatalf("parse response failed: %v", err)
+	}
+	reply := msg.Response()
+	if reply.Total != 88 || reply.Count != 1 || len(reply.ActiveFields) != 3 || len(reply.Stocks) != 1 {
+		t.Fatalf("unexpected reply: %+v", reply)
+	}
+	if reply.ActiveFields[0].Name != "pre_close" || reply.ActiveFields[1].Name != "close" || reply.ActiveFields[2].Name != "vol" {
+		t.Fatalf("unexpected active fields: %+v", reply.ActiveFields)
+	}
+	item := reply.Stocks[0]
+	if item.Symbol != "600000" || item.Name != "BANK" {
+		t.Fatalf("unexpected item header: %+v", item)
+	}
+	assertNearFloat64(t, item.Values["pre_close"].(float64), 10.1, "dynamic pre_close")
+	assertNearFloat64(t, item.Values["close"].(float64), 10.5, "dynamic close")
+	if item.Values["vol"].(uint32) != 1234 {
+		t.Fatalf("unexpected dynamic vol: %+v", item.Values)
+	}
+}
+
+func TestMACQuotesBuildRequestAndParseResponse(t *testing.T) {
+	msg := NewMACQuotes(&MACQuotesRequest{
+		Market: 1,
+		Code:   makeMACCode22("600000"),
+	})
+
+	raw := mustBuildRequest(t, msg)
+	header := readExReqHeader(t, raw)
+	if header.Head != 0x01 || binary.LittleEndian.Uint16(raw[10:12]) != KMSG_MACQUOTES {
+		t.Fatalf("unexpected request header: head=%#x method=%#x", header.Head, binary.LittleEndian.Uint16(raw[10:12]))
+	}
+
+	var req MACQuotesRequest
+	if err := binary.Read(bytes.NewReader(raw[12:]), binary.LittleEndian, &req); err != nil {
+		t.Fatalf("read request failed: %v", err)
+	}
+	if req.Market != 1 || req.Code != makeMACCode22("600000") || req.One != 1 {
+		t.Fatalf("unexpected request: %+v", req)
+	}
+
+	buf := new(bytes.Buffer)
+	if err := binary.Write(buf, binary.LittleEndian, uint16(1)); err != nil {
+		t.Fatal(err)
+	}
+	if err := binary.Write(buf, binary.LittleEndian, makeMACCode22("600000")); err != nil {
+		t.Fatal(err)
+	}
+	if err := binary.Write(buf, binary.LittleEndian, uint32(20260418)); err != nil {
+		t.Fatal(err)
+	}
+	if err := binary.Write(buf, binary.LittleEndian, uint8(7)); err != nil {
+		t.Fatal(err)
+	}
+	writeMACFloat32(t, buf, 10.5)
+	if err := binary.Write(buf, binary.LittleEndian, uint16(2)); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := binary.Write(buf, binary.LittleEndian, uint16(570)); err != nil {
+		t.Fatal(err)
+	}
+	writeMACFloat32(t, buf, 10.1)
+	writeMACFloat32(t, buf, 10.0)
+	if err := binary.Write(buf, binary.LittleEndian, uint32(1234)); err != nil {
+		t.Fatal(err)
+	}
+	writeMACFloat32(t, buf, 0.5)
+
+	if err := binary.Write(buf, binary.LittleEndian, uint16(571)); err != nil {
+		t.Fatal(err)
+	}
+	writeMACFloat32(t, buf, 10.2)
+	writeMACFloat32(t, buf, 10.1)
+	if err := binary.Write(buf, binary.LittleEndian, uint32(2234)); err != nil {
+		t.Fatal(err)
+	}
+	writeMACFloat32(t, buf, 0.8)
+
+	name := make([]byte, 44)
+	copy(name, "PingAn Bank")
+	buf.Write(name)
+	if err := binary.Write(buf, binary.LittleEndian, uint8(2)); err != nil {
+		t.Fatal(err)
+	}
+	if err := binary.Write(buf, binary.LittleEndian, uint16(6)); err != nil {
+		t.Fatal(err)
+	}
+	writeMACFloat32(t, buf, 100)
+	buf.Write(make([]byte, 5))
+	if err := binary.Write(buf, binary.LittleEndian, uint32(20260418)); err != nil {
+		t.Fatal(err)
+	}
+	if err := binary.Write(buf, binary.LittleEndian, uint32(93005)); err != nil {
+		t.Fatal(err)
+	}
+	writeMACFloat32(t, buf, 9.9)
+	writeMACFloat32(t, buf, 10.0)
+	writeMACFloat32(t, buf, 10.8)
+	writeMACFloat32(t, buf, 9.8)
+	writeMACFloat32(t, buf, 10.5)
+	writeMACFloat32(t, buf, 1.1)
+	if err := binary.Write(buf, binary.LittleEndian, uint32(9988)); err != nil {
+		t.Fatal(err)
+	}
+	writeMACFloat32(t, buf, 123456.5)
+	buf.Write(make([]byte, 12))
+	writeMACFloat32(t, buf, 2.5)
+	writeMACFloat32(t, buf, 10.2)
+	if err := binary.Write(buf, binary.LittleEndian, uint32(42)); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := msg.ParseResponse(&RespHeader{}, buf.Bytes()); err != nil {
+		t.Fatalf("parse response failed: %v", err)
+	}
+	reply := msg.Response()
+	if reply.Code != "600000" || reply.Name != "PingAn Bank" || reply.Count != 2 {
+		t.Fatalf("unexpected reply: %+v", reply)
+	}
+	if len(reply.ChartData) != 2 || reply.ChartData[0].Time != "09:30:00" || reply.ChartData[1].Vol != 2234 {
+		t.Fatalf("unexpected chart data: %+v", reply.ChartData)
+	}
+	assertNearFloat64(t, reply.Close, 10.5, "close")
+	assertNearFloat64(t, reply.Turnover, 2.5, "turnover")
+	assertNearFloat64(t, reply.Avg, 10.2, "avg")
+	if reply.Industry != 42 {
+		t.Fatalf("unexpected summary: %+v", reply)
 	}
 }
 

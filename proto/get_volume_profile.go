@@ -121,7 +121,7 @@ func (obj *GetVolumeProfile) ParseResponse(header *RespHeader, data []byte) erro
 
 	profilePrice := 0
 	for i := uint16(0); i < obj.reply.Count; i++ {
-		priceDelta := getprice(data, &pos)
+		priceDelta := decodeVolumeProfilePriceDelta(getprice(data, &pos))
 		vol := getprice(data, &pos)
 		buy := getprice(data, &pos)
 		sell := getprice(data, &pos)
@@ -147,4 +147,13 @@ func (obj *GetVolumeProfile) ParseResponse(header *RespHeader, data []byte) erro
 
 func (obj *GetVolumeProfile) Response() *GetVolumeProfileReply {
 	return obj.reply
+}
+
+// volume profile price deltas may come back as 32-bit two's complement varints
+// instead of the signed format handled by getprice(), so normalize wrapped values.
+func decodeVolumeProfilePriceDelta(value int) int {
+	if value >= 1<<31 {
+		return int(int32(uint32(value)))
+	}
+	return value
 }

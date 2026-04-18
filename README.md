@@ -126,7 +126,7 @@ client := gotdx.New(
 | 主行情 | 股票/指数列表、快照、K 线、分时、逐笔、指数工具、异动、集合竞价 | `StockQuotesDetail`, `StockKLine`, `StockIndexInfo`, `StockUnusual`, `StockAuction` |
 | 扩展市场 | 美股/港股/期货等扩展标的列表、报价、K 线、历史成交、表格 | `ExQuotes`, `ExKLine`, `ExHistoryTransaction`, `ExTable` |
 | F10 与文件 | 公司信息分类、正文、财务、除权除息、文件下载、板块文件 | `GetCompanyInfo`, `GetFinanceInfo`, `GetXDXRInfo`, `DownloadFullFile` |
-| MAC 协议 | 板块列表、成分股、成分报价、所属板块、统一 K 线 | `MACBoardList`, `MACBoardMembers`, `MACBoardMembersQuotes`, `MACSymbolBars` |
+| MAC 协议 | 板块列表、成分股、成分报价、动态成分报价、单只快照、所属板块、统一 K 线 | `MACBoardList`, `MACBoardMembers`, `MACBoardMembersWithSort`, `MACBoardMembersQuotes`, `MACBoardMembersQuotesWithSort`, `MACBoardMembersQuotesDynamic`, `MACQuotes`, `MACSymbolBars` |
 | 协议调试 | 原始协议响应、扩展实验接口、网页查看器 | `MainTodoB`, `MainClient26AD`, `ExExperiment2487`, `cmd/webviewer` |
 
 ## 项目结构
@@ -161,7 +161,7 @@ client := gotdx.New(
 | 扩展市场 K 线、分时、历史成交 | `go run ./examples/ex_kline` / `go run ./examples/ex_tick` / `go run ./examples/ex_history` |
 | 扩展试验与补充协议 | `go run ./examples/ex_list_extra` / `go run ./examples/ex_board_list` / `go run ./examples/ex_experiment_2487` / `go run ./examples/ex_experiment_2488` / `go run ./examples/ex_kline2` / `go run ./examples/ex_mapping_2562` |
 | 扩展市场表格 | `go run ./examples/ex_table` / `go run ./examples/ex_table_detail` |
-| MAC 协议 | `go run ./examples/mac_board_list` / `go run ./examples/mac_board_members` / `go run ./examples/mac_board_members_quotes` / `go run ./examples/mac_symbol_belong_board` / `go run ./examples/mac_symbol_bars` |
+| MAC 协议 | `go run ./examples/mac_board_list` / `go run ./examples/mac_board_members` / `go run ./examples/mac_board_members_quotes` / `go run ./examples/mac_board_members_quotes_dynamic` / `go run ./examples/mac_quotes` / `go run ./examples/mac_symbol_belong_board` / `go run ./examples/mac_symbol_bars` |
 | 统一监控示例 | `go run ./examples/unified_watchlist` |
 
 <details>
@@ -215,6 +215,8 @@ client := gotdx.New(
 - `examples/mac_board_list`
 - `examples/mac_board_members`
 - `examples/mac_board_members_quotes`
+- `examples/mac_board_members_quotes_dynamic`
+- `examples/mac_quotes`
 - `examples/mac_symbol_belong_board`
 - `examples/mac_symbol_bars`
 - `examples/unified_watchlist`
@@ -228,6 +230,8 @@ client := gotdx.New(
 
 - 先确认某个方法应该填哪些参数。
 - 快速查看返回字段，而不是先写一段测试代码。
+- 对照 MAC 动态位图字段，直接看 `bit/name/format/description`。
+- 直接检查主站文件、表格文件和 CSV 文件的结构化结果。
 - 对比不同主机返回的数据差异。
 - 调试实验协议或原始接口。
 
@@ -253,7 +257,7 @@ http://127.0.0.1:8080
 - `StockQuotesDetail`、`StockQuotesList`、`StockQuotes`、`StockKLine`、`StockKLineOffset`、`StockVolumeProfile` 会在可获取到流通股本时尽力补齐 `Turnover`。
 - 主行情：`StockCount`, `StockList`, `StockQuotesDetail`, `StockKLine`, `StockTickChart`, `StockIndexInfo`, `StockIndexMomentum`, `StockChartSampling`, `StockAuction`, `StockTopBoard`, `StockUnusual`, `StockVolumeProfile`, `StockHistoryOrders`, `StockHistoryTransaction`, `StockF10`
 - 扩展市场：`ExCount`, `ExList`, `ExQuote`, `ExQuotes`, `ExKLine`, `ExTickChart`, `ExHistoryTransaction`, `ExTable`
-- MAC：`MACBoardList`, `MACBoardMembers`, `MACBoardMembersQuotes`, `MACSymbolBelongBoard`, `MACSymbolBars`
+- MAC：`MACBoardList`, `MACBoardMembers`, `MACBoardMembersWithSort`, `MACBoardMembersQuotes`, `MACBoardMembersQuotesWithSort`, `MACBoardMembersQuotesDynamic`, `MACQuotes`, `MACSymbolBelongBoard`, `MACSymbolBars`
 
 ### 常用底层接口
 
@@ -308,10 +312,11 @@ http://127.0.0.1:8080
 #### MAC 协议
 
 - `NewMAC`, `NewMACEx`, `ConnectMAC`
-- `GetMACBoardCount`, `GetMACBoardList`, `GetMACBoardMembers`, `GetMACBoardMembersQuotes`
+- `GetMACBoardCount`, `GetMACBoardList`, `GetMACBoardMembers`, `GetMACBoardMembersQuotes`, `GetMACBoardMembersQuotesDynamic`, `GetMACQuotes`
 - `GetMACSymbolBelongBoard`, `GetMACSymbolBars`
-- `MACBoardCount`, `MACBoardList`, `MACBoardMembers`, `MACBoardMembersQuotes`
+- `MACBoardCount`, `MACBoardList`, `MACBoardMembers`, `MACBoardMembersWithSort`, `MACBoardMembersQuotes`, `MACBoardMembersQuotesWithSort`, `MACBoardMembersQuotesDynamic`, `MACQuotes`
 - `MACSymbolBelongBoard`, `MACSymbolBars`
+- 位图辅助：`DefaultMACBoardMembersQuotesFieldBitmap`, `FullMACBoardMembersQuotesFieldBitmap`, `MACBoardMembersQuotesFieldBitmapFromBits`
 
 </details>
 

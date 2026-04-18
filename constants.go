@@ -140,17 +140,45 @@ const (
 	SortChangePct        uint16 = 0x0e
 	SortAmplitudePct     uint16 = 0x0f
 	SortAvg              uint16 = 0x10
+	SortPEDynamic        uint16 = 0x11
 	SortEntrustRatio     uint16 = 0x12
 	SortInsideVolume     uint16 = 0x13
 	SortOutsideVolume    uint16 = 0x14
+	SortInOutRatio       uint16 = 0x15
 	SortBidVolume        uint16 = 0x17
 	SortAskVolume        uint16 = 0x18
+	SortLockedRatio      uint16 = 0x1b
+	SortLockedAmount     uint16 = 0x1c
 	SortOpenAmount       uint16 = 0x1d
 	SortOpenTurnoverPct  uint16 = 0x1e
 	SortVolRatio         uint16 = 0x23
 	SortTurnoverRate     uint16 = 0x24
+	SortFloatShares      uint16 = 0x25
+	SortFloatMarketCap   uint16 = 0x26
+	SortTotalMarketCapAB uint16 = 0x27
+	SortUnmatchedVolume  uint16 = 0x2a
+	SortStrengthPct      uint16 = 0x2d
+	SortSpeedPct         uint16 = 0x2e
+	SortActivity         uint16 = 0x2f
 	SortShortTurnoverPct uint16 = 0xcc
 	SortVolSpeedPct      uint16 = 0xd0
+	SortMainNetAmount    uint16 = 0xd4
+	SortMainNetRatio     uint16 = 0xd7
+	SortAuctionLimitBuy  uint16 = 0x102
+	SortOpenSnatchPct    uint16 = 0x10a
+	SortAmount2M         uint16 = 0x10c
+	SortOpenPct          uint16 = 0x119
+	SortHighPct          uint16 = 0x11a
+	SortLowPct           uint16 = 0x11b
+	SortAvgChangePct     uint16 = 0x11c
+	SortDrawdownPct      uint16 = 0x11e
+	SortAttackPct        uint16 = 0x11f
+)
+
+const (
+	SortOrderNone uint16 = 0
+	SortOrderDesc uint16 = 1
+	SortOrderAsc  uint16 = 2
 )
 
 const (
@@ -174,6 +202,15 @@ const (
 )
 
 const (
+	ExBoardTypeHKAll uint16 = 0
+	ExBoardTypeHKGN  uint16 = 1
+	ExBoardTypeHKHY  uint16 = 2
+	ExBoardTypeUSAll uint16 = 3
+	ExBoardTypeUSGN  uint16 = 4
+	ExBoardTypeUSHY  uint16 = 5
+)
+
+const (
 	KLINE_TYPE_5MIN      = 0  // 5 分钟K 线
 	KLINE_TYPE_15MIN     = 1  // 15 分钟K 线
 	KLINE_TYPE_30MIN     = 2  // 30 分钟K 线
@@ -186,6 +223,7 @@ const (
 	KLINE_TYPE_RI_K      = 9  // 日K 线
 	KLINE_TYPE_3MONTH    = 10 // 季K 线
 	KLINE_TYPE_YEARLY    = 11 // 年K 线
+	KLINE_TYPE_SECONDS   = 13 // 多秒K 线
 )
 
 var (

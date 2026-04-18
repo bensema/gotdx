@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/hex"
 	"fmt"
 	"sort"
 	"strconv"
@@ -388,6 +389,68 @@ var methodDefs = []methodDef{
 		},
 	},
 	{
+		Key:         "stock_file_meta",
+		Label:       "文件元信息",
+		Group:       "股票资料",
+		Target:      "main",
+		Description: "获取主站文件元信息。",
+		Params: []methodParam{
+			{Key: "filename", Label: "文件名", Type: "text", Default: "block.dat"},
+		},
+	},
+	{
+		Key:         "stock_file_download",
+		Label:       "文件片段下载",
+		Group:       "股票资料",
+		Target:      "main",
+		Description: "下载主站文件片段并显示十六进制预览。",
+		Params: []methodParam{
+			{Key: "filename", Label: "文件名", Type: "text", Default: "block.dat"},
+			{Key: "start", Label: "起始", Type: "number", Default: "0"},
+			{Key: "size", Label: "长度", Type: "number", Default: "1024"},
+		},
+	},
+	{
+		Key:         "stock_file_full",
+		Label:       "完整文件下载",
+		Group:       "股票资料",
+		Target:      "main",
+		Description: "下载主站完整文件并显示文本/十六进制预览。",
+		Params: []methodParam{
+			{Key: "filename", Label: "文件名", Type: "text", Default: "block.dat"},
+		},
+	},
+	{
+		Key:         "stock_table_file",
+		Label:       "表格文件",
+		Group:       "股票资料",
+		Target:      "main",
+		Description: "读取竖线分隔表格文件并按行展示。",
+		Params: []methodParam{
+			{Key: "filename", Label: "文件名", Type: "text", Default: "tdxhy.cfg"},
+		},
+	},
+	{
+		Key:         "stock_csv_file",
+		Label:       "CSV 文件",
+		Group:       "股票资料",
+		Target:      "main",
+		Description: "读取 CSV 文件并按列展示。",
+		Params: []methodParam{
+			{Key: "filename", Label: "文件名", Type: "text", Default: "spec/speckzzdata.txt"},
+		},
+	},
+	{
+		Key:         "stock_block_flat",
+		Label:       "板块文件平铺",
+		Group:       "股票资料",
+		Target:      "main",
+		Description: "按 block 文件逐行展开板块和代码。",
+		Params: []methodParam{
+			{Key: "filename", Label: "文件名", Type: "text", Default: "block_gn.dat"},
+		},
+	},
+	{
 		Key:         "stock_block_grouped",
 		Label:       "板块文件分组",
 		Group:       "股票资料",
@@ -594,6 +657,28 @@ var methodDefs = []methodDef{
 		},
 	},
 	{
+		Key:         "ex_file_meta",
+		Label:       "扩展文件元信息",
+		Group:       "扩展表格",
+		Target:      "ex",
+		Description: "获取扩展市场文件元信息。",
+		Params: []methodParam{
+			{Key: "filename", Label: "文件名", Type: "text", Default: "US_stock.dat"},
+		},
+	},
+	{
+		Key:         "ex_file_download",
+		Label:       "扩展文件下载",
+		Group:       "扩展表格",
+		Target:      "ex",
+		Description: "下载扩展市场文件片段并显示十六进制预览。",
+		Params: []methodParam{
+			{Key: "filename", Label: "文件名", Type: "text", Default: "US_stock.dat"},
+			{Key: "start", Label: "起始", Type: "number", Default: "0"},
+			{Key: "size", Label: "长度", Type: "number", Default: "1024"},
+		},
+	},
+	{
 		Key:         "ex_table",
 		Label:       "扩展总表",
 		Group:       "扩展表格",
@@ -606,6 +691,16 @@ var methodDefs = []methodDef{
 		Group:       "扩展表格",
 		Target:      "ex",
 		Description: "扩展市场详细表，自动拆成表格行。",
+	},
+	{
+		Key:         "mac_board_count",
+		Label:       "MAC 板块数量",
+		Group:       "MAC 协议",
+		Target:      "mac",
+		Description: "MAC 主站板块总数。",
+		Params: []methodParam{
+			{Key: "board_type", Label: "板块类型", Type: "number", Default: "255"},
+		},
 	},
 	{
 		Key:         "mac_board_list",
@@ -623,10 +718,12 @@ var methodDefs = []methodDef{
 		Label:       "MAC 板块成员",
 		Group:       "MAC 协议",
 		Target:      "mac",
-		Description: "按板块代码查询成分股。",
+		Description: "按板块代码查询成分股，可透传排序参数。",
 		Params: []methodParam{
 			{Key: "board_symbol", Label: "板块代码", Type: "text", Default: "880761"},
 			{Key: "count", Label: "总量", Type: "number", Default: "50"},
+			{Key: "sort_type", Label: "排序类型", Type: "number", Default: "14"},
+			{Key: "sort_order", Label: "排序顺序", Type: "number", Default: "1"},
 		},
 	},
 	{
@@ -634,10 +731,37 @@ var methodDefs = []methodDef{
 		Label:       "MAC 成分报价",
 		Group:       "MAC 协议",
 		Target:      "mac",
-		Description: "按板块代码查询成分报价。",
+		Description: "按板块代码查询成分报价，可透传排序参数。",
 		Params: []methodParam{
 			{Key: "board_symbol", Label: "板块代码", Type: "text", Default: "880761"},
 			{Key: "count", Label: "总量", Type: "number", Default: "50"},
+			{Key: "sort_type", Label: "排序类型", Type: "number", Default: "14"},
+			{Key: "sort_order", Label: "排序顺序", Type: "number", Default: "1"},
+		},
+	},
+	{
+		Key:         "mac_board_members_quotes_dynamic",
+		Label:       "MAC 成分报价实验",
+		Group:       "MAC 协议",
+		Target:      "mac",
+		Description: "按位图动态解析 MAC 成分报价",
+		Params: []methodParam{
+			{Key: "board_symbol", Label: "板块代码", Type: "text", Default: "880761"},
+			{Key: "count", Label: "总量", Type: "number", Default: "20"},
+			{Key: "sort_type", Label: "排序类型", Type: "number", Default: "14"},
+			{Key: "sort_order", Label: "排序顺序", Type: "number", Default: "1"},
+			{Key: "field_bitmap", Label: "字段位图", Type: "text", Default: "", Help: "留空/default=默认位图，full=20字节全1，或填写40位hex"},
+		},
+	},
+	{
+		Key:         "mac_quotes",
+		Label:       "MAC 行情快照",
+		Group:       "MAC 协议",
+		Target:      "mac",
+		Description: "MAC 主站单只标的快照与分时采样。",
+		Params: []methodParam{
+			{Key: "market", Label: "市场", Type: "number", Default: "0"},
+			{Key: "code", Label: "代码", Type: "text", Default: "000001"},
 		},
 	},
 	{
@@ -668,6 +792,16 @@ var methodDefs = []methodDef{
 		},
 	},
 	{
+		Key:         "mac_ex_board_count",
+		Label:       "扩展板块数量",
+		Group:       "MAC 协议",
+		Target:      "mac-ex",
+		Description: "MAC 扩展站板块总数。",
+		Params: []methodParam{
+			{Key: "board_type", Label: "板块类型", Type: "number", Default: "0", Help: "0=HK_ALL 3=US_ALL"},
+		},
+	},
+	{
 		Key:         "mac_ex_board_list",
 		Label:       "MAC 港美板块",
 		Group:       "MAC 协议",
@@ -676,6 +810,17 @@ var methodDefs = []methodDef{
 		Params: []methodParam{
 			{Key: "board_type", Label: "板块类型", Type: "number", Default: "0", Help: "0=HK_ALL 3=US_ALL"},
 			{Key: "count", Label: "总量", Type: "number", Default: "50"},
+		},
+	},
+	{
+		Key:         "mac_ex_quotes",
+		Label:       "扩展行情快照",
+		Group:       "MAC 协议",
+		Target:      "mac-ex",
+		Description: "MAC 扩展站单只标的快照与分时采样。",
+		Params: []methodParam{
+			{Key: "market", Label: "分类", Type: "number", Default: "74"},
+			{Key: "code", Label: "代码", Type: "text", Default: "TSLA"},
 		},
 	},
 	{
@@ -1877,6 +2022,121 @@ func runMethod(def methodDef, params map[string]string) (queryPayload, map[strin
 			}, nil
 		})
 		return payload, request, err
+	case "stock_file_meta":
+		filename := valueOrDefault(params, "filename", gotdx.BlockFileDefault)
+		request := map[string]any{"filename": filename}
+		payload, err := withMainClient(func(client *gotdx.Client) (queryPayload, error) {
+			reply, err := client.GetFileMeta(filename)
+			if err != nil {
+				return queryPayload{}, err
+			}
+			return queryPayload{
+				columns: []string{"field", "value"},
+				rows:    rowsFromFileMeta(reply),
+				raw:     reply,
+			}, nil
+		})
+		return payload, request, err
+	case "stock_file_download":
+		filename := valueOrDefault(params, "filename", gotdx.BlockFileDefault)
+		start, err := parseUint32Value(params, "start", 0)
+		if err != nil {
+			return queryPayload{}, nil, err
+		}
+		size, err := parseUint32Value(params, "size", 1024)
+		if err != nil {
+			return queryPayload{}, nil, err
+		}
+		request := map[string]any{"filename": filename, "start": start, "size": size}
+		payload, err := withMainClient(func(client *gotdx.Client) (queryPayload, error) {
+			reply, err := client.DownloadFile(filename, start, size)
+			if err != nil {
+				return queryPayload{}, err
+			}
+			return queryPayload{
+				columns: []string{"field", "value"},
+				rows: [][]string{
+					{"size", fmt.Sprintf("%d", reply.Size)},
+					{"data_len", fmt.Sprintf("%d", len(reply.Data))},
+				},
+				raw: rawBytesPreview(reply.Data),
+			}, nil
+		})
+		return payload, request, err
+	case "stock_file_full":
+		filename := valueOrDefault(params, "filename", gotdx.BlockFileDefault)
+		request := map[string]any{"filename": filename}
+		payload, err := withMainClient(func(client *gotdx.Client) (queryPayload, error) {
+			content, err := client.DownloadFullFile(filename, 0)
+			if err != nil {
+				return queryPayload{}, err
+			}
+			raw := rawFullFilePreview(content)
+			return queryPayload{
+				columns: []string{"field", "value"},
+				rows: [][]string{
+					{"length", fmt.Sprintf("%d", len(content))},
+					{"text_preview", raw["text_preview"].(string)},
+				},
+				raw:     raw,
+				warning: "完整文件下载可能较慢；更适合文本配置和小型辅助文件。",
+			}, nil
+		})
+		return payload, request, err
+	case "stock_table_file":
+		filename := valueOrDefault(params, "filename", "tdxhy.cfg")
+		request := map[string]any{"filename": filename}
+		payload, err := withMainClient(func(client *gotdx.Client) (queryPayload, error) {
+			rows, err := client.GetTableFile(filename)
+			if err != nil {
+				return queryPayload{}, err
+			}
+			columns, normalized := normalizeTableRows(rows, "col")
+			return queryPayload{
+				columns: columns,
+				rows:    normalized,
+				raw: map[string]any{
+					"filename": filename,
+					"rows":     limitRows(normalized, 50),
+				},
+			}, nil
+		})
+		return payload, request, err
+	case "stock_csv_file":
+		filename := valueOrDefault(params, "filename", "spec/speckzzdata.txt")
+		request := map[string]any{"filename": filename}
+		payload, err := withMainClient(func(client *gotdx.Client) (queryPayload, error) {
+			rows, err := client.GetCSVFile(filename)
+			if err != nil {
+				return queryPayload{}, err
+			}
+			columns, normalized := normalizeTableRows(rows, "col")
+			return queryPayload{
+				columns: columns,
+				rows:    normalized,
+				raw: map[string]any{
+					"filename": filename,
+					"rows":     limitRows(normalized, 50),
+				},
+			}, nil
+		})
+		return payload, request, err
+	case "stock_block_flat":
+		filename := valueOrDefault(params, "filename", gotdx.BlockFileGN)
+		request := map[string]any{"filename": filename}
+		payload, err := withMainClient(func(client *gotdx.Client) (queryPayload, error) {
+			reply, err := client.GetParsedBlockFile(filename)
+			if err != nil {
+				return queryPayload{}, err
+			}
+			rows := rowsFromBlockFlat(reply)
+			return queryPayload{
+				columns: []string{"block_name", "block_type", "code_index", "code"},
+				rows:    rows,
+				raw:     limitRows(rows, 50),
+			}, nil
+		})
+		return payload, request, err
 	case "stock_block_grouped":
 		filename := valueOrDefault(params, "filename", gotdx.BlockFileFG)
 		request := map[string]any{"filename": filename}
@@ -2335,6 +2595,47 @@ func runMethod(def methodDef, params map[string]string) (queryPayload, map[strin
 			}, nil
 		})
 		return payload, request, err
+	case "ex_file_meta":
+		filename := valueOrDefault(params, "filename", "US_stock.dat")
+		request := map[string]any{"filename": filename}
+		payload, err := withExClient(func(client *gotdx.Client) (queryPayload, error) {
+			reply, err := client.ExGetFileMeta(filename)
+			if err != nil {
+				return queryPayload{}, err
+			}
+			return queryPayload{
+				columns: []string{"field", "value"},
+				rows:    rowsFromFileMeta(reply),
+				raw:     reply,
+			}, nil
+		})
+		return payload, request, err
+	case "ex_file_download":
+		filename := valueOrDefault(params, "filename", "US_stock.dat")
+		start, err := parseUint32Value(params, "start", 0)
+		if err != nil {
+			return queryPayload{}, nil, err
+		}
+		size, err := parseUint32Value(params, "size", 1024)
+		if err != nil {
+			return queryPayload{}, nil, err
+		}
+		request := map[string]any{"filename": filename, "start": start, "size": size}
+		payload, err := withExClient(func(client *gotdx.Client) (queryPayload, error) {
+			reply, err := client.ExDownloadFile(filename, start, size)
+			if err != nil {
+				return queryPayload{}, err
+			}
+			return queryPayload{
+				columns: []string{"field", "value"},
+				rows: [][]string{
+					{"size", fmt.Sprintf("%d", reply.Size)},
+					{"data_len", fmt.Sprintf("%d", len(reply.Data))},
+				},
+				raw: rawBytesPreview(reply.Data),
+			}, nil
+		})
+		return payload, request, err
 	case "ex_table":
 		payload, err := withExClient(func(client *gotdx.Client) (queryPayload, error) {
 			content, err := client.ExGetTable()
@@ -2363,6 +2664,24 @@ func runMethod(def methodDef, params map[string]string) (queryPayload, map[strin
 			}, nil
 		})
 		return payload, map[string]any{}, err
+	case "mac_board_count":
+		boardType, err := parseUint16Value(params, "board_type", gotdx.BoardTypeAll)
+		if err != nil {
+			return queryPayload{}, nil, err
+		}
+		request := map[string]any{"board_type": boardType}
+		payload, err := withMACClient(func(client *gotdx.Client) (queryPayload, error) {
+			total, err := client.MACBoardCount(boardType)
+			if err != nil {
+				return queryPayload{}, err
+			}
+			return queryPayload{
+				columns: []string{"field", "value"},
+				rows:    [][]string{{"total", fmt.Sprintf("%d", total)}},
+				raw:     map[string]any{"board_type": boardType, "total": total},
+			}, nil
+		})
+		return payload, request, err
 	case "mac_board_list":
 		boardType, err := parseUint16Value(params, "board_type", 0)
 		if err != nil {
@@ -2413,9 +2732,17 @@ func runMethod(def methodDef, params map[string]string) (queryPayload, map[strin
 		if err != nil {
 			return queryPayload{}, nil, err
 		}
-		request := map[string]any{"board_symbol": boardSymbol, "count": count}
+		sortType, err := parseUint16Value(params, "sort_type", 14)
+		if err != nil {
+			return queryPayload{}, nil, err
+		}
+		sortOrder, err := parseUint16Value(params, "sort_order", 1)
+		if err != nil {
+			return queryPayload{}, nil, err
+		}
+		request := map[string]any{"board_symbol": boardSymbol, "count": count, "sort_type": sortType, "sort_order": sortOrder}
 		payload, err := withMACClient(func(client *gotdx.Client) (queryPayload, error) {
-			list, err := client.MACBoardMembers(boardSymbol, count)
+			list, err := client.MACBoardMembersWithSort(boardSymbol, count, sortType, sortOrder)
 			if err != nil {
 				return queryPayload{}, err
 			}
@@ -2432,9 +2759,17 @@ func runMethod(def methodDef, params map[string]string) (queryPayload, map[strin
 		if err != nil {
 			return queryPayload{}, nil, err
 		}
-		request := map[string]any{"board_symbol": boardSymbol, "count": count}
+		sortType, err := parseUint16Value(params, "sort_type", 14)
+		if err != nil {
+			return queryPayload{}, nil, err
+		}
+		sortOrder, err := parseUint8Value(params, "sort_order", 1)
+		if err != nil {
+			return queryPayload{}, nil, err
+		}
+		request := map[string]any{"board_symbol": boardSymbol, "count": count, "sort_type": sortType, "sort_order": sortOrder}
 		payload, err := withMACClient(func(client *gotdx.Client) (queryPayload, error) {
-			list, err := client.MACBoardMembersQuotes(boardSymbol, count)
+			list, err := client.MACBoardMembersQuotesWithSort(boardSymbol, count, sortType, sortOrder)
 			if err != nil {
 				return queryPayload{}, err
 			}
@@ -2442,6 +2777,75 @@ func runMethod(def methodDef, params map[string]string) (queryPayload, map[strin
 				columns: []string{"market", "symbol", "name", "close", "pre_close", "rise_speed", "turnover_rate", "pe_ttm"},
 				rows:    rowsFromMACBoardMemberQuotes(list),
 				raw:     list,
+			}, nil
+		})
+		return payload, request, err
+	case "mac_board_members_quotes_dynamic":
+		boardSymbol := valueOrDefault(params, "board_symbol", "880761")
+		count, err := parseUint32Value(params, "count", 20)
+		if err != nil {
+			return queryPayload{}, nil, err
+		}
+		sortType, err := parseUint16Value(params, "sort_type", 14)
+		if err != nil {
+			return queryPayload{}, nil, err
+		}
+		sortOrder, err := parseUint8Value(params, "sort_order", 1)
+		if err != nil {
+			return queryPayload{}, nil, err
+		}
+		fieldBitmapText := valueOrDefault(params, "field_bitmap", "")
+		fieldBitmap, err := parseMACBoardMembersQuotesFieldBitmap(fieldBitmapText)
+		if err != nil {
+			return queryPayload{}, nil, err
+		}
+		request := map[string]any{
+			"board_symbol":     boardSymbol,
+			"count":            count,
+			"sort_type":        sortType,
+			"sort_order":       sortOrder,
+			"field_bitmap":     fieldBitmapText,
+			"field_bitmap_hex": hex.EncodeToString(fieldBitmap[:]),
+		}
+		payload, err := withMACClient(func(client *gotdx.Client) (queryPayload, error) {
+			reply, err := client.MACBoardMembersQuotesDynamic(boardSymbol, count, sortType, sortOrder, fieldBitmap)
+			if err != nil {
+				return queryPayload{}, err
+			}
+			columns := columnsFromMACBoardMemberQuotesDynamic(reply)
+			rows := rowsFromMACBoardMemberQuotesDynamic(reply)
+			return queryPayload{
+				columns: columns,
+				rows:    rows,
+				raw: map[string]any{
+					"field_bitmap_hex": hex.EncodeToString(reply.FieldBitmap[:]),
+					"active_fields":    reply.ActiveFields,
+					"field_columns":    []string{"bit", "name", "format", "description"},
+					"field_rows":       rowsFromMACDynamicFieldDefs(reply.ActiveFields),
+					"count":            reply.Count,
+					"total":            reply.Total,
+					"stocks":           reply.Stocks,
+				},
+				warning: "这是实验接口，字段命名以协议比对为主，未知字段可能继续调整。",
+			}, nil
+		})
+		return payload, request, err
+	case "mac_quotes":
+		market, err := parseUint8Value(params, "market", 0)
+		if err != nil {
+			return queryPayload{}, nil, err
+		}
+		code := valueOrDefault(params, "code", "000001")
+		request := map[string]any{"market": market, "code": code}
+		payload, err := withMACClient(func(client *gotdx.Client) (queryPayload, error) {
+			reply, err := client.MACQuotes(market, code)
+			if err != nil {
+				return queryPayload{}, err
+			}
+			return queryPayload{
+				columns: []string{"time", "price", "avg", "vol", "momentum"},
+				rows:    rowsFromMACQuoteChart(reply.ChartData),
+				raw:     reply,
 			}, nil
 		})
 		return payload, request, err
@@ -2503,6 +2907,24 @@ func runMethod(def methodDef, params map[string]string) (queryPayload, map[strin
 			}, nil
 		})
 		return payload, request, err
+	case "mac_ex_board_count":
+		boardType, err := parseUint16Value(params, "board_type", gotdx.ExBoardTypeHKAll)
+		if err != nil {
+			return queryPayload{}, nil, err
+		}
+		request := map[string]any{"board_type": boardType}
+		payload, err := withMACExClient(func(client *gotdx.Client) (queryPayload, error) {
+			total, err := client.MACBoardCount(boardType)
+			if err != nil {
+				return queryPayload{}, err
+			}
+			return queryPayload{
+				columns: []string{"field", "value"},
+				rows:    [][]string{{"total", fmt.Sprintf("%d", total)}},
+				raw:     map[string]any{"board_type": boardType, "total": total},
+			}, nil
+		})
+		return payload, request, err
 	case "mac_ex_symbol_bars":
 		market, err := parseUint8Value(params, "market", 74)
 		if err != nil {
@@ -2539,6 +2961,25 @@ func runMethod(def methodDef, params map[string]string) (queryPayload, map[strin
 				columns: []string{"datetime", "open", "high", "low", "close", "vol", "amount", "float_shares"},
 				rows:    rowsFromMACSymbolBars(list),
 				raw:     list,
+			}, nil
+		})
+		return payload, request, err
+	case "mac_ex_quotes":
+		market, err := parseUint8Value(params, "market", gotdx.ExCategoryUSStock)
+		if err != nil {
+			return queryPayload{}, nil, err
+		}
+		code := valueOrDefault(params, "code", "TSLA")
+		request := map[string]any{"market": market, "code": code}
+		payload, err := withMACExClient(func(client *gotdx.Client) (queryPayload, error) {
+			reply, err := client.MACQuotes(market, code)
+			if err != nil {
+				return queryPayload{}, err
+			}
+			return queryPayload{
+				columns: []string{"time", "price", "avg", "vol", "momentum"},
+				rows:    rowsFromMACQuoteChart(reply.ChartData),
+				raw:     reply,
 			}, nil
 		})
 		return payload, request, err
@@ -2786,6 +3227,47 @@ func rawTextPreview(content string) map[string]any {
 		"length":    len(content),
 		"truncated": true,
 	}
+}
+
+func rawBytesPreview(content []byte) map[string]any {
+	return map[string]any{
+		"length":      len(content),
+		"hex_preview": preview(hex.EncodeToString(content), 512),
+	}
+}
+
+func rawFullFilePreview(content []byte) map[string]any {
+	text := proto.Utf8ToGbk(content)
+	return map[string]any{
+		"length":       len(content),
+		"hex_preview":  preview(hex.EncodeToString(content), 512),
+		"text_preview": preview(text, 2000),
+	}
+}
+
+func parseMACBoardMembersQuotesFieldBitmap(value string) ([20]byte, error) {
+	text := strings.TrimSpace(value)
+	switch strings.ToLower(text) {
+	case "", "default":
+		return gotdx.DefaultMACBoardMembersQuotesFieldBitmap(), nil
+	case "full":
+		return gotdx.FullMACBoardMembersQuotesFieldBitmap(), nil
+	}
+
+	text = strings.TrimPrefix(text, "0x")
+	text = strings.TrimPrefix(text, "0X")
+	replacer := strings.NewReplacer(" ", "", ",", "", "_", "")
+	text = replacer.Replace(text)
+	if len(text) != 40 {
+		return [20]byte{}, fmt.Errorf("field_bitmap 需要 40 位 hex，当前长度=%d", len(text))
+	}
+	decoded, err := hex.DecodeString(text)
+	if err != nil {
+		return [20]byte{}, err
+	}
+	var bitmap [20]byte
+	copy(bitmap[:], decoded)
+	return bitmap, nil
 }
 
 func rowsFromRawReply(reply *proto.RawDataReply) [][]string {
@@ -3154,6 +3636,31 @@ func rowsFromXDXR(items []proto.XDXRItem) [][]string {
 	return rows
 }
 
+func rowsFromFileMeta(item *proto.GetFileMetaReply) [][]string {
+	if item == nil {
+		return nil
+	}
+	return [][]string{
+		{"size", fmt.Sprintf("%d", item.Size)},
+		{"unknown1", fmt.Sprintf("%d", item.Unknown1)},
+		{"hash_value", hex.EncodeToString(item.HashValue[:])},
+		{"unknown2", fmt.Sprintf("%d", item.Unknown2)},
+	}
+}
+
+func rowsFromBlockFlat(items []gotdx.BlockFlatItem) [][]string {
+	rows := make([][]string, 0, len(items))
+	for _, item := range items {
+		rows = append(rows, []string{
+			item.BlockName,
+			fmt.Sprintf("%d", item.BlockType),
+			fmt.Sprintf("%d", item.CodeIndex),
+			item.Code,
+		})
+	}
+	return rows
+}
+
 func rowsFromBlockGroups(groups []gotdx.BlockGroup) [][]string {
 	rows := make([][]string, 0, len(groups))
 	for _, group := range groups {
@@ -3404,6 +3911,63 @@ func rowsFromMACBoardMemberQuotes(items []proto.MACBoardMemberQuoteItem) [][]str
 	return rows
 }
 
+func columnsFromMACBoardMemberQuotesDynamic(reply *proto.MACBoardMembersQuotesDynamicReply) []string {
+	if reply == nil {
+		return nil
+	}
+	columns := []string{"market", "symbol", "name"}
+	for _, field := range reply.ActiveFields {
+		columns = append(columns, field.Name)
+	}
+	return columns
+}
+
+func rowsFromMACBoardMemberQuotesDynamic(reply *proto.MACBoardMembersQuotesDynamicReply) [][]string {
+	if reply == nil {
+		return nil
+	}
+	rows := make([][]string, 0, len(reply.Stocks))
+	for _, item := range reply.Stocks {
+		row := []string{
+			fmt.Sprintf("%d", item.Market),
+			item.Symbol,
+			item.Name,
+		}
+		for _, field := range reply.ActiveFields {
+			row = append(row, formatAny(item.Values[field.Name]))
+		}
+		rows = append(rows, row)
+	}
+	return rows
+}
+
+func rowsFromMACDynamicFieldDefs(fields []proto.MACDynamicFieldDef) [][]string {
+	rows := make([][]string, 0, len(fields))
+	for _, field := range fields {
+		rows = append(rows, []string{
+			fmt.Sprintf("%d", field.Bit),
+			field.Name,
+			field.Format,
+			field.Description,
+		})
+	}
+	return rows
+}
+
+func rowsFromMACQuoteChart(items []proto.MACQuoteChartItem) [][]string {
+	rows := make([][]string, 0, len(items))
+	for _, item := range items {
+		rows = append(rows, []string{
+			item.Time,
+			formatFloat(item.Price),
+			formatFloat(item.Avg),
+			fmt.Sprintf("%d", item.Vol),
+			formatFloat(item.Momentum),
+		})
+	}
+	return rows
+}
+
 func rowsFromMACBelongBoards(items []proto.MACBelongBoardItem) [][]string {
 	rows := make([][]string, 0, len(items))
 	for _, item := range items {
@@ -3517,6 +4081,29 @@ func parseExTableDetailRows(content string) ([]string, [][]string) {
 	return columns, rows
 }
 
+func normalizeTableRows(rows [][]string, prefix string) ([]string, [][]string) {
+	maxColumns := 0
+	for _, row := range rows {
+		if len(row) > maxColumns {
+			maxColumns = len(row)
+		}
+	}
+	if maxColumns == 0 {
+		return nil, nil
+	}
+	columns := make([]string, 0, maxColumns)
+	for i := 0; i < maxColumns; i++ {
+		columns = append(columns, fmt.Sprintf("%s_%d", prefix, i))
+	}
+	normalized := make([][]string, 0, len(rows))
+	for _, row := range rows {
+		item := make([]string, maxColumns)
+		copy(item, row)
+		normalized = append(normalized, item)
+	}
+	return columns, normalized
+}
+
 func preview(text string, max int) string {
 	text = strings.TrimSpace(text)
 	if len(text) <= max {
@@ -3527,6 +4114,31 @@ func preview(text string, max int) string {
 
 func formatFloat(value float64) string {
 	return strconv.FormatFloat(value, 'f', 2, 64)
+}
+
+func formatAny(value any) string {
+	switch v := value.(type) {
+	case nil:
+		return ""
+	case float64:
+		return formatFloat(v)
+	case float32:
+		return formatFloat(float64(v))
+	case uint32:
+		return fmt.Sprintf("%d", v)
+	case uint16:
+		return fmt.Sprintf("%d", v)
+	case uint8:
+		return fmt.Sprintf("%d", v)
+	case int:
+		return fmt.Sprintf("%d", v)
+	case int64:
+		return fmt.Sprintf("%d", v)
+	case string:
+		return v
+	default:
+		return fmt.Sprintf("%v", v)
+	}
 }
 
 func formatFloat32Ptr(value *float32) string {

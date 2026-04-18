@@ -35,6 +35,27 @@ func encodePrice(value int) []byte {
 	return out
 }
 
+func encodeVolumeProfilePriceDelta(value int32) []byte {
+	u := uint32(value)
+	first := byte(u & 0x3f)
+	u >>= 6
+	if u > 0 {
+		first |= 0x80
+	}
+
+	out := []byte{first}
+	for u > 0 {
+		part := byte(u & 0x7f)
+		u >>= 7
+		if u > 0 {
+			part |= 0x80
+		}
+		out = append(out, part)
+	}
+
+	return out
+}
+
 func mustBuildRequest(t *testing.T, msg RequestBuilder) []byte {
 	t.Helper()
 	raw, err := msg.BuildRequest()
@@ -276,27 +297,32 @@ func TestGetSecurityBarsBuildRequestAndParseResponse(t *testing.T) {
 	if err := binary.Read(bytes.NewReader(raw[12:]), binary.LittleEndian, &req); err != nil {
 		t.Fatalf("read request failed: %v", err)
 	}
-	if req.Times != 2 || req.Adjust != 1 || req.Start != 3 || req.Count != 4 {
+	if req.Times != 2 || req.Adjust != 1 || req.Start != 3 || req.Count != 5 {
 		t.Fatalf("unexpected request: %+v", req)
 	}
 
 	buf := new(bytes.Buffer)
-	if err := binary.Write(buf, binary.LittleEndian, uint16(1)); err != nil {
+	if err := binary.Write(buf, binary.LittleEndian, uint16(2)); err != nil {
 		t.Fatal(err)
 	}
-	if err := binary.Write(buf, binary.LittleEndian, uint32(20240531)); err != nil {
-		t.Fatal(err)
+	writeBar := func(date uint32, open int, close int, high int, low int, vol float32, amount float32) {
+		t.Helper()
+		if err := binary.Write(buf, binary.LittleEndian, date); err != nil {
+			t.Fatal(err)
+		}
+		buf.Write(encodePrice(open))
+		buf.Write(encodePrice(close))
+		buf.Write(encodePrice(high))
+		buf.Write(encodePrice(low))
+		if err := binary.Write(buf, binary.LittleEndian, math.Float32bits(vol)); err != nil {
+			t.Fatal(err)
+		}
+		if err := binary.Write(buf, binary.LittleEndian, math.Float32bits(amount)); err != nil {
+			t.Fatal(err)
+		}
 	}
-	buf.Write(encodePrice(12345))
-	buf.Write(encodePrice(12355))
-	buf.Write(encodePrice(12400))
-	buf.Write(encodePrice(12200))
-	if err := binary.Write(buf, binary.LittleEndian, math.Float32bits(3456.5)); err != nil {
-		t.Fatal(err)
-	}
-	if err := binary.Write(buf, binary.LittleEndian, math.Float32bits(7890.25)); err != nil {
-		t.Fatal(err)
-	}
+	writeBar(20240530, 12000, 12100, 12200, 11900, 2000.5, 5000.25)
+	writeBar(20240531, 12345, 12355, 12400, 12200, 3456.5, 7890.25)
 	if err := binary.Write(buf, binary.LittleEndian, uint16(7)); err != nil {
 		t.Fatal(err)
 	}
@@ -1050,6 +1076,82 @@ func TestGetVolumeProfileBuildRequestAndParseResponse(t *testing.T) {
 	}
 	if math.Abs(reply.Close-12.34) > 0.001 || math.Abs(reply.VolProfiles[0].Price-12.34) > 0.001 || math.Abs(reply.VolProfiles[1].Price-12.36) > 0.001 {
 		t.Fatalf("unexpected profile prices: %+v", reply)
+	}
+}
+
+func TestGetVolumeProfileParseWrappedNegativeProfilePriceDelta(t *testing.T) {
+	msg := NewGetVolumeProfile(&GetVolumeProfileRequest{
+		Market: 0,
+		Code:   [6]byte{'0', '0', '0', '0', '0', '1'},
+	})
+
+	buf := new(bytes.Buffer)
+	if err := binary.Write(buf, binary.LittleEndian, uint16(3)); err != nil {
+		t.Fatal(err)
+	}
+	if err := binary.Write(buf, binary.LittleEndian, uint8(0)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := buf.Write([]byte("000001")); err != nil {
+		t.Fatal(err)
+	}
+	if err := binary.Write(buf, binary.LittleEndian, uint16(1)); err != nil {
+		t.Fatal(err)
+	}
+	buf.Write(encodePrice(1101))
+	buf.Write(encodePrice(8))
+	buf.Write(encodePrice(8))
+	buf.Write(encodePrice(10))
+	buf.Write(encodePrice(-2))
+	buf.Write(encodePrice(15329800))
+	buf.Write(encodePrice(-1101))
+	buf.Write(encodePrice(722530))
+	buf.Write(encodePrice(6940))
+	if err := binary.Write(buf, binary.LittleEndian, math.Float32bits(372331008.0)); err != nil {
+		t.Fatal(err)
+	}
+	buf.Write(encodePrice(436619))
+	buf.Write(encodePrice(285911))
+	buf.Write(encodePrice(0))
+	buf.Write(encodePrice(29843))
+	for i := 0; i < 3; i++ {
+		buf.Write(encodePrice(-i))
+		buf.Write(encodePrice(i + 1))
+		buf.Write(encodePrice(1000 + i))
+		buf.Write(encodePrice(2000 + i))
+	}
+	if err := binary.Write(buf, binary.LittleEndian, uint16(2710)); err != nil {
+		t.Fatal(err)
+	}
+	buf.Write(encodeVolumeProfilePriceDelta(1109))
+	buf.Write(encodePrice(24655))
+	buf.Write(encodePrice(10957))
+	buf.Write(encodePrice(10564))
+	buf.Write(encodeVolumeProfilePriceDelta(-1))
+	buf.Write(encodePrice(30183))
+	buf.Write(encodePrice(16897))
+	buf.Write(encodePrice(13286))
+	buf.Write(encodeVolumeProfilePriceDelta(-5))
+	buf.Write(encodePrice(87186))
+	buf.Write(encodePrice(30489))
+	buf.Write(encodePrice(56697))
+
+	if err := msg.ParseResponse(&RespHeader{}, buf.Bytes()); err != nil {
+		t.Fatalf("parse response failed: %v", err)
+	}
+
+	reply := msg.Response()
+	if len(reply.VolProfiles) != 3 {
+		t.Fatalf("unexpected profile count: %+v", reply.VolProfiles)
+	}
+	if math.Abs(reply.VolProfiles[0].Price-11.09) > 0.001 {
+		t.Fatalf("unexpected first profile price: %+v", reply.VolProfiles[0])
+	}
+	if math.Abs(reply.VolProfiles[1].Price-11.08) > 0.001 {
+		t.Fatalf("unexpected second profile price: %+v", reply.VolProfiles[1])
+	}
+	if math.Abs(reply.VolProfiles[2].Price-11.03) > 0.001 {
+		t.Fatalf("unexpected third profile price: %+v", reply.VolProfiles[2])
 	}
 }
 

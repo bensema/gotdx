@@ -1,6 +1,10 @@
 package gotdx
 
-import "github.com/bensema/gotdx/proto"
+import (
+	"fmt"
+
+	"github.com/bensema/gotdx/proto"
+)
 
 const (
 	DefaultMACBoardListCount         = 10000
@@ -9,6 +13,8 @@ const (
 	DefaultMACBoardStockPage  uint8  = 80
 	DefaultMACSymbolBarsCount uint32 = 800
 	DefaultMACSymbolBarsPage  uint16 = 700
+	defaultMACBoardSortType   uint16 = 14
+	defaultMACBoardSortOrder  uint16 = 1
 )
 
 func (client *Client) ConnectMAC() error {
@@ -61,6 +67,32 @@ func (client *Client) GetMACBoardMembersQuotes(boardSymbol string, sortType uint
 		Start:     start,
 		PageSize:  pageSize,
 		SortOrder: sortOrder,
+	})
+	return executeProtocol(client, obj)
+}
+
+// GetMACBoardMembersQuotesDynamic 获取按位图动态解析的 MAC 板块成分报价。
+func (client *Client) GetMACBoardMembersQuotesDynamic(boardSymbol string, sortType uint16, start uint32, pageSize uint8, sortOrder uint8, fieldBitmap [20]byte) (*proto.MACBoardMembersQuotesDynamicReply, error) {
+	boardCode, err := protoExchangeBoardCode(boardSymbol)
+	if err != nil {
+		return nil, err
+	}
+	obj := proto.NewMACBoardMembersQuotesDynamic(&proto.MACBoardMembersQuotesDynamicRequest{
+		BoardCode:   boardCode,
+		SortType:    sortType,
+		Start:       start,
+		PageSize:    pageSize,
+		SortOrder:   sortOrder,
+		FieldBitmap: fieldBitmap,
+	})
+	return executeProtocol(client, obj)
+}
+
+// GetMACQuotes 获取 MAC 单只标的快照与分时采样。
+func (client *Client) GetMACQuotes(market uint8, code string) (*proto.MACQuotesReply, error) {
+	obj := proto.NewMACQuotes(&proto.MACQuotesRequest{
+		Market: uint16(market),
+		Code:   makeMACCode22Client(code),
 	})
 	return executeProtocol(client, obj)
 }
@@ -128,6 +160,11 @@ func (client *Client) MACBoardList(boardType uint16, count uint32) ([]proto.MACB
 }
 
 func (client *Client) MACBoardMembers(boardSymbol string, count uint32) ([]proto.MACBoardMemberItem, error) {
+	return client.MACBoardMembersWithSort(boardSymbol, count, defaultMACBoardSortType, defaultMACBoardSortOrder)
+}
+
+// MACBoardMembersWithSort 获取 MAC 板块成员，并透传排序参数。
+func (client *Client) MACBoardMembersWithSort(boardSymbol string, count uint32, sortType uint16, sortOrder uint16) ([]proto.MACBoardMemberItem, error) {
 	if count == 0 {
 		count = DefaultMACBoardStockCount
 	}
@@ -142,7 +179,7 @@ func (client *Client) MACBoardMembers(boardSymbol string, count uint32) ([]proto
 		if remaining < uint32(pageSize) {
 			pageSize = uint8(remaining)
 		}
-		reply, err := client.GetMACBoardMembers(boardSymbol, 14, start, pageSize, 1)
+		reply, err := client.GetMACBoardMembers(boardSymbol, sortType, start, pageSize, sortOrder)
 		if err != nil {
 			return nil, err
 		}
@@ -158,6 +195,65 @@ func (client *Client) MACBoardMembers(boardSymbol string, count uint32) ([]proto
 }
 
 func (client *Client) MACBoardMembersQuotes(boardSymbol string, count uint32) ([]proto.MACBoardMemberQuoteItem, error) {
+	return client.MACBoardMembersQuotesWithSort(boardSymbol, count, defaultMACBoardSortType, uint8(defaultMACBoardSortOrder))
+}
+
+// MACBoardMembersQuotesDynamic 获取按位图动态解析的 MAC 板块成分报价。
+func (client *Client) MACBoardMembersQuotesDynamic(boardSymbol string, count uint32, sortType uint16, sortOrder uint8, fieldBitmap [20]byte) (*proto.MACBoardMembersQuotesDynamicReply, error) {
+	if count == 0 {
+		count = DefaultMACBoardStockCount
+	}
+	if err := client.ConnectMAC(); err != nil {
+		return nil, err
+	}
+
+	var merged *proto.MACBoardMembersQuotesDynamicReply
+	for start := uint32(0); start < count; start += uint32(DefaultMACBoardStockPage) {
+		pageSize := DefaultMACBoardStockPage
+		remaining := count - start
+		if remaining < uint32(pageSize) {
+			pageSize = uint8(remaining)
+		}
+		reply, err := client.GetMACBoardMembersQuotesDynamic(boardSymbol, sortType, start, pageSize, sortOrder, fieldBitmap)
+		if err != nil {
+			return nil, err
+		}
+		if len(reply.Stocks) == 0 {
+			break
+		}
+		if merged == nil {
+			copyReply := *reply
+			copyReply.Stocks = append([]proto.MACBoardMemberQuoteDynamicItem(nil), reply.Stocks...)
+			copyReply.Count = uint16(len(copyReply.Stocks))
+			merged = &copyReply
+		} else {
+			if merged.FieldBitmap != reply.FieldBitmap {
+				return nil, fmt.Errorf("mac dynamic field bitmap changed across pages: %x != %x", merged.FieldBitmap, reply.FieldBitmap)
+			}
+			merged.Stocks = append(merged.Stocks, reply.Stocks...)
+			merged.Count = uint16(len(merged.Stocks))
+			if reply.Total > merged.Total {
+				merged.Total = reply.Total
+			}
+		}
+		if uint32(len(reply.Stocks)) < uint32(pageSize) {
+			break
+		}
+	}
+	if merged == nil {
+		merged = &proto.MACBoardMembersQuotesDynamicReply{
+			FieldBitmap: fieldBitmap,
+		}
+		if merged.FieldBitmap == ([20]byte{}) {
+			merged.FieldBitmap = DefaultMACBoardMembersQuotesFieldBitmap()
+		}
+		merged.ActiveFields = []proto.MACDynamicFieldDef{}
+	}
+	return merged, nil
+}
+
+// MACBoardMembersQuotesWithSort 获取 MAC 板块成分报价，并透传排序参数。
+func (client *Client) MACBoardMembersQuotesWithSort(boardSymbol string, count uint32, sortType uint16, sortOrder uint8) ([]proto.MACBoardMemberQuoteItem, error) {
 	if count == 0 {
 		count = DefaultMACBoardStockCount
 	}
@@ -172,7 +268,7 @@ func (client *Client) MACBoardMembersQuotes(boardSymbol string, count uint32) ([
 		if remaining < uint32(pageSize) {
 			pageSize = uint8(remaining)
 		}
-		reply, err := client.GetMACBoardMembersQuotes(boardSymbol, 14, start, pageSize, 1)
+		reply, err := client.GetMACBoardMembersQuotes(boardSymbol, sortType, start, pageSize, sortOrder)
 		if err != nil {
 			return nil, err
 		}
@@ -196,6 +292,14 @@ func (client *Client) MACSymbolBelongBoard(symbol string, market uint8) ([]proto
 		return nil, err
 	}
 	return reply.List, nil
+}
+
+// MACQuotes 获取 MAC 行情快照与分时采样。
+func (client *Client) MACQuotes(market uint8, code string) (*proto.MACQuotesReply, error) {
+	if err := client.ConnectMAC(); err != nil {
+		return nil, err
+	}
+	return client.GetMACQuotes(market, code)
 }
 
 func (client *Client) MACSymbolBars(market uint8, code string, period uint16, times uint16, start uint32, count uint32, adjust uint16) ([]proto.MACSymbolBar, error) {

@@ -78,6 +78,7 @@ const (
 	KMSG_EXBOARDLIST            = 0x1231 // 扩展市场板块榜单
 	KMSG_MACSYMBOLBELONGBOARD   = 0x1218 // MAC: 股票所属板块
 	KMSG_MACBOARDMEMBERS        = 0x122c // MAC: 板块成员
+	KMSG_MACQUOTES              = 0x122d // MAC: 行情快照
 	KMSG_MACSYMBOLBARS          = 0x122e // MAC: 统一K线
 	KMSG_CLIENT264B             = 0x264b // 客户端信息264B
 	KMSG_CLIENT26AC             = 0x26ac // 客户端信息26AC

@@ -260,7 +260,19 @@
       margin-bottom: 12px;
     }
 
+    .filter-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .filter-grid.triple {
+      grid-template-columns: 1fr;
+    }
+
     .search-box input,
+    .search-box select,
     .field input,
     .field textarea,
     .filter {
@@ -275,6 +287,7 @@
     }
 
     .search-box input,
+    .search-box select,
     .filter,
     .field textarea {
       font-family: var(--mono);
@@ -282,6 +295,7 @@
     }
 
     .search-box input:focus,
+    .search-box select:focus,
     .field input:focus,
     .field textarea:focus,
     .filter:focus {
@@ -289,6 +303,37 @@
       border-color: var(--accent);
       box-shadow: 0 0 0 4px rgba(12, 90, 155, 0.08);
       background: #fff;
+    }
+
+    .search-box select {
+      appearance: none;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.96), rgba(247,249,252,0.96)),
+        var(--panel-3);
+    }
+
+    .picker-box {
+      margin-bottom: 12px;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: linear-gradient(180deg, rgba(12, 90, 155, 0.04), rgba(255,255,255,0.72));
+    }
+
+    .picker-label {
+      margin: 0 0 8px;
+      color: var(--muted);
+      font-size: 10px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      font-family: var(--mono);
+    }
+
+    .picker-meta {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
     }
 
     .method-group + .method-group {
@@ -744,9 +789,30 @@
       <aside class="pane">
         <div class="pane-head">
           <h2 class="pane-title">接口列表</h2>
-          <p class="pane-desc">像自选列表一样浏览接口，按分组和关键字定位具体查询方法。</p>
+          <p class="pane-desc">先用下拉框缩小范围，再决定具体接口；长列表保留作快速浏览和确认。</p>
         </div>
         <div class="pane-body">
+          <div class="filter-grid triple">
+            <div class="search-box">
+              <select id="methodGroupFilter">
+                <option value="">全部分组</option>
+              </select>
+            </div>
+            <div class="search-box">
+              <select id="methodTargetFilter">
+                <option value="">全部目标</option>
+              </select>
+            </div>
+          </div>
+          <div class="picker-box">
+            <p class="picker-label">接口选择</p>
+            <div class="search-box" style="margin-bottom:0">
+              <select id="methodPicker">
+                <option value="">请选择接口</option>
+              </select>
+            </div>
+            <div class="picker-meta" id="methodPickerMeta">当前会根据分组、目标和关键字动态缩小接口范围。</div>
+          </div>
           <div class="search-box">
             <input id="methodSearch" type="search" placeholder="搜索接口 key / 分组 / 目标">
           </div>
@@ -809,6 +875,14 @@
             </div>
             <pre id="rawView">暂无响应。</pre>
           </section>
+          <section class="raw-section">
+            <div class="raw-head">
+              <h3 class="raw-label">字段说明</h3>
+            </div>
+            <div class="table-wrap" id="inspectorTableWrap">
+              <div class="empty">当前接口没有附加字段说明。</div>
+            </div>
+          </section>
         </div>
       </aside>
     </main>
@@ -821,6 +895,8 @@
       response: null,
       rows: [],
       methodFilter: '',
+      methodGroupFilter: '',
+      methodTargetFilter: '',
     };
 
     async function boot() {
@@ -829,7 +905,9 @@
         if (!Array.isArray(state.methods) || state.methods.length === 0) {
           throw new Error('接口注册表为空');
         }
-        state.selected = state.methods[0];
+        renderMethodFilterOptions();
+        syncSelectedMethodWithFilters();
+        renderMethodPicker();
         renderMethodList();
         renderSelectedMethod();
       } catch (err) {
@@ -837,16 +915,84 @@
       }
     }
 
-    function renderMethodList() {
-      const root = document.getElementById('methodList');
+    function getFilteredMethods() {
       const query = state.methodFilter.trim().toLowerCase();
-      const filtered = state.methods.filter((method) => {
+      return state.methods.filter((method) => {
+        if (state.methodGroupFilter && method.group !== state.methodGroupFilter) return false;
+        if (state.methodTargetFilter && method.target !== state.methodTargetFilter) return false;
         if (!query) return true;
         return [method.key, method.label, method.group, method.target, method.description]
           .join(' ')
           .toLowerCase()
           .includes(query);
       });
+    }
+
+    function renderMethodFilterOptions() {
+      const groupSelect = document.getElementById('methodGroupFilter');
+      const targetSelect = document.getElementById('methodTargetFilter');
+      const groupCounts = new Map();
+      const targetCounts = new Map();
+
+      state.methods.forEach((method) => {
+        groupCounts.set(method.group, (groupCounts.get(method.group) || 0) + 1);
+        targetCounts.set(method.target, (targetCounts.get(method.target) || 0) + 1);
+      });
+
+      groupSelect.innerHTML = '<option value="">全部分组</option>';
+      [...groupCounts.entries()].sort((a, b) => a[0].localeCompare(b[0], 'zh-CN')).forEach(([group, count]) => {
+        const option = document.createElement('option');
+        option.value = group;
+        option.textContent = `${group} (${count})`;
+        groupSelect.appendChild(option);
+      });
+
+      targetSelect.innerHTML = '<option value="">全部目标</option>';
+      [...targetCounts.entries()].sort((a, b) => a[0].localeCompare(b[0], 'zh-CN')).forEach(([target, count]) => {
+        const option = document.createElement('option');
+        option.value = target;
+        option.textContent = `${target} (${count})`;
+        targetSelect.appendChild(option);
+      });
+    }
+
+    function syncSelectedMethodWithFilters() {
+      const filtered = getFilteredMethods();
+      if (!filtered.length) {
+        state.selected = null;
+        return;
+      }
+      if (!state.selected || !filtered.some((method) => method.key === state.selected.key)) {
+        state.selected = filtered[0];
+      }
+    }
+
+    function renderMethodPicker() {
+      const select = document.getElementById('methodPicker');
+      const meta = document.getElementById('methodPickerMeta');
+      const filtered = getFilteredMethods();
+
+      select.innerHTML = '<option value="">请选择接口</option>';
+      filtered.forEach((method) => {
+        const option = document.createElement('option');
+        option.value = method.key;
+        option.textContent = `${method.group} / ${method.label} / ${method.key}`;
+        option.selected = !!(state.selected && state.selected.key === method.key);
+        select.appendChild(option);
+      });
+
+      if (!filtered.length) {
+        meta.textContent = '当前筛选条件下没有可选接口。';
+        return;
+      }
+
+      const current = state.selected || filtered[0];
+      meta.textContent = `当前范围 ${filtered.length} 个接口，已选 ${current.label} (${current.key})。`;
+    }
+
+    function renderMethodList() {
+      const root = document.getElementById('methodList');
+      const filtered = getFilteredMethods();
 
       if (!filtered.length) {
         root.innerHTML = '<div class="empty">没有匹配的接口。</div>';
@@ -884,6 +1030,7 @@
             state.response = null;
             state.rows = [];
             document.getElementById('tableFilter').value = '';
+            renderMethodPicker();
             renderMethodList();
             renderSelectedMethod();
           });
@@ -897,6 +1044,22 @@
 
     function renderSelectedMethod() {
       const method = state.selected;
+      if (!method) {
+        document.getElementById('queryTitle').textContent = '没有匹配接口';
+        document.getElementById('queryDesc').textContent = '请调整左侧分组、目标或关键字筛选条件。';
+        document.getElementById('methodInfo').innerHTML = '<span class="info-chip">当前筛选结果为空</span>';
+        document.getElementById('paramGrid').innerHTML = '<div class="empty">当前没有可执行接口。</div>';
+        document.getElementById('requestView').textContent = '暂无请求。';
+        document.getElementById('rawView').textContent = '暂无响应。';
+        document.getElementById('inspectorTableWrap').innerHTML = '<div class="empty">当前接口没有附加字段说明。</div>';
+        document.getElementById('warningBox').classList.remove('show');
+        document.getElementById('warningBox').textContent = '';
+        document.getElementById('statsBar').innerHTML = '<span class="stat">尚未查询</span>';
+        document.getElementById('tableWrap').innerHTML = '<div class="empty">请先从左侧筛选并选择接口。</div>';
+        document.getElementById('runStatus').innerHTML = '<strong>空闲</strong> 等待选择接口。';
+        return;
+      }
+
       document.getElementById('queryTitle').textContent = method.label;
       document.getElementById('queryDesc').textContent = method.description;
       document.getElementById('methodInfo').innerHTML = [
@@ -955,6 +1118,7 @@
         params: params.map((item) => ({ key: item.key, default: item.default || '' })),
       }, null, 2);
       document.getElementById('rawView').textContent = '暂无响应。';
+      document.getElementById('inspectorTableWrap').innerHTML = '<div class="empty">当前接口没有附加字段说明。</div>';
       document.getElementById('warningBox').classList.remove('show');
       document.getElementById('warningBox').textContent = '';
       document.getElementById('statsBar').innerHTML = '<span class="stat">尚未查询</span>';
@@ -964,12 +1128,48 @@
 
     document.getElementById('methodSearch').addEventListener('input', (event) => {
       state.methodFilter = event.target.value || '';
+      syncSelectedMethodWithFilters();
+      renderMethodPicker();
       renderMethodList();
+      renderSelectedMethod();
+    });
+
+    document.getElementById('methodGroupFilter').addEventListener('change', (event) => {
+      state.methodGroupFilter = event.target.value || '';
+      syncSelectedMethodWithFilters();
+      renderMethodPicker();
+      renderMethodList();
+      renderSelectedMethod();
+    });
+
+    document.getElementById('methodTargetFilter').addEventListener('change', (event) => {
+      state.methodTargetFilter = event.target.value || '';
+      syncSelectedMethodWithFilters();
+      renderMethodPicker();
+      renderMethodList();
+      renderSelectedMethod();
+    });
+
+    document.getElementById('methodPicker').addEventListener('change', (event) => {
+      const key = event.target.value || '';
+      const filtered = getFilteredMethods();
+      const selected = filtered.find((method) => method.key === key) || null;
+      if (!selected) return;
+      state.selected = selected;
+      state.response = null;
+      state.rows = [];
+      document.getElementById('tableFilter').value = '';
+      renderMethodPicker();
+      renderMethodList();
+      renderSelectedMethod();
     });
 
     document.getElementById('queryForm').addEventListener('submit', async (event) => {
       event.preventDefault();
       const method = state.selected;
+      if (!method) {
+        return;
+      }
       const params = {};
       for (const element of document.querySelectorAll('#paramGrid [name]')) {
         params[element.name] = element.value;
@@ -1009,6 +1209,7 @@
         duration_ms: response.duration_ms,
       }, null, 2);
       document.getElementById('rawView').textContent = JSON.stringify(response.raw, null, 2);
+      renderInspectorTable(response.raw);
 
       const stats = [
         `目标 ${response.target}`,
@@ -1049,6 +1250,23 @@
           const klass = classifyCell(columns[index], cellText);
           return `<td class="${klass}">${escapeHTML(cellText)}</td>`;
         }).join('');
+        return `<tr>${cells}</tr>`;
+      }).join('');
+      wrap.innerHTML = `<table><thead><tr>${thead}</tr></thead><tbody>${tbody}</tbody></table>`;
+    }
+
+    function renderInspectorTable(raw) {
+      const wrap = document.getElementById('inspectorTableWrap');
+      const columns = raw && Array.isArray(raw.field_columns) ? raw.field_columns : [];
+      const rows = raw && Array.isArray(raw.field_rows) ? raw.field_rows : [];
+      if (!columns.length || !rows.length) {
+        wrap.innerHTML = '<div class="empty">当前接口没有附加字段说明。</div>';
+        return;
+      }
+
+      const thead = columns.map((column) => `<th>${escapeHTML(column)}</th>`).join('');
+      const tbody = rows.map((row) => {
+        const cells = row.map((cell) => `<td>${escapeHTML(String(cell))}</td>`).join('');
         return `<tr>${cells}</tr>`;
       }).join('');
       wrap.innerHTML = `<table><thead><tr>${thead}</tr></thead><tbody>${tbody}</tbody></table>`;

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"math"
+	"sort"
 	"strings"
 	"time"
 )
@@ -425,6 +426,12 @@ func (obj *GetXDXRInfo) ParseResponse(header *RespHeader, data []byte) error {
 			item.PostTotalShares = &d
 		}
 		obj.reply.List = append(obj.reply.List, item)
+	}
+	// 安装时间进行排序
+	if len(obj.reply.List) > 0 {
+		sort.Slice(obj.reply.List, func(i, j int) bool {
+			return obj.reply.List[i].Date.After(obj.reply.List[j].Date) // 降序
+		})
 	}
 	return nil
 }

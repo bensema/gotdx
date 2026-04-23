@@ -90,6 +90,8 @@ func (obj *GetSecurityBars) BuildRequest() ([]byte, error) {
 func (obj *GetSecurityBars) ParseResponse(header *RespHeader, data []byte) error {
 	obj.respHeader = header
 
+	isOffsetReq := obj.respHeader.Method == KMSG_SECURITYBARS_OFFSET
+
 	pos := 0
 	if err := binary.Read(bytes.NewBuffer(data[pos:pos+2]), binary.LittleEndian, &obj.reply.Count); err != nil {
 		return err
@@ -109,10 +111,20 @@ func (obj *GetSecurityBars) ParseResponse(header *RespHeader, data []byte) error
 			return fmt.Errorf("invalid kline datetime: %d", dateNum)
 		}
 
-		openRaw := getprice(data, &pos)
-		closeRaw := getprice(data, &pos)
-		highRaw := getprice(data, &pos)
-		lowRaw := getprice(data, &pos)
+		var openRaw, closeRaw, highRaw, lowRaw int
+
+		openRaw = getprice(data, &pos)
+		if isOffsetReq {
+			openRaw = lastRaw + openRaw
+			closeRaw = getprice(data, &pos) + openRaw
+			highRaw = getprice(data, &pos) + openRaw
+			lowRaw = getprice(data, &pos) + openRaw
+		} else {
+			closeRaw = getprice(data, &pos)
+			highRaw = getprice(data, &pos)
+			lowRaw = getprice(data, &pos)
+		}
+
 		vol := getfloat32(data, &pos)
 		amount := getfloat32(data, &pos)
 
@@ -144,7 +156,7 @@ func (obj *GetSecurityBars) ParseResponse(header *RespHeader, data []byte) error
 				pos += 4
 			}
 		}
-		// 由于在 NewGetSecurityBars 中多请求了一条数据,故而第一条数据我们先舍弃
+		//由于在 NewGetSecurityBars 中多请求了一条数据,故而第一条数据我们先舍弃
 		if index == 0 {
 			continue
 		}

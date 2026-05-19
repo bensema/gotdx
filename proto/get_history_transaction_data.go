@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
+	"time"
 )
 
 type GetHistoryTransactionData struct {
@@ -30,13 +31,13 @@ type GetHistoryTransactionDataReply struct {
 }
 
 type HistoryTransactionData struct {
-	Time      string  // 成交时间。
-	Price     float64 // 成交价。
-	Vol       int     // 成交量。
-	Num       int     // 笔数或委托笔数。
-	BuyOrSell int     // 买卖方向标记。
-	Action    string  // 买卖方向，如 BUY/SELL/NEUTRAL。
-	Unknown   int     //  unknown 字段。
+	Time      time.Time // 成交时间。
+	Price     float64   // 成交价。
+	Vol       int       // 成交量。
+	Num       int       // 笔数或委托笔数。
+	BuyOrSell int       // 买卖方向标记。
+	Action    string    // 买卖方向，如 BUY/SELL/NEUTRAL。
+	Unknown   int       //  unknown 字段。
 }
 
 func NewGetHistoryTransactionData(req *GetHistoryTransactionDataRequest) *GetHistoryTransactionData {
@@ -93,8 +94,14 @@ func (obj *GetHistoryTransactionData) ParseResponse(header *RespHeader, data []b
 	lastprice := 0
 	for index := uint16(0); index < obj.reply.Count; index++ {
 		ele := HistoryTransactionData{}
-		h, m := gettime(data, &pos)
-		ele.Time = fmt.Sprintf("%02d:%02d", h, m)
+		hour, minute := gettime(data, &pos)
+		nowDate := fmt.Sprintf("%d", obj.request.Date)
+		hourMinute := fmt.Sprintf("%02d:%02d", hour, minute)
+		nowTime, err := time.ParseInLocation("2006010215:04", nowDate+hourMinute, time.Local)
+		if err != nil {
+			return err
+		}
+		ele.Time = nowTime
 		priceraw := getprice(data, &pos)
 		ele.Vol = getprice(data, &pos)
 		ele.BuyOrSell = getprice(data, &pos)

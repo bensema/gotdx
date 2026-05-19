@@ -4160,7 +4160,7 @@ func rowsFromHistoryTransaction(items []proto.HistoryTransactionData) [][]string
 	rows := make([][]string, 0, len(items))
 	for _, item := range items {
 		rows = append(rows, []string{
-			item.Time,
+			item.Time.Format("2006-01-02 15:04"),
 			formatFloat(item.Price),
 			fmt.Sprintf("%d", item.Vol),
 			fmt.Sprintf("%d", item.Num),

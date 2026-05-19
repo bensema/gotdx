@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
+	"time"
 )
 
 type GetHistoryTransactionDataWithTrans struct {
@@ -21,11 +22,11 @@ type GetHistoryTransactionDataWithTransReply struct {
 }
 
 type HistoryTransactionDataWithTrans struct {
-	Time   string  // 成交时间。
-	Price  float64 // 成交价。
-	Vol    int     // 成交量。
-	Num    int     // 笔数或委托笔数。
-	Action string  // 成交方向，如 BUY/SELL/NEUTRAL。
+	Time   time.Time // 成交时间。
+	Price  float64   // 成交价。
+	Vol    int       // 成交量。
+	Num    int       // 笔数或委托笔数。
+	Action string    // 成交方向，如 BUY/SELL/NEUTRAL。
 }
 
 func NewGetHistoryTransactionDataWithTrans(req *GetHistoryTransactionDataRequest) *GetHistoryTransactionDataWithTrans {
@@ -80,8 +81,15 @@ func (obj *GetHistoryTransactionDataWithTrans) ParseResponse(header *RespHeader,
 		actionCode := binary.LittleEndian.Uint16(data[pos : pos+2])
 		pos += 2
 		lastPrice += priceDiff
+		// 当前的日期
+		nowDate := fmt.Sprintf("%d", obj.request.Date)
+		hourMinute := fmt.Sprintf("%02d:%02d", hour, minute)
+		nowTime, err := time.ParseInLocation("2006010215:04", nowDate+hourMinute, time.Local)
+		if err != nil {
+			return err
+		}
 		item := HistoryTransactionDataWithTrans{
-			Time:  fmt.Sprintf("%02d:%02d", hour, minute),
+			Time:  nowTime,
 			Price: float64(lastPrice) / baseUnit(string(obj.request.Code[:])),
 			Vol:   vol,
 			Num:   num,

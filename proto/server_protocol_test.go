@@ -330,7 +330,7 @@ func TestGetHistoryTransactionDataBuildRequestAndParseResponse(t *testing.T) {
 		t.Fatalf("unexpected reply: %+v", reply)
 	}
 	item := reply.List[0]
-	if item.Time != "09:30" || item.Action != "NEUTRAL" || item.Unknown != 7 || item.BuyOrSell != 2 || math.Abs(item.Price-12.34) > 0.001 {
+	if item.Time.Format("04:05") != "09:30" || item.Action != "NEUTRAL" || item.Unknown != 7 || item.BuyOrSell != 2 || math.Abs(item.Price-12.34) > 0.001 {
 		t.Fatalf("unexpected history transaction item: %+v", item)
 	}
 }
@@ -373,7 +373,7 @@ func TestGetHistoryTransactionDataWithTransBuildRequestAndParseResponse(t *testi
 		t.Fatalf("unexpected reply: %+v", reply)
 	}
 	item := reply.List[0]
-	if item.Time != "09:30" || item.Action != "SELL" || math.Abs(item.Price-12.34) > 0.001 {
+	if item.Time.Format("04:05") != "09:30" || item.Action != "SELL" || math.Abs(item.Price-12.34) > 0.001 {
 		t.Fatalf("unexpected item: %+v", item)
 	}
 }

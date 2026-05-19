@@ -260,6 +260,27 @@ func (client *Client) StockAuction(market uint8, code string, start uint32, coun
 	return reply.List, nil
 }
 
+func (client *Client) StockFullAuction(market uint8, code string) ([]proto.AuctionData, error) {
+	qc, err := client.quotationClient()
+	if err != nil {
+		return nil, err
+	}
+	reply := &proto.GetAuctionReply{}
+	count := uint32(50)
+	for start := uint32(0); ; start += count {
+		res, err := qc.GetAuction(market, code, start, count)
+		if err != nil {
+			return nil, err
+		}
+		reply.Count += res.Count
+		reply.List = append(res.List, reply.List...)
+		if res.Count < uint16(count) {
+			break
+		}
+	}
+	return reply.List, nil
+}
+
 // StockTopBoard 获取主行情排行榜。
 func (client *Client) StockTopBoard(category uint8, size uint8) (*proto.GetTopBoardReply, error) {
 	qc, err := client.quotationClient()
@@ -308,6 +329,27 @@ func (client *Client) StockTransaction(market uint8, code string, start uint16, 
 	return reply.List, nil
 }
 
+func (client *Client) StockFullTransaction(market uint8, code string) ([]proto.TransactionData, error) {
+	qc, err := client.quotationClient()
+	if err != nil {
+		return nil, err
+	}
+	reply := &proto.GetTransactionDataReply{}
+	count := uint16(2000)
+	for start := uint16(0); ; start += count {
+		res, err := qc.GetTransactionData(market, code, start, count)
+		if err != nil {
+			return nil, err
+		}
+		reply.Count += res.Count
+		reply.List = append(res.List, reply.List...)
+		if res.Count < count {
+			break
+		}
+	}
+	return reply.List, nil
+}
+
 // StockHistoryOrders 获取历史委托分布。
 func (client *Client) StockHistoryOrders(date uint32, market uint8, code string) ([]proto.HistoryOrderData, error) {
 	qc, err := client.quotationClient()
@@ -333,6 +375,27 @@ func (client *Client) StockHistoryTransaction(date uint32, market uint8, code st
 	return reply.List, nil
 }
 
+func (client *Client) StockHistoryFullTransaction(date uint32, market uint8, code string) ([]proto.HistoryTransactionData, error) {
+	qc, err := client.quotationClient()
+	if err != nil {
+		return nil, err
+	}
+	reply := &proto.GetHistoryTransactionDataReply{}
+	count := uint16(2000)
+	for start := uint16(0); ; start += count {
+		res, err := qc.GetHistoryTransactionData(date, market, code, start, count)
+		if err != nil {
+			return nil, err
+		}
+		reply.Count += res.Count
+		reply.List = append(res.List, reply.List...)
+		if res.Count < count {
+			break
+		}
+	}
+	return reply.List, nil
+}
+
 func (client *Client) StockHistoryTransactionWithTrans(date uint32, market uint8, code string, start uint16, count uint16) ([]proto.HistoryTransactionDataWithTrans, error) {
 	qc, err := client.quotationClient()
 	if err != nil {
@@ -341,6 +404,27 @@ func (client *Client) StockHistoryTransactionWithTrans(date uint32, market uint8
 	reply, err := qc.GetHistoryTransactionDataWithTrans(date, market, code, start, count)
 	if err != nil {
 		return nil, err
+	}
+	return reply.List, nil
+}
+
+func (client *Client) StockHistoryFullTransactionWithTrans(date uint32, market uint8, code string) ([]proto.HistoryTransactionDataWithTrans, error) {
+	qc, err := client.quotationClient()
+	if err != nil {
+		return nil, err
+	}
+	reply := &proto.GetHistoryTransactionDataWithTransReply{}
+	count := uint16(2000)
+	for start := uint16(0); ; start += count {
+		res, err := qc.GetHistoryTransactionDataWithTrans(date, market, code, start, count)
+		if err != nil {
+			return nil, err
+		}
+		reply.Count += res.Count
+		reply.List = append(res.List, reply.List...)
+		if res.Count < count {
+			break
+		}
 	}
 	return reply.List, nil
 }

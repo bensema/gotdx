@@ -11,7 +11,8 @@ func main() {
 	client := exampleutil.NewMainClient()
 	defer client.Disconnect()
 
-	items, err := client.StockHistoryTransactionWithTrans(20260410, types.MarketSZ.Uint8(), "000001", 0, 20)
+	// items, err := client.StockHistoryTransactionWithTrans(20260410, types.MarketSZ.Uint8(), "000001", 0, 20)
+	items, err := client.StockHistoryFullTransactionWithTrans(20260410, types.MarketSZ.Uint8(), "000001")
 	if err != nil {
 		log.Fatalln(err)
 	}

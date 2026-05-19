@@ -345,6 +345,27 @@ func (client *Client) StockHistoryTransactionWithTrans(date uint32, market uint8
 	return reply.List, nil
 }
 
+func (client *Client) StockHistoryFullTransactionWithTrans(date uint32, market uint8, code string) ([]proto.HistoryTransactionDataWithTrans, error) {
+	qc, err := client.quotationClient()
+	if err != nil {
+		return nil, err
+	}
+	reply := &proto.GetHistoryTransactionDataWithTransReply{}
+	count := uint16(2000)
+	for start := uint16(0); ; start += count {
+		res, err := qc.GetHistoryTransactionDataWithTrans(date, market, code, start, count)
+		if err != nil {
+			return nil, err
+		}
+		reply.Count += res.Count
+		reply.List = append(res.List, reply.List...)
+		if res.Count < count {
+			break
+		}
+	}
+	return reply.List, nil
+}
+
 func (client *Client) StockF10(market uint8, code string) (*CompanyInfoBundle, error) {
 	qc, err := client.quotationClient()
 	if err != nil {

@@ -15,8 +15,9 @@ func main() {
 		types.KLINE_TYPE_DAILY,
 		types.MarketSZ.Uint8(),
 		"000001",
-		0,
-		10,
+		5400,
+		// 400,
+		1,
 		1,
 		types.AdjustNone,
 	)

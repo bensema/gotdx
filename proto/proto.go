@@ -277,20 +277,20 @@ func decodeDateNum(category uint16, num uint32) (time.Time, bool) {
 		day = int(num % 100)
 	}
 
-	if year < 2004 || year > time.Now().Year()+1 {
-		return time.Time{}, false
-	}
-	if month < 1 || month > 12 || day < 1 || day > 31 {
-		return time.Time{}, false
-	}
-	if hour < 0 || hour > 23 || minute < 0 || minute > 59 {
-		return time.Time{}, false
-	}
+	// if year < 1992 || year > time.Now().Year()+1 {
+	// 	return time.Time{}, false
+	// }
+	// if month < 1 || month > 12 || day < 1 || day > 31 {
+	// 	return time.Time{}, false
+	// }
+	// if hour < 0 || hour > 23 || minute < 0 || minute > 59 {
+	// 	return time.Time{}, false
+	// }
 
 	t := time.Date(year, time.Month(month), day, hour, minute, 0, 0, time.Local)
-	if t.Year() != year || int(t.Month()) != month || t.Day() != day || t.Hour() != hour || t.Minute() != minute {
-		return time.Time{}, false
-	}
+	// if t.Year() != year || int(t.Month()) != month || t.Day() != day || t.Hour() != hour || t.Minute() != minute {
+	// return time.Time{}, false
+	// }
 
 	return t, true
 }

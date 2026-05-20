@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"time"
 )
 
 type GetSecurityBars struct {
@@ -30,24 +31,24 @@ type GetSecurityBarsReply struct {
 }
 
 type SecurityBar struct {
-	Last      float64 // 昨收盘价
-	Open      float64 // 开盘价。
-	Close     float64 // 收盘价。
-	High      float64 // 最高价。
-	Low       float64 // 最低价。
-	Vol       float64 // 成交量。
-	Amount    float64 // 成交额。
-	Turnover  float64 // 换手率，按高层接口 best-effort 补齐。
-	RisePrice float64 // 涨跌价
-	RiseRate  float64 // 涨跌幅
-	Year      int     // 年。
-	Month     int     // 月。
-	Day       int     // 日。
-	Hour      int     // 时。
-	Minute    int     // 分。
-	DateTime  string  // 组合后的时间字符串。
-	UpCount   uint16  // 上涨家数，指数类 K 线常见。
-	DownCount uint16  // 下跌家数，指数类 K 线常见。
+	Last      float64   // 昨收盘价
+	Open      float64   // 开盘价。
+	Close     float64   // 收盘价。
+	High      float64   // 最高价。
+	Low       float64   // 最低价。
+	Vol       float64   // 成交量。
+	Amount    float64   // 成交额。
+	Turnover  float64   // 换手率，按高层接口 best-effort 补齐。
+	RisePrice float64   // 涨跌价
+	RiseRate  float64   // 涨跌幅
+	Year      int       // 年。
+	Month     int       // 月。
+	Day       int       // 日。
+	Hour      int       // 时。
+	Minute    int       // 分。
+	DateTime  time.Time // 组合后的时间字符串。
+	UpCount   uint16    // 上涨家数，指数类 K 线常见。
+	DownCount uint16    // 下跌家数，指数类 K 线常见。
 }
 
 func NewGetSecurityBars(req *GetSecurityBarsRequest) *GetSecurityBars {
@@ -140,7 +141,7 @@ func (obj *GetSecurityBars) ParseResponse(header *RespHeader, data []byte) error
 			Day:      dateTime.Day(),
 			Hour:     dateTime.Hour(),
 			Minute:   dateTime.Minute(),
-			DateTime: dateTime.Format("2006-01-02 15:04:05"),
+			DateTime: dateTime,
 		}
 		bar.Last = float64(lastRaw) / 1000.0
 		lastRaw = closeRaw

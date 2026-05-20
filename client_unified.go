@@ -335,7 +335,7 @@ func (client *Client) StockFullTransaction(market uint8, code string) ([]proto.T
 		return nil, err
 	}
 	reply := &proto.GetTransactionDataReply{}
-	count := uint16(2000)
+	count := uint16(600)
 	for start := uint16(0); ; start += count {
 		res, err := qc.GetTransactionData(market, code, start, count)
 		if err != nil {
@@ -343,7 +343,7 @@ func (client *Client) StockFullTransaction(market uint8, code string) ([]proto.T
 		}
 		reply.Count += res.Count
 		reply.List = append(res.List, reply.List...)
-		if res.Count < count {
+		if res.Count < count { // 说明已经获取完了
 			break
 		}
 	}
@@ -381,7 +381,7 @@ func (client *Client) StockHistoryFullTransaction(date uint32, market uint8, cod
 		return nil, err
 	}
 	reply := &proto.GetHistoryTransactionDataReply{}
-	count := uint16(2000)
+	count := uint16(600)
 	for start := uint16(0); ; start += count {
 		res, err := qc.GetHistoryTransactionData(date, market, code, start, count)
 		if err != nil {
@@ -414,7 +414,7 @@ func (client *Client) StockHistoryFullTransactionWithTrans(date uint32, market u
 		return nil, err
 	}
 	reply := &proto.GetHistoryTransactionDataWithTransReply{}
-	count := uint16(2000)
+	count := uint16(600)
 	for start := uint16(0); ; start += count {
 		res, err := qc.GetHistoryTransactionDataWithTrans(date, market, code, start, count)
 		if err != nil {

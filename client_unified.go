@@ -118,6 +118,37 @@ func (client *Client) StockKLine(category uint16, market uint8, code string, sta
 	return reply.List, nil
 }
 
+func (client *Client) StockFullKLine(category uint16, market uint8, code string, times uint16, adjust uint16, f func(kline proto.SecurityBar) bool) ([]proto.SecurityBar, error) {
+	qc, err := client.quotationClient()
+	if err != nil {
+		return nil, err
+	}
+	reply := &proto.GetSecurityBarsReply{}
+	count := uint16(20)
+	for start := uint16(0); ; start += count {
+		r, err := qc.GetKLine(category, market, code, start, count, times, adjust)
+		if err != nil {
+			return nil, err
+		}
+		for i := len(r.List) - 1; i >= 0; i-- {
+			if f(r.List[i]) {
+				reply.Count += r.Count - uint16(i)
+				reply.List = append(r.List[i:], reply.List...)
+				applyTurnoverToBars(reply.List, client.loadFloatShares(qc, market, code))
+				return reply.List, nil
+			}
+		}
+		reply.Count += r.Count
+		reply.List = append(r.List, reply.List...)
+		if r.Count < count {
+			break
+		}
+	}
+
+	applyTurnoverToBars(reply.List, client.loadFloatShares(qc, market, code))
+	return reply.List, nil
+}
+
 func (client *Client) StockKLineOffset(category uint16, market uint8, code string, start uint16, count uint16, times uint16, adjust uint16) ([]proto.SecurityBar, error) {
 	qc, err := client.quotationClient()
 	if err != nil {

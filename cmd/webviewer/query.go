@@ -4100,7 +4100,7 @@ func rowsFromSecurityBars(items []proto.SecurityBar) [][]string {
 	rows := make([][]string, 0, len(items))
 	for _, item := range items {
 		rows = append(rows, []string{
-			item.DateTime,
+			item.DateTime.Format(time.DateTime),
 			formatFloat(item.Last),
 			formatFloat(item.Open),
 			formatFloat(item.High),

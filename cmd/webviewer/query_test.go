@@ -3,6 +3,7 @@ package main
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/bensema/gotdx/proto"
 )
@@ -145,7 +146,7 @@ func TestRowsIncludeTurnoverColumns(t *testing.T) {
 	}
 
 	barRows := rowsFromSecurityBars([]proto.SecurityBar{{
-		DateTime: "2026-04-12 15:00:00",
+		DateTime: time.Date(2024, time.Month(5), 31, 15, 0, 0, 0, time.Local),
 		Open:     10,
 		High:     11,
 		Low:      9,

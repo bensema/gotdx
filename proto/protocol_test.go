@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"math"
 	"testing"
+	"time"
 )
 
 func encodePrice(value int) []byte {
@@ -339,7 +340,7 @@ func TestGetSecurityBarsBuildRequestAndParseResponse(t *testing.T) {
 		t.Fatalf("unexpected count: %d", reply.Count)
 	}
 	bar := reply.List[0]
-	if bar.DateTime != "2024-05-31 15:00:00" {
+	if bar.DateTime != time.Date(2024, time.Month(5), 31, 15, 0, 0, 0, time.Local) {
 		t.Fatalf("unexpected datetime: %s", bar.DateTime)
 	}
 	if math.Abs(bar.Open-12.345) > 0.0001 || math.Abs(bar.Close-12.355) > 0.0001 {

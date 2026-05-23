@@ -11,7 +11,7 @@ func main() {
 	client := exampleutil.NewMACClient()
 	defer client.Disconnect()
 
-	items, err := client.MACAuction(types.MarketSZ.Uint8(), "000001", 0, 20)
+	items, err := client.MACAuction(types.MarketSZ.Uint8(), "000001", 0, 100)
 	if err != nil {
 		log.Fatalln(err)
 	}

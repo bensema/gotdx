@@ -93,6 +93,10 @@ func (obj *MACAuction) ParseResponse(header *RespHeader, data []byte) error {
 		}
 		seconds := binary.LittleEndian.Uint32(data[pos : pos+4])
 		unmatched := int32(binary.LittleEndian.Uint32(data[pos+12 : pos+16]))
+		matched := binary.LittleEndian.Uint32(data[pos+8 : pos+12])
+		if unmatched < 0 {
+			unmatched = -unmatched
+		}
 		flag := int8(1)
 		if unmatched < 0 {
 			flag = -1
@@ -100,7 +104,7 @@ func (obj *MACAuction) ParseResponse(header *RespHeader, data []byte) error {
 		obj.reply.List = append(obj.reply.List, MACAuctionItem{
 			Time:      time.Date(0, 1, 1, int(seconds/3600)%24, int((seconds%3600)/60), int(seconds%60), 0, time.Local).Format("15:04:05"),
 			Price:     float64(math.Float32frombits(binary.LittleEndian.Uint32(data[pos+4 : pos+8]))),
-			Matched:   binary.LittleEndian.Uint32(data[pos+8 : pos+12]),
+			Matched:   matched,
 			Unmatched: unmatched,
 			Flag:      flag,
 		})

@@ -257,10 +257,16 @@ func getfloat32(b []byte, pos *int) float64 {
 	return float64(value)
 }
 
+func DecodeSecond(num uint32) time.Time {
+	epoch := time.Date(2004, 1, 0, 0, 0, 0, 0, time.Local)
+	return epoch.Add(time.Duration(num) * time.Second)
+}
+
 func decodeDateNum(category uint16, num uint32) (time.Time, bool) {
 	minuteCategory := category < 4 || category == 7 || category == 8
+	isSecond := category == 13
 	year, month, day := 0, 0, 0
-	hour, minute := 15, 0
+	hour, minute, second := 15, 0, 0
 
 	if minuteCategory {
 		zipData := num & 0xFFFF
@@ -277,6 +283,10 @@ func decodeDateNum(category uint16, num uint32) (time.Time, bool) {
 		day = int(num % 100)
 	}
 
+	if isSecond {
+		return DecodeSecond(num), true
+	}
+
 	// if year < 1992 || year > time.Now().Year()+1 {
 	// 	return time.Time{}, false
 	// }
@@ -287,10 +297,7 @@ func decodeDateNum(category uint16, num uint32) (time.Time, bool) {
 	// 	return time.Time{}, false
 	// }
 
-	t := time.Date(year, time.Month(month), day, hour, minute, 0, 0, time.Local)
-	// if t.Year() != year || int(t.Month()) != month || t.Day() != day || t.Hour() != hour || t.Minute() != minute {
-	// return time.Time{}, false
-	// }
+	t := time.Date(year, time.Month(month), day, hour, minute, second, 0, time.Local)
 
 	return t, true
 }

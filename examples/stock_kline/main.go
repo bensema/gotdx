@@ -12,12 +12,12 @@ func main() {
 	defer client.Disconnect()
 
 	bars, err := client.StockKLine(
-		types.KLINE_TYPE_DAILY,
+		types.KLINE_TYPE_SECONDS,
+		// types.KLINE_TYPE_1MIN,
 		types.MarketSZ.Uint8(),
 		"000001",
-		5400,
-		// 400,
-		1,
+		0,
+		10,
 		1,
 		types.AdjustNone,
 	)

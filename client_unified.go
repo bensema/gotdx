@@ -81,6 +81,28 @@ func (client *Client) StockList(market uint8, start uint32, count uint32) ([]pro
 	return reply.List, nil
 }
 
+func (client *Client) StockAll(market uint8) ([]proto.Security, error) {
+	qc, err := client.quotationClient()
+	if err != nil {
+		return nil, err
+	}
+	reply := &proto.GetSecurityListReply{}
+
+	size := uint32(1000)
+	for start := uint32(0); ; start += size {
+		resp, err := qc.GetSecurityListRange(market, start, size)
+		if err != nil {
+			return nil, err
+		}
+		reply.Count += resp.Count
+		reply.List = append(reply.List, resp.List...)
+		if resp.Count < uint16(size) {
+			break
+		}
+	}
+	return reply.List, nil
+}
+
 func (client *Client) StockListOld(market uint8, start uint16) ([]proto.Security, error) {
 	qc, err := client.quotationClient()
 	if err != nil {

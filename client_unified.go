@@ -1004,7 +1004,7 @@ func (client *Client) loadFloatSharesMap(qc *Client, keys []stockKey) map[stockK
 func applyTurnoverToSecurityQuotes(items []proto.SecurityQuote, shares map[stockKey]float64) {
 	for i := range items {
 		if floatShares := shares[stockKey{Market: items[i].Market, Code: items[i].Code}]; floatShares > 0 {
-			items[i].Turnover = round2(float64(items[i].Vol) * 10000 / floatShares)
+			items[i].Turnover = round2(float64(items[i].Vol) / floatShares)
 		}
 	}
 }
@@ -1012,7 +1012,7 @@ func applyTurnoverToSecurityQuotes(items []proto.SecurityQuote, shares map[stock
 func applyTurnoverToQuoteList(items []proto.QuoteListItem, shares map[stockKey]float64) {
 	for i := range items {
 		if floatShares := shares[stockKey{Market: items[i].Market, Code: items[i].Code}]; floatShares > 0 {
-			items[i].Turnover = round2(float64(items[i].Vol) * 10000 / floatShares)
+			items[i].Turnover = round2(float64(items[i].Vol) / floatShares)
 		}
 	}
 }
@@ -1022,7 +1022,7 @@ func applyTurnoverToBars(items []proto.SecurityBar, floatShares float64) {
 		return
 	}
 	for i := range items {
-		items[i].Turnover = round2(items[i].Vol * 100 / floatShares)
+		items[i].Turnover = round2(items[i].Vol * 100 / (floatShares * 10000))
 	}
 }
 
@@ -1030,7 +1030,7 @@ func applyTurnoverToVolumeProfile(reply *proto.GetVolumeProfileReply, floatShare
 	if reply == nil || floatShares <= 0 {
 		return
 	}
-	reply.Turnover = round2(float64(reply.Vol) * 10000 / floatShares)
+	reply.Turnover = round2(float64(reply.Vol) / floatShares)
 }
 
 func round2(v float64) float64 {

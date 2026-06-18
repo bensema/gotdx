@@ -2,9 +2,11 @@ package gotdx
 
 import (
 	"math"
+	"time"
 
 	"github.com/bensema/gotdx/proto"
 	"github.com/bensema/gotdx/types"
+	"github.com/spf13/cast"
 )
 
 func (client *Client) quotationClient() (*Client, error) {
@@ -136,8 +138,65 @@ func (client *Client) StockKLine(category uint16, market uint8, code string, sta
 	if err != nil {
 		return nil, err
 	}
+	// 修复分时K线在9点30分的数据
+	client.StockKLine930(category, market, code, reply)
 	applyTurnoverToBars(reply.List, client.loadFloatShares(qc, market, code))
 	return reply.List, nil
+}
+
+// 修改930的数据
+func (client *Client) StockKLine930(category uint16, market uint8, code string, reply *proto.GetSecurityBarsReply) {
+	if category == types.KLINE_TYPE_EXHQ_1MIN || category == types.KLINE_TYPE_1MIN {
+		// 获取一下服务器当前的交易时间
+		if info, err := client.GetServerHeartbeat(); err == nil {
+			// fmt.Println(info.Date)
+			list := make([]proto.SecurityBar, 0)
+			for _, v := range reply.List {
+				if v.DateTime.Format(time.TimeOnly) == "09:31:00" {
+					// 找到930的数据
+					// 当前数据是不是当前交易日
+					data := proto.SecurityBar{}
+					if cast.ToUint32(v.DateTime.Format("20060102")) == info.Date {
+						if trans, err := client.StockFullTransaction(market, code); err == nil {
+							data.Open = trans[0].Price
+							data.High = trans[0].Price
+							data.Low = trans[0].Price
+							data.Close = trans[0].Price
+							data.Last = v.Last
+							data.Vol = cast.ToFloat64(trans[0].Vol)
+							data.Amount = cast.ToFloat64(trans[0].Vol) * trans[0].Price * 100
+							data.DateTime = time.Date(v.DateTime.Year(), v.DateTime.Month(), v.DateTime.Day(), 9, 30, 0, 0, v.DateTime.Location())
+							v.Last = trans[0].Price
+							data.RiseRate = data.GetRiseRate()
+							data.RisePrice = data.GetRisePrice()
+							list = append(list, data)
+						}
+					} else {
+						if trans, err := client.StockHistoryFullTransaction(cast.ToUint32(v.DateTime.Format("20060102")), market, code); err == nil {
+							// if len(trans) > 0 && trans[0].Time.Format(time.TimeOnly) < "09:30:00" {
+							data.Open = trans[0].Price
+							data.High = trans[0].Price
+							data.Low = trans[0].Price
+							data.Close = trans[0].Price
+							data.Last = v.Last
+							data.Vol = cast.ToFloat64(trans[0].Vol)
+							data.Amount = cast.ToFloat64(trans[0].Vol) * trans[0].Price * 100
+							data.DateTime = time.Date(v.DateTime.Year(), v.DateTime.Month(), v.DateTime.Day(), 9, 30, 0, 0, v.DateTime.Location())
+							v.Last = trans[0].Price
+							data.RiseRate = data.GetRiseRate()
+							data.RisePrice = data.GetRisePrice()
+							list = append(list, data)
+							// }
+						}
+					}
+					// 判断 data 是不是为空
+				}
+				list = append(list, v)
+			}
+			reply.List = list
+			reply.Count = uint16(len(list))
+		}
+	}
 }
 
 func (client *Client) StockFullKLine(category uint16, market uint8, code string, times uint16, adjust uint16, f func(kline proto.SecurityBar) bool) ([]proto.SecurityBar, error) {
@@ -166,7 +225,7 @@ func (client *Client) StockFullKLine(category uint16, market uint8, code string,
 			break
 		}
 	}
-
+	client.StockKLine930(category, market, code, reply)
 	applyTurnoverToBars(reply.List, client.loadFloatShares(qc, market, code))
 	return reply.List, nil
 }
@@ -180,6 +239,7 @@ func (client *Client) StockKLineOffset(category uint16, market uint8, code strin
 	if err != nil {
 		return nil, err
 	}
+	client.StockKLine930(category, market, code, reply)
 	applyTurnoverToBars(reply.List, client.loadFloatShares(qc, market, code))
 	return reply.List, nil
 }

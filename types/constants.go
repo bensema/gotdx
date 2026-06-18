@@ -2,6 +2,8 @@ package types
 
 import (
 	"errors"
+	"fmt"
+	"strings"
 )
 
 type Market uint8
@@ -62,6 +64,74 @@ func (obj Market) Name() string {
 		return "美国"
 	default:
 		return "未知"
+	}
+}
+
+// BlockType 板块枚举
+type BlockType uint8
+
+const (
+	BlockMainBoard BlockType = iota // 主板
+	BlockSTAR                       // 科创板
+	BlockChiNext                    // 创业板
+	BlockBJSE                       // 北证
+	BlockHK                         // 港股
+	BlockUS                         // 美港
+	BlockOther                      // 其他
+)
+
+// 获取股票的板块
+func Block(code string) (BlockType, error) {
+	market, symbol, err := DecodeStockCode(code)
+	if err != nil {
+		return BlockOther, err
+	}
+	newCode := fmt.Sprintf("%s.%s", symbol, MarketSH.String())
+	switch market {
+	case MarketSH:
+		return GetStockBlock(newCode), nil
+	case MarketSZ:
+		return GetStockBlock(newCode), nil
+	case MarketBJ:
+		return GetStockBlock(newCode), nil
+	case MarketHK:
+		return BlockHK, nil
+	case MarketUSA:
+		return BlockUS, nil
+	default:
+		return BlockOther, nil
+	}
+}
+
+// GetStockBlock 根据6位股票代码返回板块
+// code:纯6位数字字符串,如"600000","688001","300750","920001","830799"
+func GetStockBlock(code string) BlockType {
+	// 统一去除后缀.SH/.SZ/.BJ，只保留数字
+	code = strings.TrimSuffix(code, ".SH")
+	code = strings.TrimSuffix(code, ".SZ")
+	code = strings.TrimSuffix(code, ".BJ")
+
+	if len(code) != 6 {
+		return BlockOther
+	}
+
+	// 截取前3位
+	prefix3 := code[:3]
+	prefix1 := code[:1]
+	// 截取前2位
+	switch {
+	// 科创板：688开头
+	case prefix3 == "688":
+		return BlockSTAR
+	// 创业板：300、301
+	case prefix1 == "3":
+		return BlockChiNext
+	case prefix1 == "9":
+		return BlockBJSE
+	case prefix1 == "0" || prefix1 == "6":
+		return BlockMainBoard
+	default:
+		return BlockOther
 	}
 }
 

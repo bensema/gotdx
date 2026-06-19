@@ -94,7 +94,7 @@ func (obj *ExGetKLine) ParseResponse(header *RespHeader, data []byte) error {
 			return fmt.Errorf("invalid ex kline item %d", i)
 		}
 		dateNum := binary.LittleEndian.Uint32(data[pos : pos+4])
-		ts, ok := decodeDateNum(obj.reply.Period, dateNum)
+		ts, ok := decodeDateNum(obj.reply.Period, dateNum, false)
 		if !ok {
 			return fmt.Errorf("invalid ex kline datetime: %d", dateNum)
 		}

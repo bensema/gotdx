@@ -262,7 +262,7 @@ func DecodeSecond(num uint32) time.Time {
 	return epoch.Add(time.Duration(num) * time.Second)
 }
 
-func decodeDateNum(category uint16, num uint32) (time.Time, bool) {
+func decodeDateNum(category uint16, num uint32, index bool) (time.Time, bool) {
 	minuteCategory := category < 4 || category == 7 || category == 8
 	isSecond := category == 13
 	year, month, day := 0, 0, 0
@@ -286,16 +286,18 @@ func decodeDateNum(category uint16, num uint32) (time.Time, bool) {
 	if isSecond {
 		return DecodeSecond(num), true
 	}
+	if index {
 
-	// if year < 1992 || year > time.Now().Year()+1 {
-	// 	return time.Time{}, false
-	// }
-	// if month < 1 || month > 12 || day < 1 || day > 31 {
-	// 	return time.Time{}, false
-	// }
-	// if hour < 0 || hour > 23 || minute < 0 || minute > 59 {
-	// 	return time.Time{}, false
-	// }
+		if year < 1992 || year > time.Now().Year()+1 {
+			return time.Time{}, false
+		}
+		if month < 1 || month > 12 || day < 1 || day > 31 {
+			return time.Time{}, false
+		}
+		if hour < 0 || hour > 23 || minute < 0 || minute > 59 {
+			return time.Time{}, false
+		}
+	}
 
 	t := time.Date(year, time.Month(month), day, hour, minute, second, 0, time.Local)
 

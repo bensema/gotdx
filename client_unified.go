@@ -157,7 +157,7 @@ func (client *Client) StockKLine930(category uint16, market uint8, code string, 
 					// 当前数据是不是当前交易日
 					data := proto.SecurityBar{}
 					if cast.ToUint32(v.DateTime.Format("20060102")) == info.Date {
-						if trans, err := client.StockFullTransaction(market, code); err == nil {
+						if trans, err := client.StockTransaction(market, code, 0, 1); err == nil {
 							data.Open = trans[0].Price
 							data.High = trans[0].Price
 							data.Low = trans[0].Price
@@ -172,7 +172,7 @@ func (client *Client) StockKLine930(category uint16, market uint8, code string, 
 							list = append(list, data)
 						}
 					} else {
-						if trans, err := client.StockHistoryFullTransaction(cast.ToUint32(v.DateTime.Format("20060102")), market, code); err == nil {
+						if trans, err := client.StockHistoryTransaction(cast.ToUint32(v.DateTime.Format("20060102")), market, code, 0, 1); err == nil {
 							// if len(trans) > 0 && trans[0].Time.Format(time.TimeOnly) < "09:30:00" {
 							data.Open = trans[0].Price
 							data.High = trans[0].Price

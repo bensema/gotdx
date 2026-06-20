@@ -107,7 +107,7 @@ func (obj *GetSecurityBars) ParseResponse(header *RespHeader, data []byte) error
 		}
 		pos += 4
 
-		dateTime, ok := decodeDateNum(obj.request.Category, dateNum)
+		dateTime, ok := decodeDateNum(obj.request.Category, dateNum, false)
 		if !ok {
 			return fmt.Errorf("invalid kline datetime: %d", dateNum)
 		}
@@ -151,7 +151,7 @@ func (obj *GetSecurityBars) ParseResponse(header *RespHeader, data []byte) error
 
 		if pos+4 <= len(data) {
 			tryDateNum := binary.LittleEndian.Uint32(data[pos : pos+4])
-			if _, ok := decodeDateNum(obj.request.Category, tryDateNum); !ok {
+			if _, ok := decodeDateNum(obj.request.Category, tryDateNum, false); !ok {
 				bar.UpCount = binary.LittleEndian.Uint16(data[pos : pos+2])
 				bar.DownCount = binary.LittleEndian.Uint16(data[pos+2 : pos+4])
 				pos += 4

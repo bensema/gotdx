@@ -2015,7 +2015,7 @@ func runMethod(def methodDef, params map[string]string) (queryPayload, map[strin
 				{"momentum", "-", "-", "-", "-", "-", "-", fmt.Sprintf("%d", momentum.Count), fmt.Sprintf("%d", lastInt(momentum.Values))},
 			}
 			for _, bar := range bars.List {
-				rows = append(rows, []string{"bar", code, bar.DateTime, formatFloat(bar.Close), formatFloat(bar.Open), formatFloat(bar.High), formatFloat(bar.Low), "", ""})
+				rows = append(rows, []string{"bar", code, bar.DateTime.Format("2006-01-02 15:04:05"), formatFloat(bar.Close), formatFloat(bar.Open), formatFloat(bar.High), formatFloat(bar.Low), "", ""})
 			}
 			return queryPayload{
 				columns: []string{"type", "code", "time", "close", "open", "high", "low", "metric_a", "metric_b"},

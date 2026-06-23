@@ -150,6 +150,10 @@ func (client *Client) GetSecurityBarsOffset(category uint16, market uint8, code 
 
 // GetIndexBars 获取指数K线
 func (client *Client) GetIndexBars(category uint16, market uint8, code string, start uint16, count uint16) (*proto.GetIndexBarsReply, error) {
+	_, err := client.quotationClient()
+	if err != nil {
+		return nil, err
+	}
 	obj := proto.NewGetIndexBars(&proto.GetIndexBarsRequest{
 		Market:   uint16(market),
 		Code:     makeCode6(code),

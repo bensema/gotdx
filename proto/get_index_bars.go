@@ -109,7 +109,7 @@ func (obj *GetIndexBars) ParseResponse(header *RespHeader, data []byte) error {
 		// openRaw = lastRaw + openRaw
 
 		openRaw := getprice(data, &pos)
-		openRaw = lastRaw + openRaw
+		// openRaw = lastRaw + openRaw
 		closeRaw := getprice(data, &pos)
 		highRaw := getprice(data, &pos)
 		lowRaw := getprice(data, &pos)

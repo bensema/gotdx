@@ -4894,7 +4894,7 @@ func rowsFromMACSymbolInfo(reply *proto.MACSymbolInfoReply) [][]string {
 		fmt.Sprintf("%d", reply.Market),
 		reply.Code,
 		reply.Name,
-		reply.DateTime,
+		reply.DateTime.Format(time.DateTime),
 		fmt.Sprintf("%d", reply.Activity),
 		formatFloat(reply.PreClose),
 		formatFloat(reply.Open),
@@ -4959,7 +4959,7 @@ func rowsFromMACSymbolBars(items []proto.MACSymbolBar) [][]string {
 	rows := make([][]string, 0, len(items))
 	for _, item := range items {
 		rows = append(rows, []string{
-			item.DateTime,
+			item.DateTime.Format(time.DateTime),
 			formatFloat(item.Open),
 			formatFloat(item.High),
 			formatFloat(item.Low),

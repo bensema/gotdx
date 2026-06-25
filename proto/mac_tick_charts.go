@@ -28,19 +28,18 @@ type MACTickChartsRequest struct {
 
 // MACTickChartsReply 表示 MAC 多日分时响应。
 type MACTickChartsReply struct {
-	Market   uint16
-	Code     string
-	Count    uint16
-	SendLast uint8
-	PageSize uint16
-	Total    uint16
-	Charts   []MACTickChartDay
-
+	Market       uint16
+	Code         string
+	Count        uint16
+	SendLast     uint8
+	PageSize     uint16
+	Total        uint16
+	Charts       []MACTickChartDay
 	Name         string
 	Decimal      uint8
 	Category     uint16
 	VolUnit      float64
-	DateTime     string
+	DateTime     time.Time
 	PreClose     float64
 	Open         float64
 	High         float64

@@ -2,6 +2,7 @@ package gotdx
 
 import (
 	"testing"
+	"time"
 
 	"github.com/bensema/gotdx/types"
 )
@@ -34,7 +35,7 @@ func Test_tdx_MACRecentProtocols(t *testing.T) {
 		if len(reply.ChartData) == 0 {
 			t.Fatalf("expected historical chart data, got empty reply: %+v", reply)
 		}
-		if reply.DateTime == "" {
+		if reply.DateTime.Format(time.DateTime) == "" {
 			t.Fatalf("expected quote summary datetime, got empty reply: %+v", reply)
 		}
 	})
@@ -122,7 +123,7 @@ func Test_tdx_MACRecentProtocols(t *testing.T) {
 		if err != nil {
 			t.Fatalf("MACTickCharts failed: %v", err)
 		}
-		if reply.Code != "000001" || reply.DateTime == "" {
+		if reply.Code != "000001" || reply.DateTime.Format(time.DateTime) == "" {
 			t.Fatalf("unexpected tick charts reply: %+v", reply)
 		}
 		if len(reply.Charts) == 0 || reply.Total == 0 {

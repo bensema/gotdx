@@ -655,9 +655,6 @@ func (client *Client) MACMarketMonitor(market uint8, start uint32, count uint32)
 }
 
 func (client *Client) MACSymbolBars(market uint8, code string, period uint16, times uint16, start uint32, count uint32, adjust uint16) ([]proto.MACSymbolBar, error) {
-	if count == 0 {
-		count = DefaultMACSymbolBarsCount
-	}
 	if err := client.ConnectMAC(); err != nil {
 		return nil, err
 	}

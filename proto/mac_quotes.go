@@ -31,19 +31,18 @@ type MACQuotesRequest struct {
 
 // MACQuotesReply 表示 MAC 单只行情快照及分时采样响应。
 type MACQuotesReply struct {
-	Market    uint16
-	Code      string
-	Date      uint32
-	Unknown   uint8
-	Price     float64
-	Count     uint16
-	ChartData []MACQuoteChartItem
-
+	Market       uint16
+	Code         string
+	Date         uint32
+	Unknown      uint8
+	Price        float64
+	Count        uint16
+	ChartData    []MACQuoteChartItem
 	Name         string
 	Decimal      uint8
 	Category     uint16
 	VolUnit      float64
-	DateTime     string
+	DateTime     time.Time
 	PreClose     float64
 	Open         float64
 	High         float64
@@ -163,12 +162,12 @@ func (obj *MACQuotes) Response() *MACQuotesReply {
 	return obj.reply
 }
 
-func formatMACQuoteDateTime(dateRaw uint32, timeRaw uint32) string {
+func formatMACQuoteDateTime(dateRaw uint32, timeRaw uint32) time.Time {
 	year := int(dateRaw / 10000)
 	month := int((dateRaw % 10000) / 100)
 	day := int(dateRaw % 100)
 	hour := int(timeRaw / 10000)
 	minute := int((timeRaw % 10000) / 100)
 	second := int(timeRaw % 100)
-	return time.Date(year, time.Month(month), day, hour, minute, second, 0, time.Local).Format("2006-01-02 15:04:05")
+	return time.Date(year, time.Month(month), day, hour, minute, second, 0, time.Local)
 }

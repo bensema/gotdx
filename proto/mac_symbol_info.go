@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
+	"time"
 )
 
 // MACSymbolInfo 表示 0x122A MAC 股票摘要协议。
@@ -28,7 +29,7 @@ type MACSymbolInfoReply struct {
 	Market        uint16
 	Code          string
 	Name          string
-	DateTime      string
+	DateTime      time.Time
 	Activity      uint32
 	PreClose      float64
 	Open          float64

@@ -32,19 +32,18 @@ type MACSymbolBarsRequest struct {
 }
 
 type MACSymbolBarsReply struct {
-	Market  uint16
-	Code    string
-	Period  uint8
-	Unknown uint16
-	Count   uint16
-	Start   uint32
-	List    []MACSymbolBar
-
+	Market       uint16
+	Code         string
+	Period       uint8
+	Unknown      uint16
+	Count        uint16
+	Start        uint32
+	List         []MACSymbolBar
 	Name         string
 	Decimal      uint8
 	Category     uint16
 	VolUnit      float64
-	DateTime     string
+	DateTime     time.Time
 	PreClose     float64
 	Open         float64
 	High         float64
@@ -60,7 +59,7 @@ type MACSymbolBarsReply struct {
 }
 
 type MACSymbolBar struct {
-	DateTime    string
+	DateTime    time.Time
 	Open        float64
 	High        float64
 	Low         float64
@@ -69,6 +68,9 @@ type MACSymbolBar struct {
 	Vol         float64
 	FloatShares float64
 	Turnover    float64
+	Last        float64
+	RisePrice   float64 // 涨跌价
+	RiseRate    float64 // 涨跌幅
 }
 
 func NewMACSymbolBars(req *MACSymbolBarsRequest) *MACSymbolBars {
@@ -83,7 +85,6 @@ func NewMACSymbolBars(req *MACSymbolBarsRequest) *MACSymbolBars {
 	obj.reqHeader.PacketType = 0x01
 	obj.reqHeader.Method = KMSG_MACSYMBOLBARS
 	obj.request.Times = 1
-	obj.request.Count = 700
 	obj.request.Flag1 = 1
 	obj.request.Flag2 = 1
 	obj.request.Flag4 = 1
@@ -97,9 +98,6 @@ func (obj *MACSymbolBars) applyRequest(req *MACSymbolBarsRequest) {
 	if req.Times == 0 {
 		req.Times = 1
 	}
-	if req.Count == 0 {
-		req.Count = 700
-	}
 	if req.Flag1 == 0 {
 		req.Flag1 = 1
 	}
@@ -109,6 +107,7 @@ func (obj *MACSymbolBars) applyRequest(req *MACSymbolBarsRequest) {
 	if req.Flag4 == 0 {
 		req.Flag4 = 1
 	}
+	req.Count = req.Count + 1
 	obj.request = req
 }
 
@@ -134,8 +133,8 @@ func (obj *MACSymbolBars) ParseResponse(header *RespHeader, data []byte) error {
 	obj.reply.Start = binary.LittleEndian.Uint32(data[29:33])
 
 	formatTDXTime := obj.reply.Period < 4 || obj.reply.Period == 7 || obj.reply.Period == 8
-
 	pos := 33
+	var lastRaw float64 // 昨收盘价
 	for i := uint16(0); i < obj.reply.Count; i++ {
 		if pos+36 > len(data) {
 			return fmt.Errorf("invalid mac symbol bar item %d", i)
@@ -143,7 +142,7 @@ func (obj *MACSymbolBars) ParseResponse(header *RespHeader, data []byte) error {
 		ymd := binary.LittleEndian.Uint32(data[pos : pos+4])
 		seconds := binary.LittleEndian.Uint32(data[pos+4 : pos+8])
 		item := MACSymbolBar{
-			DateTime:    combineMACDateTime(ymd, seconds, formatTDXTime).Format("2006-01-02 15:04:05"),
+			DateTime:    combineMACDateTime(ymd, seconds, formatTDXTime),
 			Open:        float64(math.Float32frombits(binary.LittleEndian.Uint32(data[pos+8 : pos+12]))),
 			High:        float64(math.Float32frombits(binary.LittleEndian.Uint32(data[pos+12 : pos+16]))),
 			Low:         float64(math.Float32frombits(binary.LittleEndian.Uint32(data[pos+16 : pos+20]))),
@@ -152,9 +151,17 @@ func (obj *MACSymbolBars) ParseResponse(header *RespHeader, data []byte) error {
 			Vol:         float64(math.Float32frombits(binary.LittleEndian.Uint32(data[pos+28 : pos+32]))),
 			FloatShares: float64(math.Float32frombits(binary.LittleEndian.Uint32(data[pos+32 : pos+36]))),
 		}
-		obj.reply.List = append(obj.reply.List, item)
+		item.Last = lastRaw
+		lastRaw = item.Close
+		item.RiseRate = item.GetRiseRate()
+		item.RisePrice = item.GetRisePrice()
 		pos += 36
+		if i == 0 {
+			continue
+		}
+		obj.reply.List = append(obj.reply.List, item)
 	}
+	obj.reply.Count = obj.reply.Count - 1
 
 	if pos+120 > len(data) {
 		return nil
@@ -181,6 +188,22 @@ func (obj *MACSymbolBars) ParseResponse(header *RespHeader, data []byte) error {
 	obj.reply.IndustryCode = macIndustryBoardSymbol(obj.reply.Industry)
 
 	return nil
+}
+
+func (bar MACSymbolBar) GetRisePrice() float64 {
+	if bar.Last == 0 {
+		//稍微数据准确点，没减去0这么夸张，还是不准的
+		return bar.Close - bar.Open
+	}
+	return bar.Close - bar.Last
+}
+
+// RiseRate 涨跌比例/涨跌幅
+func (bar MACSymbolBar) GetRiseRate() float64 {
+	if bar.Last == 0 {
+		return (bar.Close - bar.Open) / (bar.Open) * 100
+	}
+	return (bar.Close - bar.Last) / (bar.Last) * 100
 }
 
 func (obj *MACSymbolBars) Response() *MACSymbolBarsReply {

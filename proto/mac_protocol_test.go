@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"math"
 	"testing"
+	"time"
 )
 
 func assertNearFloat64(t *testing.T, got float64, want float64, label string) {
@@ -1119,7 +1120,7 @@ func TestMACTickChartsBuildRequestAndParseResponse(t *testing.T) {
 	if reply.Charts[0].Date != "2026-04-18" || len(reply.Charts[0].Ticks) != 2 || reply.Charts[1].Ticks[1].Unknown != 10 {
 		t.Fatalf("unexpected charts: %+v", reply.Charts)
 	}
-	if reply.Name != "PingAn Bank" || reply.DateTime != "2026-04-18 15:00:05" || reply.Industry != 83005 || reply.IndustryCode != "881282" {
+	if reply.Name != "PingAn Bank" || reply.DateTime.Format(time.DateTime) != "2026-04-18 15:00:05" || reply.Industry != 83005 || reply.IndustryCode != "881282" {
 		t.Fatalf("unexpected summary: %+v", reply)
 	}
 	assertNearFloat64(t, reply.Charts[0].PreClose, 10.0, "tick_day_pre_close_0")
@@ -1314,7 +1315,7 @@ func TestMACSymbolInfoBuildRequestAndParseResponse(t *testing.T) {
 		t.Fatalf("parse response failed: %v", err)
 	}
 	reply := msg.Response()
-	if reply.Market != 1 || reply.Code != "600000" || reply.Name != "PingAn Bank" || reply.DateTime != "2026-04-18 15:00:05" {
+	if reply.Market != 1 || reply.Code != "600000" || reply.Name != "PingAn Bank" || reply.DateTime.Format(time.DateTime) != "2026-04-18 15:00:05" {
 		t.Fatalf("unexpected reply: %+v", reply)
 	}
 	if reply.Activity != 321 || reply.Vol != 220 || reply.InsideVolume != 100 || reply.OutsideVolume != 120 || reply.Decimal != 2 || reply.UnknownA != 11 || reply.UnknownC != 33 {
@@ -1631,10 +1632,10 @@ func TestMACSymbolBarsBuildRequestAndParseResponse(t *testing.T) {
 		t.Fatalf("unexpected reply: %+v", reply)
 	}
 	item := reply.List[0]
-	if item.DateTime != "2026-03-31 09:30:00" || math.Abs(item.Close-10.5) > 0.001 || math.Abs(item.Vol-789.0) > 0.001 {
+	if item.DateTime.Format(time.DateTime) != "2026-03-31 09:30:00" || math.Abs(item.Close-10.5) > 0.001 || math.Abs(item.Vol-789.0) > 0.001 {
 		t.Fatalf("unexpected symbol bar: %+v", item)
 	}
-	if reply.Name != "PingAn Bank" || reply.DateTime != "2026-03-31 15:00:05" || reply.Industry != 83005 || reply.IndustryCode != "881282" {
+	if reply.Name != "PingAn Bank" || reply.DateTime.Format(time.DateTime) != "2026-03-31 15:00:05" || reply.Industry != 83005 || reply.IndustryCode != "881282" {
 		t.Fatalf("unexpected symbol bar summary: %+v", reply)
 	}
 }

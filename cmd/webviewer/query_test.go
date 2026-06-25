@@ -208,7 +208,7 @@ func TestRowsFromMACQuoteChart(t *testing.T) {
 
 func TestRowsFromMACSymbolBarsIncludesTurnover(t *testing.T) {
 	rows := rowsFromMACSymbolBars([]proto.MACSymbolBar{{
-		DateTime:    "2026-04-12 15:00:00",
+		DateTime:    time.Now(),
 		Open:        10,
 		High:        11,
 		Low:         9,

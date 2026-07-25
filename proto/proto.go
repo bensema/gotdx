@@ -287,14 +287,22 @@ func decodeDateNum(category uint16, num uint32, index bool) (time.Time, bool) {
 		return DecodeSecond(num), true
 	}
 	if index {
+		// if year == 2870 {
+		// fmt.Println("----", num)
+		// }
+
+		// fmt.Println(year, month, day)
 
 		if year < 1992 || year > time.Now().Year()+1 {
+			// fmt.Println(1)
 			return time.Time{}, false
 		}
 		if month < 1 || month > 12 || day < 1 || day > 31 {
+			// fmt.Println(2)
 			return time.Time{}, false
 		}
 		if hour < 0 || hour > 23 || minute < 0 || minute > 59 {
+			// fmt.Println(3)
 			return time.Time{}, false
 		}
 	}

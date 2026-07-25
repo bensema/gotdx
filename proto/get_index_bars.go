@@ -3,8 +3,10 @@ package proto
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
+	"errors"
 	"time"
+
+	"github.com/spf13/cast"
 )
 
 type GetIndexBars struct {
@@ -88,69 +90,65 @@ func (obj *GetIndexBars) BuildRequest() ([]byte, error) {
 }
 
 func (obj *GetIndexBars) ParseResponse(header *RespHeader, data []byte) error {
-	obj.respHeader = header
-
-	pos := 0
-	if err := binary.Read(bytes.NewBuffer(data[pos:pos+2]), binary.LittleEndian, &obj.reply.Count); err != nil {
-		return err
+	if len(data) < 2 {
+		return errors.New("数据长度不足")
 	}
-	pos += 2
-	var preCloseRaw int // 昨收盘价
+	obj.respHeader = header
+	obj.reply.Count = Uint16(data[:2])
+	data = data[2:]
+	newCategory := cast.ToInt(obj.request.Category)
+	var last int
 	for index := uint16(0); index < obj.reply.Count; index++ {
-		var dateNum uint32
-		if err := binary.Read(bytes.NewBuffer(data[pos:pos+4]), binary.LittleEndian, &dateNum); err != nil {
-			return err
-		}
-		pos += 4
-
-		dateTime, ok := decodeDateNum(obj.request.Category, dateNum, true)
-		if !ok {
-			return fmt.Errorf("invalid kline datetime: %d", dateNum)
-		}
-		// openRaw = lastRaw + openRaw
-
-		openRaw := getprice(data, &pos)
-		// openRaw = lastRaw + openRaw
-		closeRaw := getprice(data, &pos)
-		highRaw := getprice(data, &pos)
-		lowRaw := getprice(data, &pos)
-		vol := getfloat32(data, &pos)
-		amount := getfloat32(data, &pos)
-
+		dateTime := GetTime([4]byte(data[:4]), obj.request.Category)
 		bar := IndexBar{
-			Open:     float64(openRaw) / 1000.0,
-			Close:    float64(closeRaw) / 1000.0,
-			High:     float64(highRaw) / 1000.0,
-			Low:      float64(lowRaw) / 1000.0,
-			Vol:      vol,
-			Amount:   amount,
+			DateTime: dateTime,
 			Year:     dateTime.Year(),
 			Month:    int(dateTime.Month()),
 			Day:      dateTime.Day(),
 			Hour:     dateTime.Hour(),
 			Minute:   dateTime.Minute(),
-			DateTime: dateTime,
 		}
-		bar.PreClose = float64(preCloseRaw) / 1000.0
-		bar.LastClose = float64(preCloseRaw) / 1000.0
+		var open int
+		data, open = GetPrice(data[4:])
+		var close int
+		data, close = GetPrice(data)
+		var high int
+		data, high = GetPrice(data)
+		var low int
+		data, low = GetPrice(data)
+
+		bar.PreClose = float64(last) / 1000.0
+		bar.LastClose = float64(last) / 1000.0
+		bar.Open = float64(open) / 1000.0
+		bar.Close = float64(close) / 1000.0
+		bar.High = float64(high) / 1000.0
+		bar.Low = float64(low) / 1000.0
+		last = close
+
+		bar.Vol = getVolume(Uint32(data[:4]))
+		data = data[4:]
+
+		switch newCategory {
+		case KLINE_TYPE_EXHQ_1MIN, KLINE_TYPE_1MIN, KLINE_TYPE_5MIN, KLINE_TYPE_15MIN, KLINE_TYPE_30MIN, KLINE_TYPE_1HOUR:
+			bar.Vol /= 100
+		}
+		bar.Amount = getVolume(Uint32(data[:4]))
+		data = data[4:]
+
+		bar.Vol *= 100
+		bar.UpCount = cast.ToUint16(Int([]byte{data[1], data[0]}))
+		bar.DownCount = cast.ToUint16(Int([]byte{data[3], data[2]}))
+		data = data[4:]
+
 		bar.RiseRate = bar.GetRiseRate()
 		bar.RisePrice = bar.GetRisePrice()
-		preCloseRaw = closeRaw
 
-		if pos+4 <= len(data) {
-			tryDateNum := binary.LittleEndian.Uint32(data[pos : pos+4])
-			if _, ok := decodeDateNum(obj.request.Category, tryDateNum, true); !ok {
-				bar.UpCount = binary.LittleEndian.Uint16(data[pos : pos+2])
-				bar.DownCount = binary.LittleEndian.Uint16(data[pos+2 : pos+4])
-				pos += 4
-			}
-		}
 		if index == 0 {
 			continue
 		}
-
 		obj.reply.List = append(obj.reply.List, bar)
 	}
+	obj.reply.List = FixKlineTimeIndexBar(obj.reply.List)
 	obj.reply.Count = obj.reply.Count - 1
 
 	return nil
@@ -174,4 +172,27 @@ func (bar IndexBar) GetRiseRate() float64 {
 
 func (obj *GetIndexBars) Response() *GetIndexBarsReply {
 	return obj.reply
+}
+
+func FixKlineTimeIndexBar(ks []IndexBar) []IndexBar {
+	if len(ks) == 0 {
+		return ks
+	}
+	now := time.Now()
+	//只有当天下午13~15点之间才会出现的时间问题
+	node1 := time.Date(now.Year(), now.Month(), now.Day(), 13, 0, 0, 0, now.Location())
+	node2 := time.Date(now.Year(), now.Month(), now.Day(), 15, 0, 0, 0, now.Location())
+	if ks[len(ks)-1].DateTime.Unix() < node1.Unix() || ks[len(ks)-1].DateTime.Unix() > node2.Unix() {
+		return ks
+	}
+	ls := ks
+	if len(ls) >= 120 {
+		ls = ls[len(ls)-120:]
+	}
+	for i, v := range ls {
+		if v.DateTime.Unix() == node1.Unix() {
+			ls[i].DateTime = time.Date(now.Year(), now.Month(), now.Day(), 11, 30, 0, 0, now.Location())
+		}
+	}
+	return ks
 }

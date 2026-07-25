@@ -25,7 +25,7 @@ func main() {
 	}
 	log.Printf("index_momentum count=%d last=%d", len(momentum), momentum[len(momentum)-1])
 
-	bars, err := client.GetIndexBars(types.KLINE_TYPE_DAILY, types.MarketSH.Uint8(), "000001", 0, 5)
+	bars, err := client.GetIndexBars(types.KLINE_TYPE_DAILY, types.MarketSH.Uint8(), "000001", 0, 1)
 	if err != nil {
 		log.Fatalln(err)
 	}

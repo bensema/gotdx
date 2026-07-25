@@ -6,7 +6,6 @@ import (
 	"errors"
 	"time"
 
-	"github.com/injoyai/conv"
 	"github.com/spf13/cast"
 )
 
@@ -137,8 +136,8 @@ func (obj *GetIndexBars) ParseResponse(header *RespHeader, data []byte) error {
 		data = data[4:]
 
 		bar.Vol *= 100
-		bar.UpCount = cast.ToUint16(conv.Int([]byte{data[1], data[0]}))
-		bar.DownCount = cast.ToUint16(conv.Int([]byte{data[3], data[2]}))
+		bar.UpCount = cast.ToUint16(Int([]byte{data[1], data[0]}))
+		bar.DownCount = cast.ToUint16(Int([]byte{data[3], data[2]}))
 		data = data[4:]
 
 		bar.RiseRate = bar.GetRiseRate()

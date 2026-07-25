@@ -2,13 +2,13 @@ package proto
 
 import (
 	"bytes"
-	"io/ioutil"
+	"encoding/binary"
+	"io"
 	"math"
 	"strings"
 	"time"
 	"unicode"
 
-	"github.com/injoyai/conv"
 	"github.com/spf13/cast"
 	"golang.org/x/text/encoding/simplifiedchinese"
 	"golang.org/x/text/transform"
@@ -20,7 +20,7 @@ func Utf8ToGbk(text []byte) string {
 
 	decoder := transform.NewReader(r, simplifiedchinese.GBK.NewDecoder()) //GB18030
 
-	content, _ := ioutil.ReadAll(decoder)
+	content, _ := io.ReadAll(decoder)
 
 	result := strings.ReplaceAll(string(content), string([]byte{0x00}), "")
 	return strings.TrimFunc(result, func(r rune) bool {
@@ -52,12 +52,14 @@ func GetTime(data [4]byte, category uint16) time.Time {
 	}
 }
 
-func Uint16(data []byte) uint16 {
-	return conv.Uint16(Reverse(data))
+func Uint16(i []byte) uint16 {
+	i = Reverse(i)
+	return uint16(Uint64(i))
 }
 
-func Uint32(data []byte) uint32 {
-	return conv.Uint32(Reverse(data))
+func Uint32(i []byte) uint32 {
+	i = Reverse(i)
+	return uint32(Uint64(i))
 }
 
 func Reverse(data []byte) []byte {
@@ -162,4 +164,37 @@ func getVolume(val uint32) (volume float64) {
 	}
 	volume = dbl_xmm6 + dbl_xmm4 + dbl_xmm3 + dbl_xmm1
 	return
+}
+
+func padding(bytes []byte, length int) []byte {
+	if len(bytes) < length {
+		return append(make([]byte, length-len(bytes)), bytes...)
+	}
+	return bytes
+}
+
+func toUint64(i any) uint64 {
+	if b, ok := i.([]byte); ok {
+		return binary.BigEndian.Uint64(padding(b, 8))
+	}
+	return 0
+}
+
+func toInt64(i any) int64 {
+	if b, ok := i.([]byte); ok {
+		return int64(binary.BigEndian.Uint64(padding(b, 8)))
+	}
+	return 0
+}
+
+func Uint64(i any) uint64 {
+	return toUint64(i)
+}
+
+func Int64(i any) int64 {
+	return toInt64(i)
+}
+
+func Int(i any) int {
+	return int(Int64(i))
 }

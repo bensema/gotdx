@@ -484,7 +484,7 @@ func getvolume(ivol int) (volume float64) {
 
 func baseUnit(code string) float64 {
 	switch code[:2] {
-	case "60", "30", "68", "00":
+	case "60", "30", "68", "00", "39":
 		return 100.0
 	default:
 		return 1000.0

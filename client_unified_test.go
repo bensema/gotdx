@@ -77,42 +77,42 @@ func TestNewMACExUsesMacExAddressAsPrimary(t *testing.T) {
 
 func TestApplyTurnoverHelpers(t *testing.T) {
 	shares := map[stockKey]float64{
-		{Market: types.MarketSZ.Uint8(), Code: "000001"}: 1000000,
+		{Market: types.MarketSZ.Uint8(), Code: "000001"}: 100000,
 	}
 
 	quotes := []proto.SecurityQuote{{
 		Market: types.MarketSZ.Uint8(),
 		Code:   "000001",
-		Vol:    12345,
+		Vol:    100000,
 	}}
 	applyTurnoverToSecurityQuotes(quotes, shares)
-	if quotes[0].Turnover != 123.45 {
+	if quotes[0].Turnover != 1.0 {
 		t.Fatalf("unexpected security quote turnover: %.2f", quotes[0].Turnover)
 	}
 
 	quoteList := []proto.QuoteListItem{{
 		Market: types.MarketSZ.Uint8(),
 		Code:   "000001",
-		Vol:    23456,
+		Vol:    150000,
 	}}
 	applyTurnoverToQuoteList(quoteList, shares)
-	if quoteList[0].Turnover != 234.56 {
+	if quoteList[0].Turnover != 1.5 {
 		t.Fatalf("unexpected quote list turnover: %.2f", quoteList[0].Turnover)
 	}
 
-	bars := []proto.SecurityBar{{Vol: 12345}}
-	applyTurnoverToBars(bars, 1000000)
-	if bars[0].Turnover != 1.23 {
+	bars := []proto.SecurityBar{{Vol: 2000000}}
+	applyTurnoverToBars(bars, 2000)
+	if bars[0].Turnover != 10.0 {
 		t.Fatalf("unexpected bar turnover: %.2f", bars[0].Turnover)
 	}
 
 	reply := &proto.GetVolumeProfileReply{
 		Market: types.MarketSZ.Uint8(),
 		Code:   "000001",
-		Vol:    34567,
+		Vol:    200000,
 	}
-	applyTurnoverToVolumeProfile(reply, 1000000)
-	if reply.Turnover != 345.67 {
+	applyTurnoverToVolumeProfile(reply, 100000)
+	if reply.Turnover != 2.0 {
 		t.Fatalf("unexpected volume profile turnover: %.2f", reply.Turnover)
 	}
 }

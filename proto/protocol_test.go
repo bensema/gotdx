@@ -1454,3 +1454,23 @@ func TestDownloadFileBuildRequestAndParseResponse(t *testing.T) {
 		t.Fatalf("unexpected download reply: %+v", msg.Response())
 	}
 }
+
+func TestBaseUnitUsesHundredForShenZhenIndexPrefix(t *testing.T) {
+	cases := []struct {
+		code string
+		want float64
+	}{
+		{code: "000001", want: 100},
+		{code: "600000", want: 100},
+		{code: "300750", want: 100},
+		{code: "688001", want: 100},
+		{code: "399001", want: 100},
+		{code: "399006", want: 100},
+		{code: "510300", want: 1000},
+	}
+	for _, tc := range cases {
+		if got := baseUnit(tc.code); got != tc.want {
+			t.Fatalf("baseUnit(%q) = %v, want %v", tc.code, got, tc.want)
+		}
+	}
+}

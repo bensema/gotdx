@@ -277,6 +277,78 @@ func TestGetHistoryMinuteTimeDataBuildRequestAndParseResponse(t *testing.T) {
 	}
 }
 
+// TestGetMinuteTimeDataParsesETFPriceUnit 验证三位小数 ETF 的当日分时价格和均价按千分位解析。
+func TestGetMinuteTimeDataParsesETFPriceUnit(t *testing.T) {
+	msg := NewGetMinuteTimeData(&GetMinuteTimeDataRequest{
+		Market: 0,
+		Code:   [6]byte{'1', '5', '9', '3', '0', '7'},
+	})
+
+	buf := new(bytes.Buffer)
+	if err := binary.Write(buf, binary.LittleEndian, uint16(2)); err != nil {
+		t.Fatal(err)
+	}
+	if err := binary.Write(buf, binary.LittleEndian, uint16(0)); err != nil {
+		t.Fatal(err)
+	}
+	buf.Write(encodePrice(1025))
+	buf.Write(encodePrice(102500))
+	buf.Write(encodePrice(10))
+	buf.Write(encodePrice(-3))
+	buf.Write(encodePrice(-300))
+	buf.Write(encodePrice(20))
+
+	if err := msg.ParseResponse(&RespHeader{}, buf.Bytes()); err != nil {
+		t.Fatalf("parse response failed: %v", err)
+	}
+
+	points := msg.Response().List
+	if math.Abs(points[0].Price-1.025) > 0.0001 || math.Abs(points[0].Avg-1.025) > 0.0001 {
+		t.Fatalf("unexpected first ETF point: %+v", points[0])
+	}
+	if math.Abs(points[1].Price-1.022) > 0.0001 || math.Abs(points[1].Avg-1.022) > 0.0001 {
+		t.Fatalf("unexpected second ETF point: %+v", points[1])
+	}
+}
+
+// TestGetHistoryMinuteTimeDataParsesETFPriceUnit 验证三位小数 ETF 的历史分时价格和均价按千分位解析。
+func TestGetHistoryMinuteTimeDataParsesETFPriceUnit(t *testing.T) {
+	msg := NewGetHistoryMinuteTimeData(&GetHistoryMinuteTimeDataRequest{
+		Date:   20241127,
+		Market: 0,
+		Code:   [6]byte{'1', '5', '9', '3', '0', '7'},
+	})
+
+	buf := new(bytes.Buffer)
+	if err := binary.Write(buf, binary.LittleEndian, uint16(2)); err != nil {
+		t.Fatal(err)
+	}
+	if err := binary.Write(buf, binary.LittleEndian, uint32(0)); err != nil {
+		t.Fatal(err)
+	}
+	if err := binary.Write(buf, binary.LittleEndian, uint32(0)); err != nil {
+		t.Fatal(err)
+	}
+	buf.Write(encodePrice(1025))
+	buf.Write(encodePrice(102500))
+	buf.Write(encodePrice(10))
+	buf.Write(encodePrice(-3))
+	buf.Write(encodePrice(-300))
+	buf.Write(encodePrice(20))
+
+	if err := msg.ParseResponse(&RespHeader{}, buf.Bytes()); err != nil {
+		t.Fatalf("parse response failed: %v", err)
+	}
+
+	points := msg.Response().List
+	if math.Abs(points[0].Price-1.025) > 0.0001 || math.Abs(points[0].Avg-1.025) > 0.0001 {
+		t.Fatalf("unexpected first ETF point: %+v", points[0])
+	}
+	if math.Abs(points[1].Price-1.022) > 0.0001 || math.Abs(points[1].Avg-1.022) > 0.0001 {
+		t.Fatalf("unexpected second ETF point: %+v", points[1])
+	}
+}
+
 func TestGetSecurityBarsBuildRequestAndParseResponse(t *testing.T) {
 	msg := NewGetSecurityBars(&GetSecurityBarsRequest{
 		Market:   1,

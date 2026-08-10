@@ -75,6 +75,24 @@ func readReqHeader(t *testing.T, raw []byte) ReqHeader {
 	return header
 }
 
+// TestBaseUnit 验证 ETF 使用千分位，其他证券保持默认百分位。
+func TestBaseUnit(t *testing.T) {
+	tests := map[string]float64{
+		"510300": 1000,
+		"560000": 1000,
+		"580000": 1000,
+		"159307": 1000,
+		"600000": 100,
+		"000001": 100,
+		"430047": 100,
+	}
+	for code, want := range tests {
+		if got := baseUnit(code); got != want {
+			t.Errorf("base unit for %s: got %v, want %v", code, got, want)
+		}
+	}
+}
+
 func TestGetSecurityCountBuildRequestUsesTodayDate(t *testing.T) {
 	msg := NewGetSecurityCount(&GetSecurityCountRequest{Market: 1})
 

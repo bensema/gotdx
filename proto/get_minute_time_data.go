@@ -77,6 +77,7 @@ func (obj *GetMinuteTimeData) ParseResponse(header *RespHeader, data []byte) err
 
 	startPrice := 0
 	startAvg := 0
+	unit := baseUnit(string(obj.request.Code[:]))
 	for index := uint16(0); index < obj.reply.Count; index++ {
 		price := getprice(data, &pos)
 		avg := getprice(data, &pos)
@@ -90,8 +91,8 @@ func (obj *GetMinuteTimeData) ParseResponse(header *RespHeader, data []byte) err
 		}
 
 		obj.reply.List = append(obj.reply.List, MinuteTimeData{
-			Price: float64(price) / 100.0,
-			Avg:   float64(avg) / 10000.0,
+			Price: float64(price) / unit,
+			Avg:   float64(avg) / (unit * 100),
 			Vol:   vol,
 		})
 

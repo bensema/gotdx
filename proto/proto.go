@@ -482,11 +482,18 @@ func getvolume(ivol int) (volume float64) {
 	return
 }
 
+// baseUnit 按 ETF 代码前缀返回分时协议的原始价格缩放单位。
 func baseUnit(code string) float64 {
 	switch code[:2] {
 	case "60", "30", "68", "00", "39":
 		return 100.0
-	default:
+	case "51", "56", "58":
+		// 上交所 ETF 使用三位小数。
 		return 1000.0
+	case "15":
+		// 深交所 ETF 使用三位小数。
+		return 1000.0
+	default:
+		return 100.0
 	}
 }

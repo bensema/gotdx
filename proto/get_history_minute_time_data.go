@@ -3,6 +3,7 @@ package proto
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 )
 
 type GetHistoryMinuteTimeData struct {
@@ -66,6 +67,11 @@ func (obj *GetHistoryMinuteTimeData) BuildRequest() ([]byte, error) {
 func (obj *GetHistoryMinuteTimeData) ParseResponse(header *RespHeader, data []byte) error {
 	obj.respHeader = header
 
+	// 校验最小报文长度，避免空或超短数据触发越界 panic。
+	if len(data) < 10 {
+		return fmt.Errorf("invalid history minute response length: %d", len(data))
+	}
+
 	pos := 0
 	if err := binary.Read(bytes.NewBuffer(data[pos:pos+2]), binary.LittleEndian, &obj.reply.Count); err != nil {
 		return err
@@ -76,9 +82,18 @@ func (obj *GetHistoryMinuteTimeData) ParseResponse(header *RespHeader, data []by
 	startAvg := 0
 	unit := baseUnit(string(obj.request.Code[:]))
 	for index := uint16(0); index < obj.reply.Count; index++ {
-		price := getprice(data, &pos)
-		avg := getprice(data, &pos)
-		vol := getprice(data, &pos)
+		price, ok := readPriceField(data, &pos)
+		if !ok {
+			return fmt.Errorf("truncated history minute response: pos=%d len=%d", pos, len(data))
+		}
+		avg, ok := readPriceField(data, &pos)
+		if !ok {
+			return fmt.Errorf("truncated history minute response: pos=%d len=%d", pos, len(data))
+		}
+		vol, ok := readPriceField(data, &pos)
+		if !ok {
+			return fmt.Errorf("truncated history minute response: pos=%d len=%d", pos, len(data))
+		}
 
 		if startPrice != 0 {
 			price += startPrice
@@ -102,6 +117,22 @@ func (obj *GetHistoryMinuteTimeData) ParseResponse(header *RespHeader, data []by
 	}
 
 	return nil
+}
+
+// readPriceField 安全读取一条变长价格字段；字段不完整（含续字节截断）时返回 false。
+func readPriceField(data []byte, pos *int) (int, bool) {
+	i := *pos
+	for {
+		if i >= len(data) {
+			return 0, false
+		}
+		// 变长编码的续位：0x80 表示后面还有字节，扫描至末位为 0 的字节结束。
+		if data[i]&0x80 == 0 {
+			break
+		}
+		i++
+	}
+	return getprice(data, pos), true
 }
 
 func (obj *GetHistoryMinuteTimeData) Response() *GetHistoryMinuteTimeDataReply {

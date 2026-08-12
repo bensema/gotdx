@@ -296,6 +296,77 @@ func TestGetHistoryMinuteTimeDataBuildRequestAndParseResponse(t *testing.T) {
 	}
 }
 
+// 验证空或超短报文返回 error 而非 panic（修复前 data[:2] 会越界）。
+func TestGetHistoryMinuteTimeDataParseResponseShortData(t *testing.T) {
+	msg := NewGetHistoryMinuteTimeData(&GetHistoryMinuteTimeDataRequest{
+		Date:   20260811,
+		Market: 0,
+		Code:   [6]byte{'0', '0', '0', '7', '7', '9'},
+	})
+
+	// 空报文：修复前触发 slice bounds out of range panic。
+	if err := msg.ParseResponse(&RespHeader{}, []byte{}); err == nil {
+		t.Fatal("expected error for empty payload")
+	}
+	// 少于 10 字节的头部报文同样应返回 error。
+	if err := msg.ParseResponse(&RespHeader{}, make([]byte, 4)); err == nil {
+		t.Fatal("expected error for short payload")
+	}
+}
+
+// 验证 Count 声称条数超过实际报文时返回 error 而非 panic。
+func TestGetHistoryMinuteTimeDataParseResponseTruncatedData(t *testing.T) {
+	msg := NewGetHistoryMinuteTimeData(&GetHistoryMinuteTimeDataRequest{
+		Date:   20260811,
+		Market: 0,
+		Code:   [6]byte{'0', '0', '0', '7', '7', '9'},
+	})
+
+	buf := new(bytes.Buffer)
+	if err := binary.Write(buf, binary.LittleEndian, uint16(100)); err != nil { // 声称 100 条
+		t.Fatal(err)
+	}
+	if err := binary.Write(buf, binary.LittleEndian, uint32(0)); err != nil {
+		t.Fatal(err)
+	}
+	if err := binary.Write(buf, binary.LittleEndian, uint32(0)); err != nil {
+		t.Fatal(err)
+	}
+	// 正文只有 2 字节，远不足以承载 100 条记录。
+	buf.Write(encodePrice(10))
+
+	if err := msg.ParseResponse(&RespHeader{}, buf.Bytes()); err == nil {
+		t.Fatal("expected truncated payload error")
+	}
+}
+
+// 验证变长价格字段在续字节处截断时返回 error 而非 panic。
+// 修复前 readPriceField 仅检查起始位置，getprice 会在读取续字节时越界。
+func TestGetHistoryMinuteTimeDataParseResponseTruncatedVarint(t *testing.T) {
+	msg := NewGetHistoryMinuteTimeData(&GetHistoryMinuteTimeDataRequest{
+		Date:   20260811,
+		Market: 0,
+		Code:   [6]byte{'0', '0', '0', '7', '7', '9'},
+	})
+
+	buf := new(bytes.Buffer)
+	if err := binary.Write(buf, binary.LittleEndian, uint16(1)); err != nil {
+		t.Fatal(err)
+	}
+	if err := binary.Write(buf, binary.LittleEndian, uint32(0)); err != nil {
+		t.Fatal(err)
+	}
+	if err := binary.Write(buf, binary.LittleEndian, uint32(0)); err != nil {
+		t.Fatal(err)
+	}
+	// 变长字段以续位 0x80 开头但无后续字节，直接越界。
+	buf.Write([]byte{0x80})
+
+	if err := msg.ParseResponse(&RespHeader{}, buf.Bytes()); err == nil {
+		t.Fatal("expected error for truncated varint field")
+	}
+}
+
 func TestGetSecurityBarsBuildRequestAndParseResponse(t *testing.T) {
 	msg := NewGetSecurityBars(&GetSecurityBarsRequest{
 		Market:   1,

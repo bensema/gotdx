@@ -233,20 +233,28 @@ func (client *Client) connectWithHandshake(handshake func() error) error {
 	return lastErr
 }
 
-func (client *Client) exchange(builder proto.RequestBuilder) (*proto.RespHeader, []byte, error) {
+func (client *Client) exchange(builder proto.RequestBuilder) (respHeader *proto.RespHeader, payload []byte, err error) {
 	if client.conn == nil {
 		return nil, nil, errors.New("connection is nil")
 	}
-
-	_ = client.conn.SetDeadline(time.Now().Add(client.timeout()))
-	defer func() {
-		_ = client.conn.SetDeadline(time.Time{})
-	}()
 
 	sendData, err := builder.BuildRequest()
 	if err != nil {
 		return nil, nil, err
 	}
+
+	// 写读任一环节失败后，连接上的字节流无法保证仍处于帧边界，
+	// 必须丢弃连接，避免残留字节被后续请求误读为响应头。
+	defer func() {
+		if err != nil {
+			client.closeCurrentConn()
+		}
+	}()
+
+	_ = client.conn.SetDeadline(time.Now().Add(client.timeout()))
+	defer func() {
+		_ = client.conn.SetDeadline(time.Time{})
+	}()
 
 	retryTimes := 0
 

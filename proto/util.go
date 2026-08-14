@@ -23,6 +23,9 @@ func Utf8ToGbk(text []byte) string {
 	content, _ := io.ReadAll(decoder)
 
 	result := strings.ReplaceAll(string(content), string([]byte{0x00}), "")
+	// 固定宽度字段按字节截断名称时，末字节可能是半个 GBK 字符，解码出 U+FFFD；
+	// 截断只可能发生在字段尾部，剔除尾部替换符避免非法字符透出。
+	result = strings.TrimRight(result, "\uFFFD")
 	return strings.TrimFunc(result, func(r rune) bool {
 		return unicode.IsControl(r)
 	})

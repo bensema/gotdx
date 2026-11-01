@@ -44,10 +44,15 @@ func (client *Client) execute[T any](protocol proto.Protocol[T]) (T, error) {
 		// 空数据：解除对当前节点的定向并计入健康度，随后并行探测其余连接。
 		client.clearDataAddr(addr)
 		client.recordNodeHealthEmpty(addr)
-		if nonEmpty, nonEmptyAddr, found := client.parallelEmptyRetry(protocol); found {
-			client.recordNodeHealthOK(nonEmptyAddr)
-			client.setDataAddr(nonEmptyAddr)
-			return nonEmpty, nil
+		// 请求字节在主线程串行构建一次，作为不可变输入交给并行探测；协议对象不进入
+		// 探测 goroutine，解析与记账全部回到主线程串行执行（详见 `parallelEmptyRetry`）。
+		sendData, buildErr := protocol.BuildRequest()
+		if buildErr == nil {
+			if nonEmpty, nonEmptyAddr, found := client.parallelEmptyRetry(protocol, sendData); found {
+				client.recordNodeHealthOK(nonEmptyAddr)
+				client.setDataAddr(nonEmptyAddr)
+				return nonEmpty, nil
+			}
 		}
 		// 并行探测仍空：返回首次应答（该日期可能确实无成交）；若池内已有节点被健康度
 		// 降权，后台触发一次强制全量探活重平衡，尽快迁出数据不全节点，不必等到下一次
@@ -65,40 +70,91 @@ func (client *Client) execute[T any](protocol proto.Protocol[T]) (T, error) {
 
 // parallelEmptyRetry 在首查空数据后并行探测池内其余连接，取首个非空应答。
 //
-// 方案决策：原实现串行最多 2 次 `executeOnce`，慢节点上最坏尾延迟叠加 3 个 RTT；改为
-// 并发借出池内空闲连接同时探测，首个非空应答立即胜出，尾延迟收敛到约 1 个 RTT。并发
-// 探测条数沿用原最多 2 次的重试上限；各 `executeOnce` 自行借出/归还连接，连接串行锁
-// 保证帧边界不被并发破坏。在途探测在 `WaitGroup` 中收尾，连接由 `executeOnce` 自行
-// 归还或销毁，不泄漏。全部探测出错或仍空时 `found` 为 `false`，由调用方返回首次空应答。
-func (client *Client) parallelEmptyRetry[T any](protocol proto.Protocol[T]) (T, string, bool) {
+// 方案决策（并发安全）：`proto.Protocol` 对象内部状态（请求头编号、应答计数与列表）非并发
+// 安全，本函数不把协议对象分发给探测 goroutine——`sendData` 已由主线程在调用前串行构建完成、
+// 作为不可变字节输入；各探测 goroutine 只负责借出连接、发送这份字节、读回响应头与负载，网络
+// 完成后即释放连接串行锁；`ParseResponse`、判空与健康度记账全部回到主线程按到达顺序串行执行。
+// 这样既保留"并发借出多条连接同时探测、首个非空胜出"的并行语义（尾延迟收敛到约 1 个 RTT），
+// 又消除协议对象与健康计数的跨 goroutine 写竞争。
+//
+// 并发探测条数沿用原最多 2 次的重试上限；胜出连接由主线程归还，收发失败连接在探测 goroutine
+// 内销毁；胜出提前返回后，尚未被主线程消费的在途连接由收尾 goroutine 统一归还，不泄漏。全部
+// 探测出错或仍空时 `found` 为 `false`，由调用方返回首次空应答。
+func (client *Client) parallelEmptyRetry[T any](protocol proto.Protocol[T], sendData []byte) (T, string, bool) {
 	var zero T
 	const maxEmptyRetry = 2
-	type retryResult struct {
-		reply T
-		addr  string
-		err   error
-		empty bool
+
+	// rawResult 承载探测 goroutine 的网络收发结果；协议解析不在其中完成，连接由主线程或
+	// 收尾 goroutine 按结果状态归还/销毁。
+	type rawResult struct {
+		pc      *pooledConn
+		header  *proto.RespHeader
+		payload []byte
+		addr    string
+		err     error
 	}
-	results := make(chan retryResult, maxEmptyRetry)
+
+	results := make(chan rawResult, maxEmptyRetry)
 	var wg sync.WaitGroup
 	for i := 0; i < maxEmptyRetry; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			r, addr, err := client.executeOnce(protocol)
-			results <- retryResult{reply: r, addr: addr, err: err, empty: err == nil && isEmptyReply(r)}
+			pc, err := client.acquire()
+			if err != nil {
+				results <- rawResult{err: err}
+				return
+			}
+			pc.mu.Lock()
+			header, payload, err := client.exchangeBytes(pc.conn, sendData)
+			pc.mu.Unlock()
+			if err != nil {
+				// 收发失败后帧边界不可信，销毁连接交后台补建；错误结果不再携带待回收连接。
+				client.discard(pc)
+				results <- rawResult{addr: pc.addr, err: err}
+				return
+			}
+			results <- rawResult{pc: pc, header: header, payload: payload, addr: pc.addr}
 		}()
 	}
-	go func() { wg.Wait(); close(results) }()
+
+	// 仅负责等待探测结束后关闭通道；关闭前通道由主线程独占消费，不存在第二个消费方。
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+
+	// 主线程独占消费已送达的探测结果：`ParseResponse`、判空、健康度记账与连接归还全部在
+	// 此串行完成，协议对象全程不离开主线程。
 	for res := range results {
 		if res.err != nil {
 			continue
 		}
-		if res.empty {
-			client.recordNodeHealthEmpty(res.addr)
+		if err := protocol.ParseResponse(res.header, res.payload); err != nil {
+			// 解析失败后帧边界不可信，销毁连接交后台补建。
+			client.discard(res.pc)
 			continue
 		}
-		return res.reply, res.addr, true
+		reply := protocol.Response()
+		if isEmptyReply(reply) {
+			// 健康度记账同样在主线程串行化，避免 leftover 探测与胜出判定相互串扰。
+			client.recordNodeHealthEmpty(res.addr)
+			client.release(res.pc)
+			continue
+		}
+		// 胜出：归还胜出连接后立即返回；主线程不再访问协议对象。剩余在途探测由收尾
+		// goroutine 只做连接归还——不再解析、不记账，避免胜出后另一个 goroutine 并发
+		// 读写协议内部状态；未记账的空节点由下一次请求首查空应答路径照常累计。
+		client.release(res.pc)
+		go func() {
+			for leftover := range results {
+				if leftover.pc == nil || leftover.err != nil {
+					continue
+				}
+				client.release(leftover.pc)
+			}
+		}()
+		return reply, res.addr, true
 	}
 	return zero, "", false
 }

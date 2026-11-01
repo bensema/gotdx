@@ -1159,19 +1159,29 @@ func (client *Client) refillPool() {
 	client.mu.Unlock()
 }
 
-// exchange 在指定连接上完成一次请求-响应收发：编码请求、带超时写出发送、按帧读取响应头与负载，
-// 压缩帧按需以 `zlib` 解压。
+// exchange 在指定连接上完成一次请求-响应收发：按协议构造请求字节、带超时写出发送、按帧读取
+// 响应头与负载，压缩帧按需以 `zlib` 解压。
 //
 // 参数 `conn` 为执行收发的已连接 TCP 连接；参数 `builder` 负责协议请求的字节编码；返回的
 // `respHeader` 为解码后的响应头，`payload` 为解压后的明文负载。请求编码失败、写重试超限、帧头或
 // 负载读取失败、负载长度超过 `MessageMaxBytes`、解压失败等任一环节出错都会返回错误；连接字节流
-// 已无法保证帧边界，调用方（`execute`）须丢弃该连接，避免残留字节破坏后续帧。
+// 已无法保证帧边界，调用方（`execute`）须丢弃该连接，避免残留字节破坏后续帧。`BuildRequest` 可能
+// 写入协议对象内部状态，调用方必须保证该对象不被多个 goroutine 并发使用。
 func (client *Client) exchange(conn net.Conn, builder proto.RequestBuilder) (respHeader *proto.RespHeader, payload []byte, err error) {
 	sendData, err := builder.BuildRequest()
 	if err != nil {
 		return nil, nil, err
 	}
+	return client.exchangeBytes(conn, sendData)
+}
 
+// exchangeBytes 在单条连接上发送预构建完成的不可变请求字节并读回响应头与负载。
+//
+// 方案决策：把"构造请求字节"与"网络收发"拆开，使并行空数据探测可以由主线程串行构建一次
+// 请求字节、各探测 goroutine 只复用这份不可变字节做写读，不再共享携带可变状态的协议对象；
+// 解析仍回到主线程串行进行，避免 `ParseResponse` 并发写应答体。`sendData` 必须在进入本函数
+// 前构建完成，调用方负责保证其在收发期间不被修改。
+func (client *Client) exchangeBytes(conn net.Conn, sendData []byte) (respHeader *proto.RespHeader, payload []byte, err error) {
 	// 为本次收发设置整体截止时间，结束后清空超时以免影响后续操作。
 	_ = conn.SetDeadline(time.Now().Add(client.timeout()))
 	defer func() {

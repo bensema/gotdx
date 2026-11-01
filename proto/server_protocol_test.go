@@ -17,13 +17,16 @@ func TestServerMessagesBuildRequestAndParseResponse(t *testing.T) {
 		}
 
 		buf := new(bytes.Buffer)
+		// 第零字节为未被解析的保留位，语义待确认。
 		if err := binary.Write(buf, binary.LittleEndian, uint8(0)); err != nil {
 			t.Fatal(err)
 		}
+		// `data[1:3]` 年份；`data[3]` 日、`data[4]` 月、`data[5]` 分、`data[6]` 时、`data[7]` 保留、`data[8]` 秒。
 		if err := binary.Write(buf, binary.LittleEndian, uint16(2026)); err != nil {
 			t.Fatal(err)
 		}
 		buf.Write([]byte{11, 4, 30, 9, 0, 15})
+		// 以下两段 16 字节及后续中间数值槽位不被解析，语义待确认。
 		buf.Write(make([]byte, 16))
 		buf.Write(make([]byte, 16))
 		buf.WriteByte(7)
@@ -52,13 +55,16 @@ func TestServerMessagesBuildRequestAndParseResponse(t *testing.T) {
 			t.Fatal(err)
 		}
 		buf.Write(make([]byte, 5))
+		// 服务端名称定长段（解析偏移 `67:89`，22 字节 GBK）。
 		serverName := make([]byte, 22)
 		copy(serverName, "main-server")
 		buf.Write(serverName)
+		// 网址定长段（解析偏移 `89:153`，64 字节 GBK）。
 		website := make([]byte, 64)
 		copy(website, "https://example.com")
 		buf.Write(website)
 		buf.Write(make([]byte, 6))
+		// 类别文案定长段（解析偏移 `159:189`，30 字节 GBK）。
 		category := make([]byte, 30)
 		copy(category, "quotes")
 		buf.Write(category)
@@ -81,19 +87,25 @@ func TestServerMessagesBuildRequestAndParseResponse(t *testing.T) {
 		}
 
 		buf := new(bytes.Buffer)
+		// 第零字节状态位 `Had`，取 1 表示尾部携带附加消息。
 		if err := binary.Write(buf, binary.LittleEndian, uint8(1)); err != nil {
 			t.Fatal(err)
 		}
+		// `data[1:3]` 的数值 `Unknown2`，语义待确认。
 		if err := binary.Write(buf, binary.LittleEndian, uint16(7)); err != nil {
 			t.Fatal(err)
 		}
+		// 提示文案定长段（解析偏移 `3:53`，50 字节 GBK）。
 		tips := make([]byte, 50)
 		copy(tips, "Upgrade tips")
 		buf.Write(tips)
+		// `data[53:58]` 五字节原始片段，原样转十六进制备查，语义待确认。
 		buf.Write([]byte{0xaa, 0xbb, 0xcc, 0xdd, 0xee})
+		// 下载链接定长段（解析偏移 `58:178`，120 字节 GBK）。
 		link := make([]byte, 120)
 		copy(link, "https://example.com/upgrade.zip")
 		buf.Write(link)
+		// 状态位置位后，`178` 字节之后的剩余字节为附加消息。
 		buf.WriteString("please upgrade soon")
 
 		if err := msg.ParseResponse(&RespHeader{}, buf.Bytes()); err != nil {
@@ -115,6 +127,7 @@ func TestServerMessagesBuildRequestAndParseResponse(t *testing.T) {
 		if header.Method != KMSG_HEARTBEAT {
 			t.Fatalf("unexpected method: %#x", header.Method)
 		}
+		// 10 字节负载中，`data[6:10]` 为四字节日期，其余为保留填充。
 		payload := make([]byte, 10)
 		binary.LittleEndian.PutUint32(payload[6:10], 20250512)
 		if err := msg.ParseResponse(&RespHeader{}, payload); err != nil {
@@ -127,6 +140,7 @@ func TestServerMessagesBuildRequestAndParseResponse(t *testing.T) {
 
 	t.Run("exchange_announcement", func(t *testing.T) {
 		msg := NewExchangeAnnouncement()
+		// 首字节为版本号，其后整段为公告正文内容。
 		if err := msg.ParseResponse(&RespHeader{}, append([]byte{1}, []byte("hello")...)); err != nil {
 			t.Fatalf("parse response failed: %v", err)
 		}
@@ -138,6 +152,7 @@ func TestServerMessagesBuildRequestAndParseResponse(t *testing.T) {
 	t.Run("announcement", func(t *testing.T) {
 		msg := NewAnnouncement()
 		buf := new(bytes.Buffer)
+		// 首字节为是否含正文的状态位；其后依次为日期、标题/作者/正文三段长度与文本。
 		buf.WriteByte(1)
 		if err := binary.Write(buf, binary.LittleEndian, uint32(20260411)); err != nil {
 			t.Fatal(err)
@@ -165,15 +180,16 @@ func TestServerMessagesBuildRequestAndParseResponse(t *testing.T) {
 
 	t.Run("info", func(t *testing.T) {
 		msg := NewInfo()
+		// 427 字节定长负载，按下列固定偏移写入各字段，未写入区间保持零填充。
 		payload := make([]byte, 427)
-		binary.LittleEndian.PutUint32(payload[0:4], 123)
-		copy(payload[16:71], []byte("server-info"))
-		copy(payload[81:336], []byte("server-content"))
-		copy(payload[336:356], []byte("sign"))
-		binary.LittleEndian.PutUint16(payload[389:391], 88)
-		binary.LittleEndian.PutUint16(payload[395:397], 1)
-		binary.LittleEndian.PutUint32(payload[397:401], 20260411)
-		binary.LittleEndian.PutUint32(payload[401:405], 93015)
+		binary.LittleEndian.PutUint32(payload[0:4], 123)          // `0:4` 延迟 `Delay`，四字节
+		copy(payload[16:71], []byte("server-info"))               // `16:71` 服务端信息文本，55 字节 GBK
+		copy(payload[81:336], []byte("server-content"))           // `81:336` 正文文本，GBK
+		copy(payload[336:356], []byte("sign"))                    // `336:356` 服务端签名，20 字节 GBK
+		binary.LittleEndian.PutUint16(payload[389:391], 88)       // `389:391` 地区 `Region`，两字节
+		binary.LittleEndian.PutUint16(payload[395:397], 1)        // `395:397` 切换标志 `MaybeSwitch`，语义待确认
+		binary.LittleEndian.PutUint32(payload[397:401], 20260411) // `397:401` 日期，四字节
+		binary.LittleEndian.PutUint32(payload[401:405], 93015)    // `401:405` 时刻 09:30:15，`HHMMSS` 编码
 		if err := msg.ParseResponse(&RespHeader{}, payload); err != nil {
 			t.Fatalf("parse response failed: %v", err)
 		}

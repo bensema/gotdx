@@ -1,3 +1,6 @@
+// Command ex_category_list 演示通过 ExCategoryList 拉取扩展市场分类（港股、美股、期货等）列表并逐行打印。
+//
+// 运行示例：`go run ./examples/ex_category_list`
 package main
 
 import (

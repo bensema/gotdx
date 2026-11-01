@@ -6,8 +6,13 @@ import (
 	"math"
 	"testing"
 	"time"
+
+	"github.com/bensema/gotdx/types"
 )
 
+// assertNearFloat64 断言两个浮点值在容差范围内相等。
+// 参数 `got` 为实测值，`want` 为期望值，`label` 为失败信息中展示的字段名；
+// 差值绝对值超过 0.001 时通过 `t` 终止测试。
 func assertNearFloat64(t *testing.T, got float64, want float64, label string) {
 	t.Helper()
 	if math.Abs(got-want) > 0.001 {
@@ -15,6 +20,8 @@ func assertNearFloat64(t *testing.T, got float64, want float64, label string) {
 	}
 }
 
+// writeMACFloat32 将单精度浮点写入 `MAC` 报文缓冲区。
+// 参数 `buf` 为目标缓冲区，`value` 为待写入的浮点值；写入失败时通过 `t` 终止测试。
 func writeMACFloat32(t *testing.T, buf *bytes.Buffer, value float32) {
 	t.Helper()
 	if err := binary.Write(buf, binary.LittleEndian, math.Float32bits(value)); err != nil {
@@ -24,8 +31,8 @@ func writeMACFloat32(t *testing.T, buf *bytes.Buffer, value float32) {
 
 func TestExchangeMACBoardCode(t *testing.T) {
 	tests := []struct {
-		symbol string
-		want   uint32
+		symbol string // 证券或板块代码，HK/US 前缀代表对应海外市场
+		want   uint32 // 期望编码出的 MAC 板块编号
 	}{
 		{symbol: "880761", want: 20761},
 		{symbol: "HK0281", want: 20281},
@@ -62,6 +69,7 @@ func TestMACBoardCountBuildRequestAndParseResponse(t *testing.T) {
 		t.Fatalf("unexpected request: %+v", req)
 	}
 
+	// `data[:2]` 为 `CountAll`、`data[2:4]` 为 `Total`，均按两字节读取；`Total` 口径语义待确认。
 	payload := []byte{0x2c, 0x01, 0x2f, 0x02}
 	if err := msg.ParseResponse(&RespHeader{}, payload); err != nil {
 		t.Fatalf("parse response failed: %v", err)
@@ -143,7 +151,9 @@ func TestMACServerInfoBuildRequestAndParseResponse(t *testing.T) {
 		}
 	}
 	must(uint16(1))
+	// 头部 8 字节标志位，原样转十六进制记录为 `FlagsHex`。
 	buf.Write([]byte{1, 2, 3, 4, 5, 6, 7, 8})
+	// 三字节标签文本 "-1"，尾部以空字符填充，解码后为 `Tag`。
 	buf.Write([]byte{'-', '1', 0})
 	buf.Write(make([]byte, 9))
 	must(uint32(20260516))
@@ -161,6 +171,7 @@ func TestMACServerInfoBuildRequestAndParseResponse(t *testing.T) {
 	must(uint32(2))
 	must(uint32(10))
 	must(uint32(20))
+	// 尾部剩余两字节原样保留为 `ExtraHex`，语义待确认。
 	buf.Write([]byte{0xaa, 0xbb})
 
 	if err := msg.ParseResponse(&RespHeader{}, buf.Bytes()); err != nil {
@@ -194,6 +205,7 @@ func TestMACKLineOffsetBuildRequestAndParseResponse(t *testing.T) {
 		t.Fatalf("unexpected request: %+v", req)
 	}
 
+	// 前四字节为 K 线总数 `Total`，后四字节为本次返回条数 `Returned`。
 	payload := []byte{0x00, 0x01, 0xf4, 0x00, 0x02, 0x00, 0x00, 0x00}
 	if err := msg.ParseResponse(&RespHeader{}, payload); err != nil {
 		t.Fatalf("parse response failed: %v", err)
@@ -314,54 +326,54 @@ func TestMACBoardMembersQuotesBuildRequestAndParseResponse(t *testing.T) {
 	copy(itemName, "BANK")
 	buf.Write(itemName)
 	buf.Write(make([]byte, 20))
-	writeMACFloat32(t, buf, 1) // pre_close
-	writeMACFloat32(t, buf, 2) // open
-	writeMACFloat32(t, buf, 3) // high
-	writeMACFloat32(t, buf, 4) // low
-	writeMACFloat32(t, buf, 5) // close
+	writeMACFloat32(t, buf, 1) // 昨收
+	writeMACFloat32(t, buf, 2) // 开盘
+	writeMACFloat32(t, buf, 3) // 最高
+	writeMACFloat32(t, buf, 4) // 最低
+	writeMACFloat32(t, buf, 5) // 收盘
 	if err := binary.Write(buf, binary.LittleEndian, uint32(600)); err != nil {
 		t.Fatal(err)
 	}
-	writeMACFloat32(t, buf, 7)  // vol_ratio
-	writeMACFloat32(t, buf, 8)  // amount
-	writeMACFloat32(t, buf, 9)  // total_shares
-	writeMACFloat32(t, buf, 10) // float_shares
-	writeMACFloat32(t, buf, 11) // eps
-	writeMACFloat32(t, buf, 12) // net_assets
-	writeMACFloat32(t, buf, 13) // action_price
-	writeMACFloat32(t, buf, 14) // market_cap_ab
-	writeMACFloat32(t, buf, 15) // pe_dynamic
+	writeMACFloat32(t, buf, 7)  // 量比
+	writeMACFloat32(t, buf, 8)  // 成交额
+	writeMACFloat32(t, buf, 9)  // 总股数
+	writeMACFloat32(t, buf, 10) // 流通股
+	writeMACFloat32(t, buf, 11) // 每股收益
+	writeMACFloat32(t, buf, 12) // 净资产
+	writeMACFloat32(t, buf, 13) // 槽位 12 指标 `ActionPrice`，原始语义待确认
+	writeMACFloat32(t, buf, 14) // AB股总市值
+	writeMACFloat32(t, buf, 15) // 市盈率(动)
 	if err := binary.Write(buf, binary.LittleEndian, uint32(1600)); err != nil {
 		t.Fatal(err)
 	}
-	writeMACFloat32(t, buf, 17) // unknown_23
-	writeMACFloat32(t, buf, 18) // dividend_yield
+	writeMACFloat32(t, buf, 17) // 槽位 16 指标 `Unknown23`，语义待确认
+	writeMACFloat32(t, buf, 18) // 股息率
 	if err := binary.Write(buf, binary.LittleEndian, uint32(321)); err != nil {
 		t.Fatal(err)
 	}
-	writeMACFloat32(t, buf, 20) // turnover
+	writeMACFloat32(t, buf, 20) // 换手率
 	if err := binary.Write(buf, binary.LittleEndian, uint32(21)); err != nil {
 		t.Fatal(err)
 	}
 	if err := binary.Write(buf, binary.LittleEndian, uint32(22)); err != nil {
 		t.Fatal(err)
 	}
-	writeMACFloat32(t, buf, 23) // buy_price_limit
-	writeMACFloat32(t, buf, 24) // sell_price_limit
+	writeMACFloat32(t, buf, 23) // 涨停价
+	writeMACFloat32(t, buf, 24) // 跌停价
 	if err := binary.Write(buf, binary.LittleEndian, uint32(25)); err != nil {
 		t.Fatal(err)
 	}
 	if err := binary.Write(buf, binary.LittleEndian, uint32(26)); err != nil {
 		t.Fatal(err)
 	}
-	writeMACFloat32(t, buf, 27) // pre_ipov
-	writeMACFloat32(t, buf, 28) // speed_pct
+	writeMACFloat32(t, buf, 27) // 槽位 26 指标 `PreIPOV`，原始语义待确认
+	writeMACFloat32(t, buf, 28) // 涨速百分比
 	if err := binary.Write(buf, binary.LittleEndian, uint32(29)); err != nil {
 		t.Fatal(err)
 	}
-	writeMACFloat32(t, buf, 30) // pe_ttm
-	writeMACFloat32(t, buf, 31) // pe_static
-	writeMACFloat32(t, buf, 32) // unknown_close_price
+	writeMACFloat32(t, buf, 30) // 市盈率`TTM`
+	writeMACFloat32(t, buf, 31) // 市盈率静
+	writeMACFloat32(t, buf, 32) // 槽位 31 末槽位 `UnknownClosePrice`，语义待确认
 
 	if err := msg.ParseResponse(&RespHeader{}, buf.Bytes()); err != nil {
 		t.Fatalf("parse response failed: %v", err)
@@ -393,7 +405,7 @@ func TestMACBoardMembersQuotesDynamicBuildRequestAndParseResponse(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	bitmap := [20]byte{0x31} // bits: 0=pre_close 4=close 5=vol
+	bitmap := [20]byte{0x31} // 位图：第 0 位昨收、第 4 位收盘、第 5 位成交量
 	msg := NewMACBoardMembersQuotesDynamic(&MACBoardMembersQuotesDynamicRequest{
 		BoardCode:   boardCode,
 		SortType:    14,
@@ -494,7 +506,7 @@ func TestMACBoardMembersQuotesDynamicSupportsSignedAndAliasFields(t *testing.T) 
 	name := make([]byte, 44)
 	copy(name, "PINGAN")
 	buf.Write(name)
-	writeMACFloat32(t, buf, 12.3) // pre_iopv
+	writeMACFloat32(t, buf, 12.3) // 昨`IOPV`
 	if err := binary.Write(buf, binary.LittleEndian, int32(-7)); err != nil {
 		t.Fatal(err)
 	}
@@ -529,9 +541,9 @@ func TestMACDynamicFieldMapAlignsLatestTDX(t *testing.T) {
 
 	fields := activeMACDynamicFields(bitmap)
 	want := map[uint8]struct {
-		name   string
-		format string
-		alias  string
+		name   string // 字段主映射键名
+		format string // 解码数值类型，如 `int32`、`float32`、`uint32`
+		alias  string // 兼容旧名的字段别名，无别名时留空
 	}{
 		0x16: {name: "board_strength", format: "int32", alias: "unknown_22"},
 		0x37: {name: "index_metric", format: "float32", alias: "unknown_55"},
@@ -564,6 +576,8 @@ func TestMACDynamicFieldMapAlignsLatestTDX(t *testing.T) {
 	}
 }
 
+// containsString 判断字符串切片中是否包含目标字符串。
+// 参数 `values` 为待查找的切片，`target` 为目标字符串；命中返回 `true`，未命中返回 `false`。
 func containsString(values []string, target string) bool {
 	for _, value := range values {
 		if value == target {
@@ -672,7 +686,7 @@ func TestMACQuotesBuildRequestAndParseResponse(t *testing.T) {
 	if reply.Code != "600000" || reply.Name != "PingAn Bank" || reply.Count != 2 {
 		t.Fatalf("unexpected reply: %+v", reply)
 	}
-	if len(reply.ChartData) != 2 || reply.ChartData[0].Time != "09:30:00" || reply.ChartData[1].Vol != 2234 {
+	if len(reply.ChartData) != 2 || reply.ChartData[0].Time != "09:31:00" || reply.ChartData[1].Vol != 2234 {
 		t.Fatalf("unexpected chart data: %+v", reply.ChartData)
 	}
 	assertNearFloat64(t, reply.Close, 10.5, "close")
@@ -749,13 +763,13 @@ func TestMACSymbolQuotesBuildRequestAndParseResponse(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, item := range []struct {
-		market    uint16
-		symbol    string
-		name      string
-		preClose  float32
-		close     float32
-		vol       uint32
-		ahCodeRaw uint32
+		market    uint16  // 市场代码，两字节
+		symbol    string  // 证券代码
+		name      string  // 证券名称，44 字节定长 GBK 段
+		preClose  float32 // 昨收价
+		close     float32 // 收盘价
+		vol       uint32  // 成交量
+		ahCodeRaw uint32  // A/H 股关联代码原始值（`ah_code`，不足位数前补 0）
 	}{
 		{market: 0, symbol: "000001", name: "PingAn Bank", preClose: 10.1, close: 10.5, vol: 123456, ahCodeRaw: 700},
 		{market: 1, symbol: "600000", name: "PuFa Bank", preClose: 11.1, close: 11.8, vol: 654321, ahCodeRaw: 6881},
@@ -1065,11 +1079,11 @@ func TestMACTickChartsBuildRequestAndParseResponse(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, item := range []struct {
-		minutes uint16
-		price   float32
-		avg     float32
-		vol     uint16
-		unknown uint16
+		minutes uint16  // 分时分钟偏移，两字节，由源码换算为时间标签
+		price   float32 // 该时点成交价，单精度浮点
+		avg     float32 // 该时点均价，单精度浮点
+		vol     uint16  // 分时累计成交量，两字节
+		unknown uint16  // 协议保留槽位，语义待确认
 	}{
 		{minutes: 570, price: 10.1, avg: 10.05, vol: 100, unknown: 7},
 		{minutes: 571, price: 10.2, avg: 10.10, vol: 120, unknown: 8},
@@ -1140,6 +1154,79 @@ func TestMACTickChartsBuildRequestAndParseResponse(t *testing.T) {
 	assertNearFloat64(t, reply.Close, 10.2, "tick_close")
 }
 
+func TestMACTickChartsParseResponseTrimsDaysBeyondRequest(t *testing.T) {
+	// 请求 1 个交易日，服务端返回 2 个交易日（当日 + 前一基准日）时应裁剪为 1 天。
+	msg := NewMACTickCharts(&MACTickChartsRequest{
+		Market: 1,
+		Code:   makeMACCode22("600000"),
+		Days:   1,
+	})
+
+	buf := new(bytes.Buffer)
+	if err := binary.Write(buf, binary.LittleEndian, uint16(1)); err != nil {
+		t.Fatal(err)
+	}
+	if err := binary.Write(buf, binary.LittleEndian, makeMACCode22("600000")); err != nil {
+		t.Fatal(err)
+	}
+	for _, value := range []uint32{20260418, 20260417, 0, 0, 0} {
+		if err := binary.Write(buf, binary.LittleEndian, value); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, value := range []float32{10.0, 9.8, 0, 0, 0} {
+		writeMACFloat32(t, buf, value)
+	}
+	// 服务端交易日数 `Count`=2，与请求 `days`=1 不一致。
+	if err := binary.Write(buf, binary.LittleEndian, uint16(2)); err != nil {
+		t.Fatal(err)
+	}
+	if err := buf.WriteByte(1); err != nil {
+		t.Fatal(err)
+	}
+	if err := binary.Write(buf, binary.LittleEndian, uint16(2)); err != nil {
+		t.Fatal(err)
+	}
+	if err := binary.Write(buf, binary.LittleEndian, uint16(4)); err != nil {
+		t.Fatal(err)
+	}
+	for _, item := range []struct {
+		minutes uint16  // 分时分钟偏移，两字节，由源码换算为时间标签
+		price   float32 // 该时点成交价，单精度浮点
+		avg     float32 // 该时点均价，单精度浮点
+		vol     uint16  // 分时累计成交量，两字节
+		unknown uint16  // 协议保留槽位，语义待确认
+	}{
+		{minutes: 570, price: 10.1, avg: 10.05, vol: 100, unknown: 7},
+		{minutes: 571, price: 10.2, avg: 10.10, vol: 120, unknown: 8},
+		{minutes: 570, price: 9.9, avg: 9.85, vol: 90, unknown: 9},
+		{minutes: 571, price: 10.0, avg: 9.90, vol: 110, unknown: 10},
+	} {
+		if err := binary.Write(buf, binary.LittleEndian, item.minutes); err != nil {
+			t.Fatal(err)
+		}
+		writeMACFloat32(t, buf, item.price)
+		writeMACFloat32(t, buf, item.avg)
+		if err := binary.Write(buf, binary.LittleEndian, item.vol); err != nil {
+			t.Fatal(err)
+		}
+		if err := binary.Write(buf, binary.LittleEndian, item.unknown); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if err := msg.ParseResponse(&RespHeader{}, buf.Bytes()); err != nil {
+		t.Fatalf("parse response failed: %v", err)
+	}
+	reply := msg.Response()
+	if reply.Count != 1 || len(reply.Charts) != 1 {
+		t.Fatalf("expected trimmed to 1 day, got count=%d charts=%d", reply.Count, len(reply.Charts))
+	}
+	if reply.Charts[0].Date != "2026-04-18" || len(reply.Charts[0].Ticks) != 2 {
+		t.Fatalf("unexpected trimmed charts: %+v", reply.Charts)
+	}
+}
+
 func TestMACTickChartsParseResponseSupportsPartialLeadingDay(t *testing.T) {
 	msg := NewMACTickCharts(nil)
 
@@ -1171,11 +1258,11 @@ func TestMACTickChartsParseResponseSupportsPartialLeadingDay(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, item := range []struct {
-		minutes uint16
-		price   float32
-		avg     float32
-		vol     uint16
-		unknown uint16
+		minutes uint16  // 分时分钟偏移，两字节，由源码换算为时间标签
+		price   float32 // 该时点成交价，单精度浮点
+		avg     float32 // 该时点均价，单精度浮点
+		vol     uint16  // 分时累计成交量，两字节
+		unknown uint16  // 协议保留槽位，语义待确认
 	}{
 		{minutes: 570, price: 10.1, avg: 10.1, vol: 1, unknown: 1},
 		{minutes: 570, price: 9.9, avg: 9.9, vol: 2, unknown: 2},
@@ -1551,7 +1638,7 @@ func TestMACSymbolBarsBuildRequestAndParseResponse(t *testing.T) {
 	msg := NewMACSymbolBars(&MACSymbolBarsRequest{
 		Market: 1,
 		Code:   makeMACCode22("600000"),
-		Period: KLINE_TYPE_DAILY,
+		Period: types.KLINE_TYPE_DAILY,
 		Count:  1,
 	})
 
@@ -1565,7 +1652,7 @@ func TestMACSymbolBarsBuildRequestAndParseResponse(t *testing.T) {
 	if err := binary.Read(bytes.NewReader(raw[12:]), binary.LittleEndian, &req); err != nil {
 		t.Fatalf("read request failed: %v", err)
 	}
-	if req.Market != 1 || req.Period != KLINE_TYPE_DAILY || req.Count != 1 || req.Flag1 != 1 || req.Flag2 != 1 || req.Flag4 != 1 {
+	if req.Market != 1 || req.Period != types.KLINE_TYPE_DAILY || req.Count != 1 || req.Flag1 != 1 || req.Flag2 != 1 || req.Flag4 != 1 {
 		t.Fatalf("unexpected request: %+v", req)
 	}
 
@@ -1577,7 +1664,7 @@ func TestMACSymbolBarsBuildRequestAndParseResponse(t *testing.T) {
 	copy(code, "600000")
 	buf.Write(code)
 	buf.Write(make([]byte, 10))
-	if err := buf.WriteByte(byte(KLINE_TYPE_DAILY)); err != nil {
+	if err := buf.WriteByte(byte(types.KLINE_TYPE_DAILY)); err != nil {
 		t.Fatal(err)
 	}
 	if err := binary.Write(buf, binary.LittleEndian, uint16(1)); err != nil {
@@ -1652,7 +1739,7 @@ func TestMACSymbolBarsBuildRequestAndParseResponse(t *testing.T) {
 	}
 }
 
-// TestCombineMACDateTimeOvernight 验证协议层保留 MAC 原始交易日与时刻，不擅自推断自然日。
+// TestCombineMACDateTimeOvernight 验证协议层保留 `MAC` 原始交易日与时刻，不擅自推断自然日。
 func TestCombineMACDateTimeOvernight(t *testing.T) {
 	got := combineMACDateTime(20260331, 60).Format("2006-01-02 15:04:05")
 	if got != "2026-03-31 00:01:00" {

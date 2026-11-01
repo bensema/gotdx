@@ -10,24 +10,31 @@ import (
 	"github.com/bensema/gotdx/types"
 )
 
+// executeGenericMethodProtocol 是 `execute` 泛型流程的最小协议桩：请求体长度固定为 1 字节，
+// 响应负载原样保存为应答字符串，用于在 `net.Pipe` 上走通一次收发流程。
 type executeGenericMethodProtocol struct {
-	reply string
+	reply string // 最近一次响应负载转成的应答字符串，供 `Response` 返回
 }
 
+// BuildRequest 返回固定的请求负载 `0x5a`；不携带业务参数，编码恒成功，错误返回 `nil`。
 func (*executeGenericMethodProtocol) BuildRequest() ([]byte, error) {
 	return []byte{0x5a}, nil
 }
 
+// ParseResponse 把响应负载原样转为字符串存入 `reply`；入参 `header` 本桩不使用，
+// 负载解码恒成功，错误返回 `nil`。
 func (p *executeGenericMethodProtocol) ParseResponse(_ *proto.RespHeader, payload []byte) error {
 	p.reply = string(payload)
 	return nil
 }
 
+// Response 返回最近一次保存的应答字符串。
 func (p *executeGenericMethodProtocol) Response() string {
 	return p.reply
 }
 
 func TestClientExecuteGenericMethod(t *testing.T) {
+	// 使用 `net.Pipe` 在同一进程内模拟一条连接，避免依赖真实网络。
 	clientConn, serverConn := net.Pipe()
 	t.Cleanup(func() {
 		_ = clientConn.Close()
@@ -35,7 +42,7 @@ func TestClientExecuteGenericMethod(t *testing.T) {
 	})
 
 	client := New(WithTimeoutSec(1))
-	client.conn = clientConn
+	client.pool = []*pooledConn{{conn: clientConn}}
 
 	serverDone := make(chan error, 1)
 	go func() {
@@ -151,5 +158,132 @@ func TestMakeExStocks(t *testing.T) {
 	}
 	if stocks[0].Category != types.ExCategoryUSStock || stocks[0].Code != "TSLA" {
 		t.Fatalf("unexpected first ex stock: %+v", stocks[0])
+	}
+}
+
+// TestNodeHealthDowngradesAfterEmptyStreak 验证同一节点连续空数据达到阈值后被标记降权，
+// 一次非空成功后计数清零、节点恢复定向资格。
+func TestNodeHealthDowngradesAfterEmptyStreak(t *testing.T) {
+	c := New(WithPoolSize(1))
+	addr := "127.0.0.1:7727"
+
+	// 未记录健康度（从未返回空数据）时不视为降权，保持原定向行为。
+	if c.nodeHealthDegradedLocked(addr) {
+		t.Fatal("fresh node must not be degraded")
+	}
+	for i := 0; i < healthDowngradeThreshold-1; i++ {
+		c.recordNodeHealthEmpty(addr)
+		if c.nodeHealthDegradedLocked(addr) {
+			t.Fatalf("node must stay usable before streak threshold, round %d", i+1)
+		}
+	}
+	c.recordNodeHealthEmpty(addr)
+	if !c.nodeHealthDegradedLocked(addr) {
+		t.Fatal("node must be degraded after threshold empty streak")
+	}
+	c.recordNodeHealthOK(addr)
+	if c.nodeHealthDegradedLocked(addr) {
+		t.Fatal("node must recover after a non-empty reply")
+	}
+}
+
+// TestAcquireSkipsDegradedTarget 验证定向节点被降权后，借出跳过该节点回退轮询；节点恢复
+// 后定向优先重新生效。
+func TestAcquireSkipsDegradedTarget(t *testing.T) {
+	addrA, addrB := "10.0.0.1:7727", "10.0.0.2:7727"
+	c := New(WithPoolSize(2))
+	for i := 0; i < healthDowngradeThreshold; i++ {
+		c.recordNodeHealthEmpty(addrA)
+	}
+
+	pcA := &pooledConn{addr: addrA}
+	pcB := &pooledConn{addr: addrB}
+	c.mu.Lock()
+	c.pool = []*pooledConn{pcA, pcB}
+	c.lastDataAddr = addrA
+	c.mu.Unlock()
+
+	// 降权节点 A 被跳过，轮询借出 B。
+	pc, err := c.acquire()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pc.addr != addrB {
+		t.Fatalf("degraded target must be skipped, acquired %s", pc.addr)
+	}
+	c.release(pc)
+
+	// A 返回一次非空后恢复定向资格，再次借出优先命中 A。
+	c.recordNodeHealthOK(addrA)
+	pc, err = c.acquire()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pc.addr != addrA {
+		t.Fatalf("recovered target must be preferred, acquired %s", pc.addr)
+	}
+}
+
+// emptyCountReply 为测试用应答桩，携带 `Count` 字段供 `isEmptyReply` 判空。
+type emptyCountReply struct {
+	Count uint16
+}
+
+// emptyCountProtocol 是空应答协议桩：固定请求体，解析后 `Count` 恒为 0，用于验证关闭换
+// 节点模式下空应答被直接返回、不触发并行探测。
+type emptyCountProtocol struct {
+	reply emptyCountReply
+}
+
+// BuildRequest 返回固定请求负载 `0x5a`，编码恒成功。
+func (*emptyCountProtocol) BuildRequest() ([]byte, error) {
+	return []byte{0x5a}, nil
+}
+
+// ParseResponse 置空 `Count`，负载内容本桩不使用，解码恒成功。
+func (p *emptyCountProtocol) ParseResponse(_ *proto.RespHeader, _ []byte) error {
+	p.reply.Count = 0
+	return nil
+}
+
+// Response 返回最近一次应答桩。
+func (p *emptyCountProtocol) Response() emptyCountReply { return p.reply }
+
+// TestExecuteSkipsEmptyRetryWhenSwitchDisabled 验证关闭空数据换节点后，空应答在首次请求后
+// 直接返回，不再并行探测池内其他连接（单连接模式对齐老库固定节点行为）。
+func TestExecuteSkipsEmptyRetryWhenSwitchDisabled(t *testing.T) {
+	clientConn, serverConn := net.Pipe()
+	t.Cleanup(func() {
+		_ = clientConn.Close()
+		_ = serverConn.Close()
+	})
+
+	client := New(WithTimeoutSec(1), WithEmptyNodeSwitchDisabled(true))
+	client.pool = []*pooledConn{{conn: clientConn}}
+
+	requestCount := make(chan int, 1)
+	go func() {
+		count := 0
+		for {
+			request := make([]byte, 1)
+			if _, err := io.ReadFull(serverConn, request); err != nil {
+				break
+			}
+			count++
+			_, _ = serverConn.Write(fakeRespHeader(0, 0, 0))
+		}
+		requestCount <- count
+	}()
+
+	reply, err := client.execute(&emptyCountProtocol{})
+	if err != nil {
+		t.Fatalf("execute failed: %v", err)
+	}
+	if reply.Count != 0 {
+		t.Fatalf("disabled switch must return first empty reply, got Count=%d", reply.Count)
+	}
+	_ = clientConn.Close()
+	if got := <-requestCount; got != 1 {
+		t.Fatalf("disabled switch must send exactly one request, got %d", got)
 	}
 }

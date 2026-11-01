@@ -7,8 +7,12 @@ import (
 	"github.com/bensema/gotdx/types"
 )
 
+// macIntegrationHistoryDate 是集成测试固定使用的历史日期，格式为 `YYYYMMDD`；选用已收盘的
+// 历史日期，保证历史行情与成交记录在任意交易日运行测试时均可稳定复现。
 const macIntegrationHistoryDate = 20260430
 
+// newMACIntegrationClient 基于内置 MAC 站点地址池构造客户端，拨号超时固定为 6 秒。
+// 无入参；返回尚未发起连接的 `Client`，由各子测试在结束时调用 `Disconnect` 释放；仅用于集成测试。
 func newMACIntegrationClient() *Client {
 	primary, pool := defaultAddressAndPool(MACHostAddresses(), "")
 	return NewMAC(
@@ -129,6 +133,7 @@ func Test_tdx_MACRecentProtocols(t *testing.T) {
 		if len(reply.Charts) == 0 || reply.Total == 0 {
 			t.Fatalf("expected tick chart data, got empty reply: %+v", reply)
 		}
+		// 统计至少含一根分时刻度的交易日，要求返回结果不是全空的多日分时。
 		nonEmptyDays := 0
 		for _, day := range reply.Charts {
 			if len(day.Ticks) > 0 {

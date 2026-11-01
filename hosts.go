@@ -9,53 +9,45 @@ import (
 	"time"
 )
 
-// HostInfo describes a built-in TDX server entry.
+// HostInfo 表示一条内置通达信行情服务器条目，包含站点名称、IP 地址与端口。
+//
+// 该结构体为纯值类型，零值对应名称、IP 为空串、端口为 0；各站点列表函数返回的是内置
+// 列表的浅拷贝，调用方修改返回切片或其中条目不会影响内置数据。
 type HostInfo struct {
-	Name string `json:"name"`
-	IP   string `json:"ip"`
-	Port int    `json:"port"`
+	Name string `json:"name"` // 站点显示名称，用于界面展示与探测结果标注
+	IP   string `json:"ip"`   // 服务器 IPv4 或主机名，连接层直接用于拨号
+	Port int    `json:"port"` // 服务器端口号，取值范围 0 至 65535
 }
 
-// Address returns the host:port form used by the client connection layer.
+// Address 返回客户端连接层使用的 `host:port` 形式地址，由 `net.JoinHostPort` 拼接，
+// 自动处理 IPv6 场景所需的方括号包裹。
 func (h HostInfo) Address() string {
 	return net.JoinHostPort(h.IP, strconv.Itoa(h.Port))
 }
 
-// HostProbeResult records a single TCP probe result.
+// HostProbeResult 记录一次 TCP 拨号探测的结果。
+//
+// 当 `Reachable` 为 `true` 时 `Latency` 为本次拨号测得的往返耗时；当 `Reachable` 为 `false`
+// 时 `Latency` 无意义，`Error` 保存拨号失败原因的文本描述。零值表示未探测或不可达。
 type HostProbeResult struct {
-	Name      string        `json:"name"`
-	IP        string        `json:"ip"`
-	Port      int           `json:"port"`
-	Address   string        `json:"address"`
-	Latency   time.Duration `json:"latency"`
-	Reachable bool          `json:"reachable"`
-	Error     string        `json:"error,omitempty"`
+	Name      string        `json:"name"`            // 站点显示名称，地址无法回填名称时为空串
+	IP        string        `json:"ip"`              // 服务器 IP 地址或主机名
+	Port      int           `json:"port"`            // 服务器端口号；端口解析失败时保持 0
+	Address   string        `json:"address"`         // `host:port` 形式地址，原样来自探测输入
+	Latency   time.Duration `json:"latency"`         // 拨号往返耗时，仅 `Reachable` 为 `true` 时有效
+	Reachable bool          `json:"reachable"`       // 是否 TCP 拨号成功
+	Error     string        `json:"error,omitempty"` // 拨号或地址解析失败原因，成功时为空串
 }
 
-// ErrNoReachableHosts indicates that every probed host failed the TCP dial.
+// ErrNoReachableHosts 表示本次探测的所有主机 TCP 拨号均失败，没有任何可达节点；
+// 由 `FastestHost`、`FastestAddress` 在筛选最快主机时返回。
 var ErrNoReachableHosts = errors.New("no reachable hosts")
 
 var mainHostList = []HostInfo{
 	{Name: "通达信深圳双线主站1", IP: "110.41.147.114", Port: 7709},
 	{Name: "通达信深圳双线主站2", IP: "110.41.2.72", Port: 7709},
-	{Name: "通达信深圳双线主站3", IP: "110.41.4.4", Port: 7709},
-	{Name: "通达信深圳双线主站4", IP: "47.113.94.204", Port: 7709},
-	{Name: "通达信深圳双线主站5", IP: "8.129.174.169", Port: 7709},
-	{Name: "通达信深圳双线主站6", IP: "110.41.154.219", Port: 7709},
-	{Name: "通达信上海双线主站1", IP: "124.70.176.52", Port: 7709},
-	{Name: "通达信上海双线主站2", IP: "47.100.236.28", Port: 7709},
-	{Name: "通达信上海双线主站3", IP: "123.60.186.45", Port: 7709},
 	{Name: "通达信上海双线主站4", IP: "123.60.164.122", Port: 7709},
-	{Name: "通达信上海双线主站5", IP: "47.116.105.28", Port: 7709},
 	{Name: "通达信上海双线主站6", IP: "124.70.199.56", Port: 7709},
-	{Name: "通达信北京双线主站1", IP: "121.36.54.217", Port: 7709},
-	{Name: "通达信北京双线主站2", IP: "121.36.81.195", Port: 7709},
-	{Name: "通达信北京双线主站3", IP: "123.249.15.60", Port: 7709},
-	{Name: "通达信广州双线主站1", IP: "124.71.85.110", Port: 7709},
-	{Name: "通达信广州双线主站2", IP: "139.9.51.18", Port: 7709},
-	{Name: "通达信广州双线主站3", IP: "139.159.239.163", Port: 7709},
-	{Name: "通达信上海双线主站7", IP: "106.14.201.131", Port: 7709},
-	{Name: "通达信上海双线主站8", IP: "106.14.190.242", Port: 7709},
 	{Name: "通达信上海双线主站9", IP: "121.36.225.169", Port: 7709},
 	{Name: "通达信上海双线主站10", IP: "123.60.70.228", Port: 7709},
 	{Name: "通达信上海双线主站11", IP: "123.60.73.44", Port: 7709},
@@ -63,22 +55,49 @@ var mainHostList = []HostInfo{
 	{Name: "通达信上海双线主站13", IP: "124.71.187.72", Port: 7709},
 	{Name: "通达信上海双线主站14", IP: "124.71.187.122", Port: 7709},
 	{Name: "通达信武汉电信主站1", IP: "119.97.185.59", Port: 7709},
-	{Name: "通达信深圳双线主站7", IP: "47.107.64.168", Port: 7709},
-	{Name: "通达信北京双线主站4", IP: "124.70.75.113", Port: 7709},
 	{Name: "通达信广州双线主站4", IP: "124.71.9.153", Port: 7709},
 	{Name: "通达信上海双线主站15", IP: "123.60.84.66", Port: 7709},
-	{Name: "通达信深圳双线主站8", IP: "47.107.228.47", Port: 7719},
-	{Name: "通达信北京双线主站5", IP: "120.46.186.223", Port: 7709},
-	{Name: "通达信北京双线主站6", IP: "124.70.22.210", Port: 7709},
-	{Name: "通达信北京双线主站7", IP: "139.9.133.247", Port: 7709},
 	{Name: "通达信广州双线主站5", IP: "116.205.163.254", Port: 7709},
 	{Name: "通达信广州双线主站6", IP: "116.205.171.132", Port: 7709},
 	{Name: "通达信广州双线主站7", IP: "116.205.183.150", Port: 7709},
+	{Name: "通达信上海腾讯云1", IP: "122.51.120.217", Port: 7709},
+	{Name: "通达信上海腾讯云2", IP: "111.229.247.189", Port: 7709},
+	{Name: "通达信上海腾讯云3", IP: "122.51.232.182", Port: 7709},
+	{Name: "通达信上海腾讯云4", IP: "118.25.98.114", Port: 7709},
+	{Name: "通达信上海腾讯云5", IP: "124.223.163.242", Port: 7709},
+	{Name: "通达信上海腾讯云6", IP: "150.158.160.2", Port: 7709},
+	{Name: "通达信上海腾讯云7", IP: "101.35.121.35", Port: 7709},
+	{Name: "通达信上海腾讯云8", IP: "111.231.113.208", Port: 7709},
+	{Name: "通达信北京腾讯云1", IP: "62.234.50.143", Port: 7709},
+	{Name: "通达信北京腾讯云2", IP: "81.70.151.186", Port: 7709},
+	{Name: "通达信北京腾讯云3", IP: "101.42.240.54", Port: 7709},
+	{Name: "通达信北京腾讯云4", IP: "101.43.159.194", Port: 7709},
+	{Name: "通达信北京腾讯云5", IP: "120.53.8.251", Port: 7709},
+	{Name: "通达信北京腾讯云6", IP: "152.136.191.169", Port: 7709},
+	{Name: "通达信北京腾讯云7", IP: "49.232.15.141", Port: 7709},
+	{Name: "通达信北京腾讯云8", IP: "82.156.174.84", Port: 7709},
+	{Name: "通达信北京腾讯云9", IP: "101.42.164.241", Port: 7709},
+	{Name: "通达信广州腾讯云1", IP: "111.230.186.52", Port: 7709},
+	{Name: "通达信广州腾讯云2", IP: "101.33.225.16", Port: 7709},
+	{Name: "通达信广州腾讯云3", IP: "175.178.112.197", Port: 7709},
+	{Name: "通达信广州腾讯云4", IP: "175.178.128.227", Port: 7709},
+	{Name: "通达信广州腾讯云5", IP: "43.139.95.83", Port: 7709},
+	{Name: "通达信广州腾讯云6", IP: "159.75.29.111", Port: 7709},
+	{Name: "通达信广州腾讯云7", IP: "43.139.18.171", Port: 7709},
+	{Name: "通达信广州腾讯云8", IP: "81.71.32.47", Port: 7709},
+	{Name: "通达信广州腾讯云9", IP: "129.204.230.128", Port: 7709},
+	{Name: "通达信杭州联通主站2", IP: "60.12.136.250", Port: 7709},
+	{Name: "通达信北京双线主站8", IP: "82.156.214.79", Port: 7709},
+	{Name: "通达信深圳双线主站9", IP: "43.136.95.205", Port: 7709},
+	{Name: "通达信深圳双线主站10", IP: "43.136.96.138", Port: 7709},
+	{Name: "通达信深圳双线主站11", IP: "101.33.244.209", Port: 7709},
+	{Name: "通达信深圳双线主站12", IP: "106.53.63.234", Port: 7709},
+	{Name: "通达信深圳双线主站13", IP: "119.91.226.89", Port: 7709},
+	{Name: "通达信上海双线主站16", IP: "121.37.183.82", Port: 7709},
+	{Name: "通达信深圳双线主站14", IP: "110.41.174.169", Port: 7709},
 }
 
 var brokerHostList = []HostInfo{
-	{Name: "上证云成都电信一", IP: "218.6.170.47", Port: 7709},
-	{Name: "上证云北京联通一", IP: "123.125.108.14", Port: 7709},
 	{Name: "上海电信主站Z1", IP: "180.153.18.170", Port: 7709},
 	{Name: "上海电信主站Z80", IP: "180.153.18.172", Port: 80},
 	{Name: "北京联通主站Z80", IP: "202.108.253.139", Port: 80},
@@ -98,19 +117,10 @@ var brokerHostList = []HostInfo{
 	{Name: "国泰君安", IP: "117.34.114.18", Port: 7709},
 	{Name: "国泰君安", IP: "117.34.114.20", Port: 7709},
 	{Name: "国泰君安", IP: "117.34.114.27", Port: 7709},
-	{Name: "国泰君安", IP: "117.34.114.30", Port: 7709},
-	{Name: "国泰君安", IP: "117.34.114.31", Port: 7709},
-	{Name: "国信", IP: "182.131.3.252", Port: 7709},
-	{Name: "国信", IP: "58.63.254.247", Port: 7709},
-	{Name: "海通", IP: "123.125.108.90", Port: 7709},
-	{Name: "海通", IP: "175.6.5.153", Port: 7709},
-	{Name: "海通", IP: "182.118.47.151", Port: 7709},
-	{Name: "海通", IP: "182.131.3.245", Port: 7709},
-	{Name: "海通", IP: "202.100.166.27", Port: 7709},
-	{Name: "海通", IP: "58.63.254.191", Port: 7709},
-	{Name: "海通", IP: "58.63.254.217", Port: 7709},
-	{Name: "华林", IP: "202.100.166.21", Port: 7709},
-	{Name: "华林", IP: "202.96.138.90", Port: 7709},
+	{Name: "华林", IP: "220.178.55.71", Port: 7709},
+	{Name: "华林", IP: "220.178.55.86", Port: 7709},
+	{Name: "华林", IP: "218.106.92.182", Port: 7709},
+	{Name: "华林", IP: "218.106.92.183", Port: 7709},
 }
 
 var exHostList = []HostInfo{
@@ -141,6 +151,22 @@ var macHostList = []HostInfo{
 var macExHostList = []HostInfo{
 	{Name: "扩展行情1", IP: "116.205.135.205", Port: 7727},
 	{Name: "扩展行情2", IP: "121.37.232.167", Port: 7727},
+	{Name: "扩展行情3", IP: "112.74.214.43", Port: 7727},
+	{Name: "扩展行情4", IP: "120.25.218.6", Port: 7727},
+	{Name: "扩展行情5", IP: "43.139.173.246", Port: 7727},
+	{Name: "扩展行情6", IP: "159.75.90.107", Port: 7727},
+	{Name: "扩展行情7", IP: "106.52.170.195", Port: 7727},
+	{Name: "扩展行情8", IP: "175.24.47.69", Port: 7727},
+	{Name: "扩展行情9", IP: "139.9.191.175", Port: 7727},
+	{Name: "扩展行情10", IP: "150.158.9.199", Port: 7727},
+	{Name: "扩展行情11", IP: "150.158.20.127", Port: 7727},
+	{Name: "扩展行情12", IP: "49.235.119.116", Port: 7727},
+	{Name: "扩展行情13", IP: "49.234.13.160", Port: 7727},
+	{Name: "扩展行情14", IP: "116.205.143.214", Port: 7727},
+	{Name: "扩展行情15", IP: "124.71.223.19", Port: 7727},
+	{Name: "扩展行情16", IP: "123.60.173.210", Port: 7727},
+	{Name: "扩展行情17", IP: "113.45.175.47", Port: 7727},
+	{Name: "扩展行情18", IP: "118.89.69.202", Port: 7727},
 }
 
 var icfqsHostList = []HostInfo{
@@ -158,68 +184,84 @@ var icfqsHostList = []HostInfo{
 	{Name: "华为广州均衡5", IP: "124.71.105.217", Port: 7615},
 }
 
-// MainHosts returns the built-in main quote servers.
+// MainHosts 返回内置主行情服务器列表的浅拷贝；该组站点用于主站 A 股行情协议，默认端口
+// 7709，调用方修改返回切片不会影响内置列表。
 func MainHosts() []HostInfo {
 	return cloneHosts(mainHostList)
 }
 
-// BrokerHosts returns the built-in broker quote servers.
+// BrokerHosts 返回内置券商行情服务器列表的浅拷贝；该组站点为券商与上证云接入地址，
+// 调用方修改返回切片不会影响内置列表。
 func BrokerHosts() []HostInfo {
 	return cloneHosts(brokerHostList)
 }
 
-// ExHosts returns the built-in extended-market servers.
+// ExHosts 返回内置扩展行情服务器列表的浅拷贝；该组站点用于期货、港股、美股等扩展行情
+// 协议，默认端口 7727，调用方修改返回切片不会影响内置列表。
 func ExHosts() []HostInfo {
 	return cloneHosts(exHostList)
 }
 
-// MACHosts returns the built-in MAC quote servers.
+// MACHosts 返回内置 MAC 主行情服务器列表的浅拷贝；该组站点用于 MAC 主站协议，
+// 调用方修改返回切片不会影响内置列表。
 func MACHosts() []HostInfo {
 	return cloneHosts(macHostList)
 }
 
-// MACExHosts returns the built-in MAC extended-market servers.
+// MACExHosts 返回内置 MAC 扩展行情服务器列表的浅拷贝；该组站点用于 MAC 扩展行情协议，
+// 调用方修改返回切片不会影响内置列表。
 func MACExHosts() []HostInfo {
 	return cloneHosts(macExHostList)
 }
 
-// ICFQSHosts returns the built-in ICFQS TQLEX servers.
+// ICFQSHosts 返回内置 ICFQS 资讯行情服务器列表的浅拷贝；该组站点用于资讯行情协议，
+// 默认端口 7615，调用方修改返回切片不会影响内置列表。
 func ICFQSHosts() []HostInfo {
 	return cloneHosts(icfqsHostList)
 }
 
-// MainHostAddresses returns the built-in main quote host:port list.
+// MainHostAddresses 返回内置主行情服务器的 `host:port` 地址列表副本；列表顺序与 `MainHosts`
+// 一致，返回切片可由调用方自由修改。
 func MainHostAddresses() []string {
 	return hostAddresses(mainHostList)
 }
 
-// BrokerHostAddresses returns the built-in broker host:port list.
+// BrokerHostAddresses 返回内置券商服务器的 `host:port` 地址列表副本；列表顺序与
+// `BrokerHosts` 一致，返回切片可由调用方自由修改。
 func BrokerHostAddresses() []string {
 	return hostAddresses(brokerHostList)
 }
 
-// ExHostAddresses returns the built-in extended-market host:port list.
+// ExHostAddresses 返回内置扩展行情服务器的 `host:port` 地址列表副本；列表顺序与 `ExHosts`
+// 一致，返回切片可由调用方自由修改。
 func ExHostAddresses() []string {
 	return hostAddresses(exHostList)
 }
 
-// MACHostAddresses returns the built-in MAC quote host:port list.
+// MACHostAddresses 返回内置 MAC 主行情服务器的 `host:port` 地址列表副本；列表顺序与
+// `MACHosts` 一致，返回切片可由调用方自由修改。
 func MACHostAddresses() []string {
 	return hostAddresses(macHostList)
 }
 
-// MACExHostAddresses returns the built-in MAC extended-market host:port list.
+// MACExHostAddresses 返回内置 MAC 扩展行情服务器的 `host:port` 地址列表副本；列表顺序与
+// `MACExHosts` 一致，返回切片可由调用方自由修改。
 func MACExHostAddresses() []string {
 	return hostAddresses(macExHostList)
 }
 
-// ICFQSHostAddresses returns the built-in ICFQS TQLEX host:port list.
+// ICFQSHostAddresses 返回内置 ICFQS 资讯行情服务器的 `host:port` 地址列表副本；列表顺序与
+// `ICFQSHosts` 一致，返回切片可由调用方自由修改。
 func ICFQSHostAddresses() []string {
 	return hostAddresses(icfqsHostList)
 }
 
-// ProbeHosts concurrently dials the supplied built-in host entries and returns
-// the results sorted by reachability and latency.
+// ProbeHosts 并发对给定主机条目逐一发起 TCP 拨号探测，返回探测结果切片。
+//
+// `hosts` 为待探测主机条目；`timeout` 为单次拨号超时时间，传非正数时回退到内置默认超时
+// （8 秒）。返回结果先按可达性排序（可达条目在前），同为可达时再按往返延迟从低到高排序，
+// 延迟相同按名称、地址字典序兜底；输入为空切片时返回空切片。探测不返回错误，失败原因记录
+// 在各结果条目的 `Error` 字段中。
 func ProbeHosts(hosts []HostInfo, timeout time.Duration) []HostProbeResult {
 	results := probeAddressesWithDial(hostAddresses(hosts), timeout, net.DialTimeout)
 	names := make(map[string]HostInfo, len(hosts))
@@ -236,26 +278,41 @@ func ProbeHosts(hosts []HostInfo, timeout time.Duration) []HostProbeResult {
 	return results
 }
 
-// ProbeAddresses concurrently dials the supplied host:port list and returns the
-// results sorted by reachability and latency.
+// ProbeAddresses 并发对给定 `host:port` 地址列表逐一发起 TCP 拨号探测，返回探测结果切片。
+//
+// `addresses` 为待探测地址，格式由 `net.SplitHostPort` 解析；`timeout` 为单次拨号超时时间，
+// 传非正数时回退到内置默认超时（8 秒）。排序规则同 `ProbeHosts`；输入为空切片时返回空切片。
+// 探测不返回错误，失败原因记录在各结果条目的 `Error` 字段中。
 func ProbeAddresses(addresses []string, timeout time.Duration) []HostProbeResult {
 	return probeAddressesWithDial(addresses, timeout, net.DialTimeout)
 }
 
-// FastestHost returns the fastest reachable built-in host entry.
+// FastestHost 返回探测结果中延迟最低的可达主机条目。
+//
+// `hosts` 与 `timeout` 的含义同 `ProbeHosts`；探测完成后取排序结果里第一个可达条目。全部主机
+// 不可达时返回零值 `HostProbeResult` 与 `ErrNoReachableHosts`。
 func FastestHost(hosts []HostInfo, timeout time.Duration) (HostProbeResult, error) {
 	return fastestProbeResult(ProbeHosts(hosts, timeout))
 }
 
-// FastestAddress returns the fastest reachable address from the supplied list.
+// FastestAddress 返回给定地址列表中延迟最低的可达地址。
+//
+// `addresses` 与 `timeout` 的含义同 `ProbeAddresses`。全部地址不可达时返回零值
+// `HostProbeResult` 与 `ErrNoReachableHosts`。
 func FastestAddress(addresses []string, timeout time.Duration) (HostProbeResult, error) {
 	return fastestProbeResult(ProbeAddresses(addresses, timeout))
 }
 
+// cloneHosts 返回主机切片的浅拷贝；元素为值类型，拷贝后调用方增删或修改切片长度不会影响
+// 内置列表。
+//
+// `hosts` 为待拷贝主机切片；输入为 `nil` 时返回非 `nil` 的空切片。
 func cloneHosts(hosts []HostInfo) []HostInfo {
 	return append([]HostInfo(nil), hosts...)
 }
 
+// hostAddresses 将主机条目列表转换为 `host:port` 地址切片，顺序与输入一致；输入为空时
+// 返回非 `nil` 的空切片。
 func hostAddresses(hosts []HostInfo) []string {
 	addresses := make([]string, 0, len(hosts))
 	for _, host := range hosts {
@@ -264,6 +321,11 @@ func hostAddresses(hosts []HostInfo) []string {
 	return addresses
 }
 
+// defaultAddressAndPool 从地址列表中拆分出主地址与候选池：首个地址作为主地址，其余地址
+// 作为候选池。
+//
+// `addresses` 为输入地址列表；`fallback` 为列表为空时使用的兜底主地址。列表为空时返回
+// `fallback` 与 `nil` 候选池；非空时候选池为输入尾部地址的浅拷贝。
 func defaultAddressAndPool(addresses []string, fallback string) (string, []string) {
 	if len(addresses) == 0 {
 		return fallback, nil
@@ -271,6 +333,23 @@ func defaultAddressAndPool(addresses []string, fallback string) (string, []strin
 	return addresses[0], append([]string(nil), addresses[1:]...)
 }
 
+// probeConcurrencyWindow 为探活并发窗口上限：同一时刻最多允许该数量的拨号在途，
+// 超过窗口的候选滚动排队。避免大池全量并发拨号（例如 130+ 候选同时超时）在短时间
+// 内占满本机网络栈，造成多入口同进程连续建池时的拥塞耦合；窗口内滚动调度下，全部
+// 候选的最坏判负时间约为候选数除以窗口向上取整后乘以单次拨号超时。
+const probeConcurrencyWindow = 32
+
+// slowProbeTimeout 为慢路径兜底探活的单次拨号超时：快路径已用 `fastDialTimeout`
+// 排除偶发秒级慢样本，慢路径只需更短超时快速判定全灭并缩短超时连接驻留时长
+// （大池全灭时大量超时连接在途会瞬时拥塞本机网络栈，影响同进程其他入口建池）。
+const slowProbeTimeout = 300 * time.Millisecond
+
+// probeAddressesWithDial 受限并发拨号探测地址列表，组装排序后的探测结果。
+//
+// `addresses` 为待探测 `host:port` 地址；`timeout` 为拨号超时，非正数回退默认 8 秒；`dial`
+// 为可替换的拨号函数，便于测试时注入假拨号实现。拨号以 `probeConcurrencyWindow` 为并发
+// 窗口滚动调度，各 `goroutine` 先通过互斥锁收集结果，探测结束后统一按可达性、延迟、名称、
+// 地址排序返回。
 func probeAddressesWithDial(addresses []string, timeout time.Duration, dial func(network, address string, timeout time.Duration) (net.Conn, error)) []HostProbeResult {
 	if timeout <= 0 {
 		timeout = time.Duration(_defaultTimeoutSec) * time.Second
@@ -281,12 +360,16 @@ func probeAddressesWithDial(addresses []string, timeout time.Duration, dial func
 		mu sync.Mutex
 		wg sync.WaitGroup
 	)
-
+	sem := make(chan struct{}, probeConcurrencyWindow)
 	for _, address := range addresses {
+		// 循环变量在闭包内按当前取值捕获，避免所有 `goroutine` 读到同一地址。
 		address := address
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
+			// 滚动窗口限制在途拨号数；拨号完成（无论成败）即释放，下一个候选续接。
+			sem <- struct{}{}
+			defer func() { <-sem }()
 
 			result := hostProbeFromAddress(address)
 			started := time.Now()
@@ -296,6 +379,7 @@ func probeAddressesWithDial(addresses []string, timeout time.Duration, dial func
 			} else {
 				result.Reachable = true
 				result.Latency = time.Since(started)
+				// 拨号仅用于探测可达性，拿到连接后立即关闭，不保留探测连接。
 				_ = conn.Close()
 			}
 
@@ -322,6 +406,10 @@ func probeAddressesWithDial(addresses []string, timeout time.Duration, dial func
 	return results
 }
 
+// fastestProbeResult 在已按可达性与延迟排序的探测结果中取第一个可达条目；没有可达条目时
+// 返回零值结果与 `ErrNoReachableHosts`。
+//
+// `results` 为已排序的探测结果切片；切片为空或全部不可达时返回零值结果与错误。
 func fastestProbeResult(results []HostProbeResult) (HostProbeResult, error) {
 	for _, result := range results {
 		if result.Reachable {
@@ -331,6 +419,10 @@ func fastestProbeResult(results []HostProbeResult) (HostProbeResult, error) {
 	return HostProbeResult{}, ErrNoReachableHosts
 }
 
+// hostProbeFromAddress 预先从 `host:port` 地址解析出 IP 与端口，作为探测结果的初始状态。
+//
+// `address` 为待解析地址；格式非法或端口不是十进制数字时，把解析错误记录到结果的 `Error`
+// 字段，拨号阶段据此直接标记不可达，不会重复报错。端口解析失败时 `Port` 保持 0。
 func hostProbeFromAddress(address string) HostProbeResult {
 	host, port, err := net.SplitHostPort(address)
 	if err != nil {

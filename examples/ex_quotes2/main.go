@@ -1,3 +1,6 @@
+// Command ex_quotes2 演示第二套批量报价协议 ExQuotes2，同时取美股 `TSLA` 与港股主板 `09988`，打印结算价与涨速字段。
+//
+// 运行示例：`go run ./examples/ex_quotes2`
 package main
 
 import (
@@ -11,6 +14,7 @@ func main() {
 	client := exampleutil.NewExClient()
 	defer client.Disconnect()
 
+	// 类别序列与代码序列按下标一一配对：第 1 项美股 `TSLA`，第 2 项港股主板 `09988`；两序列长度必须一致。
 	items, err := client.ExQuotes2(
 		[]uint8{types.ExCategoryUSStock, types.ExCategoryHKMainBoard},
 		[]string{"TSLA", "09988"},

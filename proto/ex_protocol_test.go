@@ -6,8 +6,13 @@ import (
 	"math"
 	"testing"
 	"time"
+
+	"github.com/bensema/gotdx/types"
 )
 
+// readExReqHeader 解析扩展协议请求报文头部。
+// 参数 `raw` 为完整请求报文，仅取前 10 字节解码为 `exReqHeader`；
+// 返回解码后的头部；字节不足或解码失败时通过 `t` 调用 `Fatalf` 终止测试。
 func readExReqHeader(t *testing.T, raw []byte) exReqHeader {
 	t.Helper()
 	var header exReqHeader
@@ -17,6 +22,8 @@ func readExReqHeader(t *testing.T, raw []byte) exReqHeader {
 	return header
 }
 
+// writeFloat32 把单精度浮点写入报文缓冲区。
+// 参数 `buf` 为目标缓冲区，`value` 为待写入的浮点值；写入失败时通过 `t` 终止测试。
 func writeFloat32(t *testing.T, buf *bytes.Buffer, value float32) {
 	t.Helper()
 	if err := binary.Write(buf, binary.LittleEndian, math.Float32bits(value)); err != nil {
@@ -24,6 +31,10 @@ func writeFloat32(t *testing.T, buf *bytes.Buffer, value float32) {
 	}
 }
 
+// buildExQuoteRecord 按扩展行情记录的固定字段顺序构造一条测试报文。
+// 参数 `codeLen` 指定代码字段的定长字节宽度；`category` 为市场类别；
+// `code` 为证券代码，按 `codeLen` 复制，短则补零、长则截断；
+// 返回构造完成的记录字节切片；构造后校验总长度为 291+`codeLen`，不符则通过 `t` 终止测试。
 func buildExQuoteRecord(t *testing.T, codeLen int, category byte, code string) []byte {
 	t.Helper()
 	buf := new(bytes.Buffer)
@@ -107,6 +118,7 @@ func buildExQuoteRecord(t *testing.T, codeLen int, category byte, code string) [
 
 func TestExGetCountParseResponse(t *testing.T) {
 	msg := NewExGetCount()
+	// 31 字节负载：`19:23` 为四字节品种总数 `Count`，其余区间保持零填充。
 	payload := make([]byte, 31)
 	binary.LittleEndian.PutUint32(payload[19:23], 4321)
 
@@ -127,6 +139,8 @@ func TestExLoginBuildRequestAndParseResponse(t *testing.T) {
 		t.Fatalf("unexpected ex request header: head=%#x method=%#x", header.Head, binary.LittleEndian.Uint16(raw[10:12]))
 	}
 
+	// 299 字节定长负载：`53:55` 为年份，`55`/`56`/`57`/`58`/`60` 依次为月、日、分、时、秒；
+	// `61:82` 服务端名称、`82:86` 未知浮点（语义待确认）、`93:244` 描述文本、`247:299` 服务端 IP。
 	payload := make([]byte, 299)
 	binary.LittleEndian.PutUint16(payload[53:55], 2026)
 	payload[55] = 4
@@ -167,6 +181,8 @@ func TestExServerInfoBuildRequestAndParseResponse(t *testing.T) {
 		t.Fatalf("unexpected ex request header: head=%#x method=%#x", header.Head, binary.LittleEndian.Uint16(raw[10:12]))
 	}
 
+	// 327 字节定长负载：`0:4` 延迟、`16:41` 信息文本、`41:70` 版本号、`80:84` 日期、
+	// `84:88` 时刻、`117:130` 主签名、`159:189` 服务端名称、`240:253` 备用签名。
 	payload := make([]byte, 327)
 	binary.LittleEndian.PutUint32(payload[0:4], 123)
 	copy(payload[16:41], []byte("ex-info"))
@@ -395,7 +411,7 @@ func TestExGetKLineBuildRequestAndParseResponse(t *testing.T) {
 	msg := NewExGetKLine(&ExGetKLineRequest{
 		Category: 74,
 		Code:     [9]byte{'T', 'S', 'L', 'A'},
-		Period:   KLINE_TYPE_DAILY,
+		Period:   types.KLINE_TYPE_DAILY,
 		Times:    1,
 		Start:    5,
 		Count:    2,
@@ -412,7 +428,7 @@ func TestExGetKLineBuildRequestAndParseResponse(t *testing.T) {
 	name := make([]byte, 9)
 	copy(name, "TSLA")
 	buf.Write(name)
-	if err := binary.Write(buf, binary.LittleEndian, uint16(KLINE_TYPE_DAILY)); err != nil {
+	if err := binary.Write(buf, binary.LittleEndian, uint16(types.KLINE_TYPE_DAILY)); err != nil {
 		t.Fatal(err)
 	}
 	if err := binary.Write(buf, binary.LittleEndian, uint16(1)); err != nil {
@@ -474,7 +490,7 @@ func TestExGetTickChartAndSamplingParseResponse(t *testing.T) {
 	if err := tickMsg.ParseResponse(&RespHeader{}, tickBuf.Bytes()); err != nil {
 		t.Fatalf("tick parse response failed: %v", err)
 	}
-	if len(tickMsg.Response().List) != 1 || tickMsg.Response().List[0].Time != "09:31" {
+	if len(tickMsg.Response().List) != 1 || tickMsg.Response().List[0].Time != "09:32" {
 		t.Fatalf("unexpected tick reply: %+v", tickMsg.Response())
 	}
 

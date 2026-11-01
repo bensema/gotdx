@@ -125,7 +125,6 @@ func TestApplyDecimalPointToQuotes(t *testing.T) {
 		Close:     12.34,
 		Price:     12.34,
 		PreClose:  12.30,
-		LastClose: 12.30,
 		Open:      12.31,
 		High:      12.50,
 		Low:       12.20,

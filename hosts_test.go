@@ -6,6 +6,8 @@ import (
 	"net"
 	"testing"
 	"time"
+
+	"github.com/bensema/gotdx/proto"
 )
 
 func TestDefaultOptionsUseBuiltInHostPools(t *testing.T) {
@@ -37,6 +39,7 @@ func TestProbeAddressesWithDialSortsByLatency(t *testing.T) {
 		"127.0.0.1:7003",
 	}
 
+	// 拨号闭包模拟三个节点：前两个可达且耗时不同，第三个拨号失败。
 	results := probeAddressesWithDial(addresses, 50*time.Millisecond, func(network, address string, timeout time.Duration) (net.Conn, error) {
 		switch address {
 		case addresses[0]:
@@ -74,28 +77,44 @@ func TestConnectUsesAddressPoolFallback(t *testing.T) {
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		conn, err := ln.Accept()
-		if err == nil {
-			_ = conn.Close()
+		for {
+			conn, err := ln.Accept()
+			if err != nil {
+				return
+			}
+			// 每条连接读取请求头后回主站握手应答，保证测速探测与 `Connect` 建池握手都能成功。
+			go func(conn net.Conn) {
+				defer conn.Close()
+				header := make([]byte, 12)
+				if _, err := io.ReadFull(conn, header); err != nil {
+					return
+				}
+				body := fakeHello1Body()
+				_, _ = conn.Write(append(fakeRespHeader(0, proto.KMSG_CMD1, uint16(len(body))), body...))
+			}(conn)
 		}
 	}()
 
+	// 首选地址不可达，客户端应回退到地址池中的本地监听地址。
 	client := New(
 		WithTCPAddress("127.0.0.1:1"),
 		WithTCPAddressPool(ln.Addr().String()),
 		WithTimeoutSec(1),
+		WithPoolSize(1),
 	)
 	defer client.Disconnect()
 
-	if err := client.connect(); err != nil {
+	if _, err := client.Connect(); err != nil {
 		t.Fatalf("connect failed: %v", err)
 	}
 	if got := client.CurrentAddress(); got != ln.Addr().String() {
 		t.Fatalf("unexpected current address: %q", got)
 	}
-	<-done
 }
 
+// stubConn 是不进行真实网络读写的 `net.Conn` 桩，供拨号探测测试替换真实连接。
+// `Read` 恒返回 `io.EOF`，`Write` 原样返回写入长度，关闭与三类超时设置均为空操作；
+// 本地与远端地址分别返回固定的 `stubAddr` 桩。
 type stubConn struct{}
 
 func (stubConn) Read(b []byte) (int, error)       { return 0, io.EOF }
@@ -107,6 +126,7 @@ func (stubConn) SetDeadline(time.Time) error      { return nil }
 func (stubConn) SetReadDeadline(time.Time) error  { return nil }
 func (stubConn) SetWriteDeadline(time.Time) error { return nil }
 
+// stubAddr 是 `net.Addr` 的最小桩实现；`Network` 恒返回 `tcp`，`String` 返回底层文本。
 type stubAddr string
 
 func (a stubAddr) Network() string { return "tcp" }

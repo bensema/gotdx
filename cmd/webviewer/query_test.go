@@ -9,6 +9,10 @@ import (
 	"github.com/bensema/gotdx/proto"
 )
 
+// hasMethodDef 在方法清单 `methodDefs` 中按方法标识查找是否存在同名定义。
+//
+// `key` 为待匹配的方法唯一标识（对应 `methodDef.Key`）；找到返回 `true`，未找到返回 `false`，
+// 仅供方法覆盖性断言使用。
 func hasMethodDef(key string) bool {
 	for _, def := range methodDefs {
 		if def.Key == key {

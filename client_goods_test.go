@@ -6,6 +6,8 @@ import (
 	"github.com/bensema/gotdx/proto"
 )
 
+// goodsAPI 汇集商品与行情相关的客户端方法集合，方法签名与 `Client` 商品系列公开方法一一对应；
+// 测试中以 `var _ goodsAPI = (*Client)(nil)` 在编译期校验 `Client` 满足该接口。
 type goodsAPI interface {
 	GoodsCount() (uint32, error)
 	GoodsCategoryList() ([]proto.ExCategoryItem, error)

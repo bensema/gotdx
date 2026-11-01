@@ -5,10 +5,11 @@ import (
 	"os"
 	"testing"
 
-	"github.com/bensema/gotdx/proto"
 	"github.com/bensema/gotdx/types"
 )
 
+// newClient 连接内置固定测试地址并返回客户端。无入参；返回已尝试完成握手的 `Client`，
+// 连接失败时仅打印错误而不中断测试，由后续请求断言暴露问题。
 func newClient() *Client {
 	tdx := New(WithTCPAddress("124.71.187.122:7709"))
 	reply, err := tdx.Connect()
@@ -19,6 +20,8 @@ func newClient() *Client {
 	return tdx
 }
 
+// requireIntegration 控制集成测试是否执行。参数 `t` 用于在跳过时终止当前用例；
+// 仅当环境变量 `GOTDX_INTEGRATION=1` 时继续执行，否则调用 `t.Skip` 跳过。
 func requireIntegration(t *testing.T) {
 	t.Helper()
 	if os.Getenv("GOTDX_INTEGRATION") != "1" {
@@ -84,7 +87,7 @@ func Test_tdx_GetSecurityBars(t *testing.T) {
 	fmt.Println("================ GetSecurityBars ================")
 	tdx := newClient()
 	defer tdx.Disconnect()
-	reply, err := tdx.GetSecurityBars(proto.KLINE_TYPE_RI_K, types.MarketSZ.Uint8(), "000001", 0, 10)
+	reply, err := tdx.GetSecurityBars(types.KLINE_TYPE_RI_K, types.MarketSZ.Uint8(), "000001", 0, 10)
 	if err != nil {
 		t.Errorf("error:%s", err)
 	}
@@ -99,7 +102,7 @@ func Test_tdx_GetIndexBars(t *testing.T) {
 	fmt.Println("================ GetIndexBars ================")
 	tdx := newClient()
 	defer tdx.Disconnect()
-	reply, err := tdx.GetIndexBars(proto.KLINE_TYPE_RI_K, types.MarketSH.Uint8(), "000001", 0, 10)
+	reply, err := tdx.GetIndexBars(types.KLINE_TYPE_RI_K, types.MarketSH.Uint8(), "000001", 0, 10)
 	if err != nil {
 		t.Errorf("error:%s", err)
 	}

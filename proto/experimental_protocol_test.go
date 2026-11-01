@@ -19,6 +19,7 @@ func TestRawMainProtocolBuildRequestAndParseResponse(t *testing.T) {
 		if len(raw) <= 12 {
 			t.Fatalf("unexpected raw length: %d", len(raw))
 		}
+		// 三字节原始负载原样透传：长度记为 3，十六进制输出为 `010203`。
 		if err := msg.ParseResponse(&RespHeader{}, []byte{0x01, 0x02, 0x03}); err != nil {
 			t.Fatalf("parse response failed: %v", err)
 		}
@@ -176,6 +177,7 @@ func TestExExperimentalMessagesBuildRequestAndParseResponse(t *testing.T) {
 			t.Fatal(err)
 		}
 		writeFloat32(t, buf, 1234.5)
+		// 尾部两字节原样保留为 `TailHex`，十六进制输出为 `aabb`。
 		buf.Write([]byte{0xaa, 0xbb})
 
 		if err := msg.ParseResponse(&RespHeader{}, buf.Bytes()); err != nil {
@@ -266,7 +268,7 @@ func TestExExperimentalMessagesBuildRequestAndParseResponse(t *testing.T) {
 		if err := binary.Write(buf, binary.LittleEndian, uint32(0)); err != nil {
 			t.Fatal(err)
 		}
-		if err := binary.Write(buf, binary.LittleEndian, uint16(1)); err != nil {
+		if err := binary.Write(buf, binary.LittleEndian, uint16(2)); err != nil {
 			t.Fatal(err)
 		}
 		if err := binary.Write(buf, binary.LittleEndian, uint32(20260411)); err != nil {
@@ -278,6 +280,21 @@ func TestExExperimentalMessagesBuildRequestAndParseResponse(t *testing.T) {
 		writeFloat32(t, buf, 10.5)
 		writeFloat32(t, buf, 1200.5)
 		if err := binary.Write(buf, binary.LittleEndian, uint32(123)); err != nil {
+			t.Fatal(err)
+		}
+		if err := binary.Write(buf, binary.LittleEndian, uint32(0)); err != nil {
+			t.Fatal(err)
+		}
+		// 第二根为实际返回的 K 线，首根仅作为昨收基准被剔除。
+		if err := binary.Write(buf, binary.LittleEndian, uint32(20260411)); err != nil {
+			t.Fatal(err)
+		}
+		writeFloat32(t, buf, 12)
+		writeFloat32(t, buf, 13)
+		writeFloat32(t, buf, 10)
+		writeFloat32(t, buf, 10.5)
+		writeFloat32(t, buf, 2000)
+		if err := binary.Write(buf, binary.LittleEndian, uint32(456)); err != nil {
 			t.Fatal(err)
 		}
 		if err := binary.Write(buf, binary.LittleEndian, uint32(0)); err != nil {

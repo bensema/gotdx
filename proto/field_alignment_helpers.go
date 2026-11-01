@@ -2,6 +2,8 @@ package proto
 
 import "fmt"
 
+// macIndustryBoardSymbolMap 是行业板块编号到 MAC 板块代码的静态对照表，键为四位数行业编号，
+// 值为板块协议代码；表外编号查表得到空串。
 var macIndustryBoardSymbolMap = map[string]string{
 	"1001": "881002",
 	"1102": "881008",
@@ -130,6 +132,8 @@ var macIndustryBoardSymbolMap = map[string]string{
 	"9901": "881478",
 }
 
+// exGoodsTypeNames 是扩展市场品种类别编号到协议原始类别标识的对照表；
+// 标识字符串由协议规定，此处保持原样不翻译。
 var exGoodsTypeNames = map[uint8]string{
 	1:  "STOCK",
 	2:  "HK",
@@ -148,6 +152,9 @@ var exGoodsTypeNames = map[uint8]string{
 	15: "SG",
 }
 
+// macIndustryBoardSymbol 按行业编号查表返回对应的 MAC 板块代码；编号为零或查表未命中时返回空串。
+//
+// 参数 `industry` 为四位数行业编号；返回对照表中的板块协议代码，表外编号返回空串。
 func macIndustryBoardSymbol(industry uint32) string {
 	if industry == 0 {
 		return ""
@@ -155,6 +162,9 @@ func macIndustryBoardSymbol(industry uint32) string {
 	return macIndustryBoardSymbolMap[fmt.Sprintf("%04d", industry%10000)]
 }
 
+// macLotSizeBoardSymbol 按手数编号平移生成板块代码；编号为零时返回空串。
+//
+// 参数 `lotSize` 为手数编号；返回基准码加编号平移后的板块代码字符串。
 func macLotSizeBoardSymbol(lotSize uint32) string {
 	if lotSize == 0 {
 		return ""
@@ -162,6 +172,9 @@ func macLotSizeBoardSymbol(lotSize uint32) string {
 	return fmt.Sprintf("%d", 880200+lotSize)
 }
 
+// exGoodsTypeName 按品种类别编号查表返回协议原始类别标识；未知编号返回空串。
+//
+// 参数 `goodsType` 为扩展市场品种类别编号；返回对照表中的原始类别标识，未命中返回空串。
 func exGoodsTypeName(goodsType uint8) string {
 	return exGoodsTypeNames[goodsType]
 }

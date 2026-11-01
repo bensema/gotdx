@@ -1,3 +1,6 @@
+// Command ex_quote 演示通过 ExQuote 查询单只扩展证券的行情报价，以美股 `TSLA` 为例打印开高低收与均价等字段。
+//
+// 运行示例：`go run ./examples/ex_quote`
 package main
 
 import (
@@ -11,6 +14,7 @@ func main() {
 	client := exampleutil.NewExClient()
 	defer client.Disconnect()
 
+	// 参数 `category` 为美股类别，`code` 为标的代码 `TSLA`，查询单只标的最新行情报价。
 	item, err := client.ExQuote(types.ExCategoryUSStock, "TSLA")
 	if err != nil {
 		log.Fatalln(err)

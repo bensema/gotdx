@@ -27,6 +27,29 @@ const (
 	clientModeMacEx
 )
 
+// maxUnzipRatio 为响应负载解压放大的安全上限倍数。
+//
+// 服务端压缩帧声明 `ZipSize` 与 `UnZipSize` 两个长度，正常行情负载放大倍数极小；
+// 超过该倍数视为畸形或恶意压缩流，直接拒绝，防止解压放大内存占用（S2 安全加固）。
+const maxUnzipRatio = 8
+
+// acquireWaitTimeout 为 `acquire` 在池空时等待连接归还的最长时限。
+//
+// 高并发借出瞬时超过池容量时，请求短暂等待在途连接归还即可继续，避免借出高峰
+// 被误拒绝；等待超时仍无连接（如连接全部在途且耗时过长）才返回错误。
+const acquireWaitTimeout = 100 * time.Millisecond
+
+// acquireRetryInterval 为 `acquire` 池空等待期间的重试间隔。
+const acquireRetryInterval = 500 * time.Microsecond
+
+// headerBytesPool 复用响应头读取缓冲，避免每请求为 16 字节帧头重复分配（P1 优化）。
+// 缓冲仅在 `exchangeBytes` 内使用且函数返回前归还，复用安全。
+var headerBytesPool = sync.Pool{
+	New: func() any {
+		return make([]byte, proto.MessageHeaderBytes)
+	},
+}
+
 // New 创建连接通达信主行情服务器的客户端。
 //
 // 参数 `opts` 为按顺序覆盖内置默认配置的函数式选项，后传入的选项优先生效；不传选项时使用内置
@@ -313,7 +336,30 @@ func removeAddress(addresses []string, target string) []string {
 // 让请求稳定落在已验证可用的节点上（模拟老库固定单节点的稳定性）；定向节点连续空
 // 数据被降权，或池内无该地址（已被重平衡切换或丢弃）时回退轮询；轮询同样优先跳过
 // 降权节点，全部降权时回退原轮询兜底。
+//
+// 池空等待：高并发下借出可能瞬时超过池容量（连接仍在途执行），此时短暂等待其他
+// 请求归还连接后再试，等待超过 `acquireWaitTimeout` 仍无可用连接才返回错误——保证
+// 客户端"方法可并发调用"的公开承诺，避免借出高峰被瞬时超卖误拒绝。
 func (client *Client) acquire() (*pooledConn, error) {
+	deadline := time.Now().Add(acquireWaitTimeout)
+	for {
+		if pc, err := client.acquireOnce(); err == nil {
+			return pc, nil
+		} else if client.closed {
+			// 客户端已关闭属确定性失败，不再等待。
+			return nil, err
+		}
+		if time.Now().After(deadline) {
+			return nil, errors.New("no available connection")
+		}
+		// 短暂让出调度，等待在途请求归还连接。
+		time.Sleep(acquireRetryInterval)
+	}
+}
+
+// acquireOnce 做单次连接借出尝试：池空或客户端已关闭时立即返回错误，不等待。
+// 单次失败语义供 `acquire` 的等待循环复用。
+func (client *Client) acquireOnce() (*pooledConn, error) {
 	client.mu.Lock()
 	defer client.mu.Unlock()
 	if client.closed || len(client.pool) == 0 {
@@ -1052,14 +1098,28 @@ func (client *Client) rebalancePool(forceFullProbe bool) {
 	}
 	client.mu.Unlock()
 
+	// 池内已指向最快地址的连接保持可用（P2 优化），只补建缺失数量，避免切换时全池
+	// 重连引发无谓的建连风暴；池内已全部指向最快地址时无需切换。
+	client.mu.Lock()
+	existingFastest := 0
+	for _, pc := range client.pool {
+		if pc.addr == fastest {
+			existingFastest++
+		}
+	}
+	client.mu.Unlock()
+	need := client.opt.PoolSize - existingFastest
+	if need <= 0 {
+		return
+	}
+
 	// 并发预建指向最快地址的连接，单条失败不影响其余，整体耗时由最慢一次拨号决定。
-	poolSize := client.opt.PoolSize
 	var (
 		newMu    sync.Mutex
-		newConns = make([]*pooledConn, 0, poolSize)
+		newConns = make([]*pooledConn, 0, need)
 		wg       sync.WaitGroup
 	)
-	for i := 0; i < poolSize; i++ {
+	for i := 0; i < need; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -1087,8 +1147,17 @@ func (client *Client) rebalancePool(forceFullProbe bool) {
 		return
 	}
 	// 先建后删：新连接入池后再关闭旧连接，切换期间池始终可借出。
-	old := client.pool
-	client.pool = newConns
+	// 保留原池中已指向最快地址的连接，仅关闭其余旧地址连接。
+	kept := make([]*pooledConn, 0, existingFastest)
+	old := make([]*pooledConn, 0)
+	for _, pc := range client.pool {
+		if pc.addr == fastest {
+			kept = append(kept, pc)
+		} else {
+			old = append(old, pc)
+		}
+	}
+	client.pool = append(kept, newConns...)
 	if len(newConns) > 0 {
 		client.lastAddr = newConns[0].addr
 	}
@@ -1189,27 +1258,34 @@ func (client *Client) exchangeBytes(conn net.Conn, sendData []byte) (respHeader 
 	}()
 
 	retryTimes := 0
-
-	for {
-		n, err := conn.Write(sendData)
-		// 发送不完整时按 `MaxRetryTimes` 重试；超过重试次数或写入出错则放弃本次请求。
-		if n < len(sendData) {
+	// 发送采用带偏移续写：`Write` 只返回部分成功时从剩余偏移继续写入，避免整包重发
+	// 重复已成功发送的字节；出错或零字节写（理论不发生）按 `MaxRetryTimes` 重试。
+	for written := 0; written < len(sendData); {
+		n, err := conn.Write(sendData[written:])
+		written += n
+		if err != nil {
 			retryTimes++
 			if retryTimes <= client.opt.MaxRetryTimes {
 				log.Printf("第%d次重试\n", retryTimes)
 			} else {
 				return nil, nil, err
 			}
-		} else {
-			if err != nil {
-				return nil, nil, err
+			continue
+		}
+		if n == 0 {
+			// 零字节写入且无错误：防御性按超限重试处理，避免发送循环死转。
+			retryTimes++
+			if retryTimes > client.opt.MaxRetryTimes {
+				return nil, nil, io.ErrShortWrite
 			}
-			break
+			continue
 		}
 	}
 
 	// 按固定帧长读取响应头，网络不足一帧时 `io.ReadFull` 会等待至凑满或报错。
-	headerBytes := make([]byte, proto.MessageHeaderBytes)
+	// 响应头缓冲从 `sync.Pool` 复用，函数返回前归还，消除每请求一次的小堆分配（P1 优化）。
+	headerBytes := headerBytesPool.Get().([]byte)
+	defer headerBytesPool.Put(headerBytes)
 	_, err = io.ReadFull(conn, headerBytes)
 	if err != nil {
 		return nil, nil, err
@@ -1236,6 +1312,13 @@ func (client *Client) exchangeBytes(conn net.Conn, sendData []byte) (respHeader 
 
 	// 压缩大小与解压大小不一致表示负载经过 `zlib` 压缩，否则直接返回明文负载。
 	if header.ZipSize != header.UnZipSize {
+		// 服务端声明的解压大小超出安全上限视为畸形帧，直接拒绝。
+		// 先提升到 `int` 运算，避免 `uint16` 乘法溢出。
+		maxUnzipSize := int(proto.MessageMaxBytes) * maxUnzipRatio
+		if int(header.UnZipSize) > maxUnzipSize {
+			log.Printf("msgData unzip size(%d) beyond safety limit %d\n", header.UnZipSize, maxUnzipSize)
+			return nil, nil, types.ErrBadData
+		}
 		var out bytes.Buffer
 		b := bytes.NewReader(msgData)
 		r, err := zlib.NewReader(b)
@@ -1243,8 +1326,15 @@ func (client *Client) exchangeBytes(conn net.Conn, sendData []byte) (respHeader 
 			return nil, nil, err
 		}
 		defer r.Close()
-		if _, err := io.Copy(&out, r); err != nil {
+		// 解压目标受限：即使声明的解压大小在安全上限内，实际解压流也可能膨胀，
+		// 用 `LimitReader` 截断并超限报错，防止畸形压缩流放大内存占用。
+		limit := int64(maxUnzipSize + 1)
+		n, err := io.Copy(&out, io.LimitReader(r, limit))
+		if err != nil {
 			return nil, nil, err
+		}
+		if n > int64(maxUnzipSize) {
+			return nil, nil, types.ErrBadData
 		}
 		return &header, out.Bytes(), nil
 	}

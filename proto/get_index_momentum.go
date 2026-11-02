@@ -3,6 +3,7 @@ package proto
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 )
 
 // GetIndexMomentum 表示一次指数动量序列查询协议的完整流程对象。
@@ -70,11 +71,12 @@ func (obj *GetIndexMomentum) ParseResponse(header *RespHeader, data []byte) erro
 	obj.respHeader = header
 
 	pos := 0
-	// 头部 2 字节：动量条数。
-	if err := binary.Read(bytes.NewBuffer(data[:2]), binary.LittleEndian, &obj.reply.Count); err != nil {
-		return err
+	// 头部 2 字节：动量条数，不足直接拒绝截断负载。
+	rawCount, ok := readRange(data, &pos, 2)
+	if !ok {
+		return fmt.Errorf("invalid index momentum response length: %d", len(data))
 	}
-	pos += 2
+	obj.reply.Count = binary.LittleEndian.Uint16(rawCount)
 
 	startMomentum := 0
 	for i := uint16(0); i < obj.reply.Count; i++ {

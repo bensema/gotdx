@@ -3,6 +3,7 @@ package proto
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"math"
 )
 
@@ -125,7 +126,10 @@ func (obj *GetQuotesList) BuildRequest() ([]byte, error) {
 func (obj *GetQuotesList) ParseResponse(header *RespHeader, data []byte) error {
 	obj.respHeader = header
 
-	// 响应头部 4 字节：前 2 字节区块标识，后 2 字节条数。
+	// 响应头部 4 字节：前 2 字节区块标识，后 2 字节条数，不足直接拒绝截断负载。
+	if len(data) < 4 {
+		return fmt.Errorf("invalid quotes list response length: %d", len(data))
+	}
 	obj.reply.Block = binary.LittleEndian.Uint16(data[:2])
 	obj.reply.Count = binary.LittleEndian.Uint16(data[2:4])
 	pos := 4
@@ -241,6 +245,10 @@ func (obj *GetQuotes) BuildRequest() ([]byte, error) {
 func (obj *GetQuotes) ParseResponse(header *RespHeader, data []byte) error {
 	obj.respHeader = header
 
+	// 响应头部 4 字节：前 2 字节区块标识，后 2 字节条数，不足直接拒绝截断负载。
+	if len(data) < 4 {
+		return fmt.Errorf("invalid quotes response length: %d", len(data))
+	}
 	obj.reply.Block = binary.LittleEndian.Uint16(data[:2])
 	obj.reply.Count = binary.LittleEndian.Uint16(data[2:4])
 	pos := 4
@@ -271,15 +279,24 @@ func (obj *GetQuotes) Response() *GetQuotesReply {
 func parseQuoteListItem(data []byte, pos int) (QuoteListItem, int, error) {
 	item := QuoteListItem{}
 
-	// 市场 1 字节。
-	item.Market = data[pos]
-	pos++
+	// 市场 1 字节，越界即返回错误终止本次解析。
+	raw, ok := readRange(data, &pos, 1)
+	if !ok {
+		return item, pos, fmt.Errorf("invalid quote list item: market overflow")
+	}
+	item.Market = raw[0]
 	// 代码 6 字节，按 `GBK` 还原字符串。
-	item.Code = Utf8ToGbk(data[pos : pos+6])
-	pos += 6
+	raw, ok = readRange(data, &pos, 6)
+	if !ok {
+		return item, pos, fmt.Errorf("invalid quote list item: code overflow")
+	}
+	item.Code = Utf8ToGbk(raw)
 	// 活跃度字段 1，2 字节。
-	item.Active1 = binary.LittleEndian.Uint16(data[pos : pos+2])
-	pos += 2
+	raw, ok = readRange(data, &pos, 2)
+	if !ok {
+		return item, pos, fmt.Errorf("invalid quote list item: active overflow")
+	}
+	item.Active1 = binary.LittleEndian.Uint16(raw)
 
 	// 基准价与各价格差值；后续价位为基准价加差值。
 	basePrice := getprice(data, &pos)
@@ -295,8 +312,11 @@ func parseQuoteListItem(data []byte, pos int) (QuoteListItem, int, error) {
 	item.Vol = getprice(data, &pos)
 	item.CurVol = getprice(data, &pos)
 	// 成交额为 4 字节的单精度浮点数。
-	item.Amount = float64(math.Float32frombits(binary.LittleEndian.Uint32(data[pos : pos+4])))
-	pos += 4
+	rawAmount, ok := readRange(data, &pos, 4)
+	if !ok {
+		return item, pos, fmt.Errorf("invalid quote list item: amount overflow")
+	}
+	item.Amount = float64(math.Float32frombits(binary.LittleEndian.Uint32(rawAmount)))
 	// 内盘、外盘与两个统计字段，均为变长整数解码。
 	item.InVol = getprice(data, &pos)
 	item.OutVol = getprice(data, &pos)
@@ -312,33 +332,61 @@ func parseQuoteListItem(data []byte, pos int) (QuoteListItem, int, error) {
 	item.AskLevels = append(item.AskLevels, Level{Price: float64(ask) / 100.0, Vol: askVol})
 
 	// 尾部统计区：未知 2 字节字段，语义待确认。
-	item.Unknown = binary.LittleEndian.Uint16(data[pos : pos+2])
-	pos += 2
+	raw, ok = readRange(data, &pos, 2)
+	if !ok {
+		return item, pos, fmt.Errorf("invalid quote list item: unknown overflow")
+	}
+	item.Unknown = binary.LittleEndian.Uint16(raw)
 	// 涨速：的无符号整数转有符号短整数，放大 100 倍存储。
-	riseSpeed := int16(binary.LittleEndian.Uint16(data[pos : pos+2]))
-	pos += 2
+	raw, ok = readRange(data, &pos, 2)
+	if !ok {
+		return item, pos, fmt.Errorf("invalid quote list item: rise speed overflow")
+	}
+	riseSpeed := int16(binary.LittleEndian.Uint16(raw))
 	// 短周期换手：同为放大 100 倍的有符号短整数。
-	shortTurnover := int16(binary.LittleEndian.Uint16(data[pos : pos+2]))
-	pos += 2
+	raw, ok = readRange(data, &pos, 2)
+	if !ok {
+		return item, pos, fmt.Errorf("invalid quote list item: turnover overflow")
+	}
+	shortTurnover := int16(binary.LittleEndian.Uint16(raw))
 	// 两分钟成交额，4 字节的单精度浮点数。
-	min2Amount := math.Float32frombits(binary.LittleEndian.Uint32(data[pos : pos+4]))
-	pos += 4
+	rawMin2, ok := readRange(data, &pos, 4)
+	if !ok {
+		return item, pos, fmt.Errorf("invalid quote list item: min2 amount overflow")
+	}
+	min2Amount := math.Float32frombits(binary.LittleEndian.Uint32(rawMin2))
 	// 开盘抢筹指标：放大 100 倍的有符号短整数。
-	openingRush := int16(binary.LittleEndian.Uint16(data[pos : pos+2]))
-	pos += 2
+	raw, ok = readRange(data, &pos, 2)
+	if !ok {
+		return item, pos, fmt.Errorf("invalid quote list item: opening rush overflow")
+	}
+	openingRush := int16(binary.LittleEndian.Uint16(raw))
 	// 10 字节协议保留区，整体跳过。
-	pos += 10
+	if _, ok = readRange(data, &pos, 10); !ok {
+		return item, pos, fmt.Errorf("invalid quote list item: reserved overflow")
+	}
 	// 量涨速，4 字节的单精度浮点数。
-	volRiseSpeed := math.Float32frombits(binary.LittleEndian.Uint32(data[pos : pos+4]))
-	pos += 4
+	rawVolRise, ok := readRange(data, &pos, 4)
+	if !ok {
+		return item, pos, fmt.Errorf("invalid quote list item: vol rise speed overflow")
+	}
+	volRiseSpeed := math.Float32frombits(binary.LittleEndian.Uint32(rawVolRise))
 	// 委比或深度指标，4 字节的单精度浮点数，语义待确认。
-	depth := math.Float32frombits(binary.LittleEndian.Uint32(data[pos : pos+4]))
-	pos += 4
+	rawDepth, ok := readRange(data, &pos, 4)
+	if !ok {
+		return item, pos, fmt.Errorf("invalid quote list item: depth overflow")
+	}
+	depth := math.Float32frombits(binary.LittleEndian.Uint32(rawDepth))
 	// 24 字节协议保留区，整体跳过。
-	pos += 24
+	if _, ok = readRange(data, &pos, 24); !ok {
+		return item, pos, fmt.Errorf("invalid quote list item: reserved2 overflow")
+	}
 	// 活跃度字段 2，2 字节`uint16`，语义待确认。
-	item.Active2 = binary.LittleEndian.Uint16(data[pos : pos+2])
-	pos += 2
+	raw, ok = readRange(data, &pos, 2)
+	if !ok {
+		return item, pos, fmt.Errorf("invalid quote list item: active2 overflow")
+	}
+	item.Active2 = binary.LittleEndian.Uint16(raw)
 
 	// 基准价加差值还原各价位，除以 100 得到元。
 	item.Close = float64(basePrice) / 100.0

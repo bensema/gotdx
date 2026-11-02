@@ -15,8 +15,12 @@ import (
 // 主站通道。连接或握手失败时返回 `nil` 与对应错误。
 func (client *Client) quotationClient() (*Client, error) {
 	if client.mode == clientModeMain {
-		// 自身尚未连接时先完成主站握手。
-		if len(client.pool) == 0 {
+		// 自身尚未连接时先完成主站握手；判空并入锁内读取，避免与并发建池
+		// （acquire/poolAppendLocked/buildPoolLocked 持锁写 pool）产生数据竞争。
+		client.mu.Lock()
+		empty := len(client.pool) == 0
+		client.mu.Unlock()
+		if empty {
 			if _, err := client.Connect(); err != nil {
 				return nil, err
 			}
@@ -31,7 +35,11 @@ func (client *Client) quotationClient() (*Client, error) {
 	main := client.main
 	client.mu.Unlock()
 
-	if len(main.pool) == 0 {
+	// 内嵌主站连接的判空同样并入其自身锁内读取，防止与后台建池竞争。
+	main.mu.Lock()
+	empty := len(main.pool) == 0
+	main.mu.Unlock()
+	if empty {
 		if _, err := main.Connect(); err != nil {
 			return nil, err
 		}
@@ -45,8 +53,11 @@ func (client *Client) quotationClient() (*Client, error) {
 // 与对应错误。
 func (client *Client) exQuotationClient() (*Client, error) {
 	if client.mode == clientModeEx {
-		// 自身尚未连接时先完成扩展站登录握手。
-		if len(client.pool) == 0 {
+		// 自身尚未连接时先完成扩展站登录握手；判空并入锁内读取，避免与并发建池竞争。
+		client.mu.Lock()
+		empty := len(client.pool) == 0
+		client.mu.Unlock()
+		if empty {
 			if _, err := client.ConnectEx(); err != nil {
 				return nil, err
 			}
@@ -61,7 +72,11 @@ func (client *Client) exQuotationClient() (*Client, error) {
 	ex := client.ex
 	client.mu.Unlock()
 
-	if len(ex.pool) == 0 {
+	// 内嵌扩展站连接的判空同样并入其自身锁内读取，防止与后台建池竞争。
+	ex.mu.Lock()
+	empty := len(ex.pool) == 0
+	ex.mu.Unlock()
+	if empty {
 		if _, err := ex.ConnectEx(); err != nil {
 			return nil, err
 		}

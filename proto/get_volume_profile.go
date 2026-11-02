@@ -3,6 +3,7 @@ package proto
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"math"
 )
 
@@ -105,7 +106,11 @@ func (obj *GetVolumeProfile) BuildRequest() ([]byte, error) {
 func (obj *GetVolumeProfile) ParseResponse(header *RespHeader, data []byte) error {
 	obj.respHeader = header
 
-	// 快照头部为定长字段，条数、市场、代码、活跃度的偏移依次固定为 0、2、3、9。
+	// 快照头部为定长 11 字节字段，条数、市场、代码、活跃度的偏移依次固定为 0、2、3、9；
+	// 不足 11 字节直接拒绝截断负载。
+	if len(data) < 11 {
+		return fmt.Errorf("invalid volume profile response length: %d", len(data))
+	}
 	obj.reply.Count = binary.LittleEndian.Uint16(data[:2])
 	obj.reply.Market = data[2]
 	obj.reply.Code = Utf8ToGbk(data[3:9])
@@ -126,8 +131,9 @@ func (obj *GetVolumeProfile) ParseResponse(header *RespHeader, data []byte) erro
 	obj.reply.Vol = getprice(data, &pos)
 	obj.reply.CurVol = getprice(data, &pos)
 	// 成交额为 4 字节的单精度浮点数。
-	obj.reply.Amount = float64(math.Float32frombits(binary.LittleEndian.Uint32(data[pos : pos+4])))
-	pos += 4
+	if rawAmount, ok := readRange(data, &pos, 4); ok {
+		obj.reply.Amount = float64(math.Float32frombits(binary.LittleEndian.Uint32(rawAmount)))
+	}
 	// 内盘、外盘与两个统计字段，均为变长整数解码。
 	obj.reply.InVol = getprice(data, &pos)
 	obj.reply.OutVol = getprice(data, &pos)
@@ -144,8 +150,9 @@ func (obj *GetVolumeProfile) ParseResponse(header *RespHeader, data []byte) erro
 		obj.reply.AskLevels = append(obj.reply.AskLevels, Level{Price: float64(ask) / 100.0, Vol: askVol})
 	}
 
-	obj.reply.Unknown = binary.LittleEndian.Uint16(data[pos : pos+2])
-	pos += 2
+	if rawUnknown, ok := readRange(data, &pos, 2); ok {
+		obj.reply.Unknown = binary.LittleEndian.Uint16(rawUnknown)
+	}
 
 	// 分布明细：累计价位逐条叠加差值得到当前档位绝对价位。
 	profilePrice := 0

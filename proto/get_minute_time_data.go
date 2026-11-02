@@ -3,6 +3,7 @@ package proto
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 )
 
 // GetMinuteTimeData 表示一次当日分时数据查询协议的完整流程对象。
@@ -78,17 +79,18 @@ func (obj *GetMinuteTimeData) ParseResponse(header *RespHeader, data []byte) err
 	obj.respHeader = header
 
 	pos := 0
-	var ignored uint16
-	// 头部 2 字节：的采样条数。
-	if err := binary.Read(bytes.NewBuffer(data[pos:pos+2]), binary.LittleEndian, &obj.reply.Count); err != nil {
-		return err
+	// 头部 4 字节：采样条数 + 保留字段，不足直接拒绝截断负载。
+	rawCount, ok := readRange(data, &pos, 2)
+	if !ok {
+		return fmt.Errorf("invalid minute time response length: %d", len(data))
 	}
-	pos += 2
+	obj.reply.Count = binary.LittleEndian.Uint16(rawCount)
 	// 第二个 `uint16` 为协议保留字段，读取后直接丢弃。
-	if err := binary.Read(bytes.NewBuffer(data[pos:pos+2]), binary.LittleEndian, &ignored); err != nil {
-		return err
+	rawIgnored, ok := readRange(data, &pos, 2)
+	if !ok {
+		return fmt.Errorf("invalid minute time response length: %d", len(data))
 	}
-	pos += 2
+	_ = binary.LittleEndian.Uint16(rawIgnored)
 
 	startPrice := 0
 	startAvg := 0

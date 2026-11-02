@@ -3,6 +3,7 @@ package proto
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"math"
 )
 
@@ -84,14 +85,18 @@ func (obj *GetHistoryOrders) ParseResponse(header *RespHeader, data []byte) erro
 	obj.respHeader = header
 
 	pos := 0
-	// 0:2 档位记录条数。
-	if err := binary.Read(bytes.NewBuffer(data[pos:pos+2]), binary.LittleEndian, &obj.reply.Count); err != nil {
-		return err
+	// 头部 6 字节：条数 2 + 昨收价 4，不足直接拒绝截断负载。
+	rawCount, ok := readRange(data, &pos, 2)
+	if !ok {
+		return fmt.Errorf("invalid history orders response length: %d", len(data))
 	}
-	pos += 2
+	obj.reply.Count = binary.LittleEndian.Uint16(rawCount)
 	// 2:6 昨收价。
-	obj.reply.PreClose = float64(math.Float32frombits(binary.LittleEndian.Uint32(data[pos : pos+4])))
-	pos += 4
+	rawPreClose, ok := readRange(data, &pos, 4)
+	if !ok {
+		return fmt.Errorf("invalid history orders response length: %d", len(data))
+	}
+	obj.reply.PreClose = float64(math.Float32frombits(binary.LittleEndian.Uint32(rawPreClose)))
 
 	// 累计档位价格；协议每条给的是价格差值而非绝对价格。
 	lastPrice := 0

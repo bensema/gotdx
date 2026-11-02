@@ -3,6 +3,7 @@ package proto
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"math"
 )
 
@@ -101,24 +102,30 @@ func (obj *GetIndexInfo) ParseResponse(header *RespHeader, data []byte) error {
 	obj.respHeader = header
 
 	pos := 0
-	// 0:4 委托档位明细条数。
-	if err := binary.Read(bytes.NewBuffer(data[pos:pos+4]), binary.LittleEndian, &obj.reply.OrderCount); err != nil {
-		return err
+	// 头部定长 13 字节：条数 4 + 市场 1 + 代码 6 + 活跃度 2，不足直接拒绝截断负载。
+	rawOrderCount, ok := readRange(data, &pos, 4)
+	if !ok {
+		return fmt.Errorf("invalid index info response length: %d", len(data))
 	}
-	pos += 4
+	obj.reply.OrderCount = binary.LittleEndian.Uint32(rawOrderCount)
 	// 1 字节市场代码。
-	if err := binary.Read(bytes.NewBuffer(data[pos:pos+1]), binary.LittleEndian, &obj.reply.Market); err != nil {
-		return err
+	rawMarket, ok := readRange(data, &pos, 1)
+	if !ok {
+		return fmt.Errorf("invalid index info response length: %d", len(data))
 	}
-	pos++
+	obj.reply.Market = rawMarket[0]
 	// 6 字节定长指数代码。
-	obj.reply.Code = Utf8ToGbk(data[pos : pos+6])
-	pos += 6
-	// 2 字节活跃度。
-	if err := binary.Read(bytes.NewBuffer(data[pos:pos+2]), binary.LittleEndian, &obj.reply.Active); err != nil {
-		return err
+	rawCode, ok := readRange(data, &pos, 6)
+	if !ok {
+		return fmt.Errorf("invalid index info response length: %d", len(data))
 	}
-	pos += 2
+	obj.reply.Code = Utf8ToGbk(rawCode)
+	// 2 字节活跃度。
+	rawActive, ok := readRange(data, &pos, 2)
+	if !ok {
+		return fmt.Errorf("invalid index info response length: %d", len(data))
+	}
+	obj.reply.Active = binary.LittleEndian.Uint16(rawActive)
 
 	// 快照变长字段序列：最新点位、昨收差值、开盘差值、最高差值、最低差值、服务端时间、盘后标记。
 	closeRaw := getprice(data, &pos)
@@ -132,8 +139,9 @@ func (obj *GetIndexInfo) ParseResponse(header *RespHeader, data []byte) error {
 	obj.reply.Vol = getprice(data, &pos)
 	obj.reply.CurVol = getprice(data, &pos)
 	// 成交额为 4 字节浮点位模式，不经过变长编码。
-	obj.reply.Amount = float64(math.Float32frombits(binary.LittleEndian.Uint32(data[pos : pos+4])))
-	pos += 4
+	if rawAmount, ok := readRange(data, &pos, 4); ok {
+		obj.reply.Amount = float64(math.Float32frombits(binary.LittleEndian.Uint32(rawAmount)))
+	}
 
 	// 剩余变长字段按顺序消费推进读指针；其中三项分别映射到开盘金额与上涨、下跌家数，其余不写入响应。
 	_ = getprice(data, &pos)

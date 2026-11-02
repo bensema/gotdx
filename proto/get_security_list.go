@@ -3,6 +3,7 @@ package proto
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"math"
 )
 
@@ -100,50 +101,67 @@ func (obj *GetSecurityList) ParseResponse(header *RespHeader, data []byte) error
 	obj.respHeader = header
 
 	pos := 0
-	// 头部 2 字节：本页证券条数。
-	err := binary.Read(bytes.NewBuffer(data[pos:pos+2]), binary.LittleEndian, &obj.reply.Count)
-	pos += 2
+	// 头部 2 字节：本页证券条数，不足直接拒绝截断负载。
+	rawCount, ok := readRange(data, &pos, 2)
+	if !ok {
+		return fmt.Errorf("invalid security list response length: %d", len(data))
+	}
+	obj.reply.Count = binary.LittleEndian.Uint16(rawCount)
 	for index := uint16(0); index < obj.reply.Count; index++ {
 		ele := Security{}
 		// 6 字节定长证券代码。
-		var code [6]byte
-		binary.Read(bytes.NewBuffer(data[pos:pos+6]), binary.LittleEndian, &code)
-		pos += 6
-		ele.Code = string(code[:])
+		rawCode, ok := readRange(data, &pos, 6)
+		if !ok {
+			return fmt.Errorf("invalid security list item %d: code overflow", index)
+		}
+		ele.Code = string(rawCode)
 
 		// 成交量原值，的无符号短整数；同时作为成交量单位回填。
-		binary.Read(bytes.NewBuffer(data[pos:pos+2]), binary.LittleEndian, &ele.Vol)
-		pos += 2
+		rawVol, ok := readRange(data, &pos, 2)
+		if !ok {
+			return fmt.Errorf("invalid security list item %d: volume overflow", index)
+		}
+		ele.Vol = binary.LittleEndian.Uint16(rawVol)
 		ele.VolUnit = ele.Vol
 
 		// 16 字节定长证券名称，按 `GBK` 解码。
-		var name [16]byte
-		binary.Read(bytes.NewBuffer(data[pos:pos+16]), binary.LittleEndian, &name)
-		pos += 16
-
-		ele.Name = Utf8ToGbk(name[:])
+		rawName, ok := readRange(data, &pos, 16)
+		if !ok {
+			return fmt.Errorf("invalid security list item %d: name overflow", index)
+		}
+		ele.Name = Utf8ToGbk(rawName)
 
 		// 未知字段：4 字节位模式按单精度浮点数解释，语义待确认。
-		var unknown1 uint32
-		binary.Read(bytes.NewBuffer(data[pos:pos+4]), binary.LittleEndian, &unknown1)
-		ele.Unknown1 = math.Float32frombits(unknown1)
-		pos += 4
+		rawUnknown1, ok := readRange(data, &pos, 4)
+		if !ok {
+			return fmt.Errorf("invalid security list item %d: unknown1 overflow", index)
+		}
+		ele.Unknown1 = math.Float32frombits(binary.LittleEndian.Uint32(rawUnknown1))
 		// 价格小数位数，1 字节有符号整数。
-		binary.Read(bytes.NewBuffer(data[pos:pos+1]), binary.LittleEndian, &ele.DecimalPoint)
-		pos += 1
+		rawDecimal, ok := readRange(data, &pos, 1)
+		if !ok {
+			return fmt.Errorf("invalid security list item %d: decimal overflow", index)
+		}
+		ele.DecimalPoint = int8(rawDecimal[0])
 		// 昨收价：4 字节的单精度浮点数，由 `getfloat32` 解码并推进 `pos`。
 		ele.PreClose = getfloat32(data, &pos)
 
 		// 尾部未知字段 2，2 字节`uint16`，语义待确认。
-		binary.Read(bytes.NewBuffer(data[pos:pos+2]), binary.LittleEndian, &ele.Unknown2)
-		pos += 2
+		rawUnknown2, ok := readRange(data, &pos, 2)
+		if !ok {
+			return fmt.Errorf("invalid security list item %d: unknown2 overflow", index)
+		}
+		ele.Unknown2 = binary.LittleEndian.Uint16(rawUnknown2)
 		// 尾部未知字段 3，2 字节`uint16`，语义待确认。
-		binary.Read(bytes.NewBuffer(data[pos:pos+2]), binary.LittleEndian, &ele.Unknown3)
-		pos += 2
+		rawUnknown3, ok := readRange(data, &pos, 2)
+		if !ok {
+			return fmt.Errorf("invalid security list item %d: unknown3 overflow", index)
+		}
+		ele.Unknown3 = binary.LittleEndian.Uint16(rawUnknown3)
 
 		obj.reply.List = append(obj.reply.List, ele)
 	}
-	return err
+	return nil
 }
 
 // Response 返回已解析完成的证券列表响应数据；未调用 `ParseResponse` 时返回空响应对象。

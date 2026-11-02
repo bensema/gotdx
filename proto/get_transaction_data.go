@@ -107,9 +107,12 @@ func (obj *GetTransactionData) ParseResponse(header *RespHeader, data []byte) er
 	obj.respHeader = header
 
 	pos := 0
-	// 头部 2 字节：成交笔数。
-	err := binary.Read(bytes.NewBuffer(data[pos:pos+2]), binary.LittleEndian, &obj.reply.Count)
-	pos += 2
+	// 头部 2 字节：成交笔数，不足头部直接拒绝截断负载。
+	raw, ok := readRange(data, &pos, 2)
+	if !ok {
+		return fmt.Errorf("invalid transaction response length: %d", len(data))
+	}
+	obj.reply.Count = binary.LittleEndian.Uint16(raw)
 
 	lastprice := 0
 	for index := uint16(0); index < obj.reply.Count; index++ {
@@ -132,7 +135,7 @@ func (obj *GetTransactionData) ParseResponse(header *RespHeader, data []byte) er
 		ele.Unknown = getprice(data, &pos)
 		obj.reply.List = append(obj.reply.List, ele)
 	}
-	return err
+	return nil
 }
 
 // Response 返回已解析完成的分笔成交响应数据；未调用 `ParseResponse` 时返回空响应对象。

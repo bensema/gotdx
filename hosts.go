@@ -259,7 +259,7 @@ func ICFQSHostAddresses() []string {
 // ProbeHosts 并发对给定主机条目逐一发起 TCP 拨号探测，返回探测结果切片。
 //
 // `hosts` 为待探测主机条目；`timeout` 为单次拨号超时时间，传非正数时回退到内置默认超时
-// （8 秒）。返回结果先按可达性排序（可达条目在前），同为可达时再按往返延迟从低到高排序，
+// （2 秒）。返回结果先按可达性排序（可达条目在前），同为可达时再按往返延迟从低到高排序，
 // 延迟相同按名称、地址字典序兜底；输入为空切片时返回空切片。探测不返回错误，失败原因记录
 // 在各结果条目的 `Error` 字段中。
 func ProbeHosts(hosts []HostInfo, timeout time.Duration) []HostProbeResult {
@@ -281,7 +281,7 @@ func ProbeHosts(hosts []HostInfo, timeout time.Duration) []HostProbeResult {
 // ProbeAddresses 并发对给定 `host:port` 地址列表逐一发起 TCP 拨号探测，返回探测结果切片。
 //
 // `addresses` 为待探测地址，格式由 `net.SplitHostPort` 解析；`timeout` 为单次拨号超时时间，
-// 传非正数时回退到内置默认超时（8 秒）。排序规则同 `ProbeHosts`；输入为空切片时返回空切片。
+// 传非正数时回退到内置默认超时（2 秒）。排序规则同 `ProbeHosts`；输入为空切片时返回空切片。
 // 探测不返回错误，失败原因记录在各结果条目的 `Error` 字段中。
 func ProbeAddresses(addresses []string, timeout time.Duration) []HostProbeResult {
 	return probeAddressesWithDial(addresses, timeout, net.DialTimeout)
@@ -346,7 +346,7 @@ const slowProbeTimeout = 300 * time.Millisecond
 
 // probeAddressesWithDial 受限并发拨号探测地址列表，组装排序后的探测结果。
 //
-// `addresses` 为待探测 `host:port` 地址；`timeout` 为拨号超时，非正数回退默认 8 秒；`dial`
+// `addresses` 为待探测 `host:port` 地址；`timeout` 为拨号超时，非正数回退默认 2 秒；`dial`
 // 为可替换的拨号函数，便于测试时注入假拨号实现。拨号以 `probeConcurrencyWindow` 为并发
 // 窗口滚动调度，各 `goroutine` 先通过互斥锁收集结果，探测结束后统一按可达性、延迟、名称、
 // 地址排序返回。

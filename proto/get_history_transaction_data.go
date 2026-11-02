@@ -108,10 +108,14 @@ func (obj *GetHistoryTransactionData) ParseResponse(header *RespHeader, data []b
 	obj.respHeader = header
 
 	pos := 0
-	// 0:2 成交笔数。
-	err := binary.Read(bytes.NewBuffer(data[pos:pos+2]), binary.LittleEndian, &obj.reply.Count)
+	// 0:2 成交笔数，不足头部直接拒绝截断负载。
+	raw, ok := readRange(data, &pos, 2)
+	if !ok {
+		return fmt.Errorf("invalid history transaction response length: %d", len(data))
+	}
+	obj.reply.Count = binary.LittleEndian.Uint16(raw)
 	// 条数后固定跳过 4 字节保留区，记录区从偏移 6 开始。
-	pos += 6
+	pos += 4
 
 	// 累计成交价；协议每条给出的是价格差值而非绝对价格。
 	lastprice := 0
@@ -142,7 +146,7 @@ func (obj *GetHistoryTransactionData) ParseResponse(header *RespHeader, data []b
 		ele.Price = float64(lastprice) / baseUnit(string(obj.request.Code[:]))
 		obj.reply.List = append(obj.reply.List, ele)
 	}
-	return err
+	return nil
 }
 
 // Response 返回解析完成后的历史逐笔成交响应数据。

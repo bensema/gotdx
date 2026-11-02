@@ -123,18 +123,19 @@ func (obj *GetSecurityBars) ParseResponse(header *RespHeader, data []byte) error
 
 	pos := 0
 	// 前 2 字节为返回的 K 线条数（含请求时多要的一条，用于反推首根涨跌）。
-	if err := binary.Read(bytes.NewBuffer(data[pos:pos+2]), binary.LittleEndian, &obj.reply.Count); err != nil {
-		return err
+	rawCount, ok := readRange(data, &pos, 2)
+	if !ok {
+		return fmt.Errorf("invalid kline response length: %d", len(data))
 	}
-	pos += 2
+	obj.reply.Count = binary.LittleEndian.Uint16(rawCount)
 
 	var preCloseRaw int // 昨收盘价，随遍历滚动更新。
 	for index := uint16(0); index < obj.reply.Count; index++ {
-		var dateNum uint32
-		if err := binary.Read(bytes.NewBuffer(data[pos:pos+4]), binary.LittleEndian, &dateNum); err != nil {
-			return err
+		rawDate, ok := readRange(data, &pos, 4)
+		if !ok {
+			return fmt.Errorf("invalid kline item %d", index)
 		}
-		pos += 4
+		dateNum := binary.LittleEndian.Uint32(rawDate)
 
 		// 日期按 K 线周期类别解码（日线用年月日、分时/秒线用时间偏移等）。
 		dateTime, ok := decodeDateNum(obj.request.Category, dateNum, false)

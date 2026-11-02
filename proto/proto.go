@@ -215,12 +215,35 @@ func todayDate() uint32 {
 	return uint32(now.Year()*10000 + int(now.Month())*100 + now.Day())
 }
 
+// readRange 返回 `b` 从当前偏移起的 `n` 字节边界安全切片，并把偏移推进 `n`。
+//
+// 参数 `b` 为响应负载字节流，`pos` 为当前读取偏移，读取成功后推进 `n` 字节；
+// 起始偏移或结束位置越界时返回 `nil`、`false` 且不推进偏移。畸形/截断负载下
+// 所有定长字段读取都应经此防护，避免服务端异常数据（Count 虚高、帧内错位）
+// 触发切片越界 panic。
+func readRange(b []byte, pos *int, n int) ([]byte, bool) {
+	if *pos < 0 || n < 0 || *pos+n > len(b) {
+		return nil, false
+	}
+	r := b[*pos : *pos+n]
+	*pos += n
+	return r, true
+}
+
 // getprice 按类 UTF-8 的变长有符号整数编码解析价格数值，并把偏移量推进到编码之后。
 //
 // 参数 `b` 为响应负载字节流，`pos` 为当前读取偏移，解码成功后向后推进到编码末尾；
 // 首字节低 6 位为数据位、0x40 为符号位、0x80 表示后续仍有字节，后续字节低 7 位
 // 按 7 位步长拼接；返回还原后的整数价格，符号位置位时结果取负。
+//
+// 畸形/截断负载的越界防护：起始偏移或续接字节超出负载末尾时返回 0 且不再推进
+// 偏移，防止服务端异常数据（Count 虚高、帧内错位）触发越界 panic；上层判空
+// 换节点逻辑会把整段解析失败的响应按空数据处理。
 func getprice(b []byte, pos *int) int {
+	if *pos < 0 || *pos >= len(b) {
+		// 起始偏移已越界：返回零值且不推进，避免后续解析继续越界。
+		return 0
+	}
 	posByte := 6
 	bData := b[*pos]
 	// 首字节低六位提取数据位。
@@ -235,6 +258,10 @@ func getprice(b []byte, pos *int) int {
 	if (bData & 0x80) > 0 {
 		for {
 			*pos += 1
+			// 续接字节越过负载末尾：返回零值，停止解析该段编码。
+			if *pos >= len(b) {
+				return 0
+			}
 			bData = b[*pos]
 			data += (int(bData&0x7f) << posByte)
 
@@ -257,7 +284,11 @@ func getprice(b []byte, pos *int) int {
 // gettime 从响应字节流当前偏移读取当日累计分钟数，换算为时与分，并把偏移量推进两个字节。
 //
 // 参数 `b` 为响应负载字节流，`pos` 为当前读取偏移，读取后推进两字节；返回换算得到的时与分。
+// 剩余字节不足 2 字节时返回零值且不推进偏移（畸形/截断负载的越界防护，与 `getprice` 一致）。
 func gettime(b []byte, pos *int) (h uint16, m uint16) {
+	if *pos < 0 || *pos+2 > len(b) {
+		return 0, 0
+	}
 	var sec uint16
 	binary.Read(bytes.NewBuffer(b[*pos:*pos+2]), binary.LittleEndian, &sec)
 	h = sec / 60
@@ -269,7 +300,11 @@ func gettime(b []byte, pos *int) (h uint16, m uint16) {
 // getfloat32 读取四字节单精度浮点数（成交量或成交额），扩展为双精度返回，并把偏移量推进四字节。
 //
 // 参数 `b` 为响应负载字节流，`pos` 为当前读取偏移，读取后推进四字节；返回提升为双精度的浮点数值。
+// 剩余字节不足 4 字节时返回零值且不推进偏移（畸形/截断负载的越界防护，与 `getprice` 一致）。
 func getfloat32(b []byte, pos *int) float64 {
+	if *pos < 0 || *pos+4 > len(b) {
+		return 0
+	}
 	value := math.Float32frombits(binary.LittleEndian.Uint32(b[*pos : *pos+4]))
 	(*pos) += 4
 	return float64(value)

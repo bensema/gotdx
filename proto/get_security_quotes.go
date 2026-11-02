@@ -3,6 +3,7 @@ package proto
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 )
 
 // GetSecurityQuotes 表示一次批量获取盘口五档报价与完整行情快照协议的完整流程对象。
@@ -162,34 +163,35 @@ func (obj *GetSecurityQuotes) ParseResponse(header *RespHeader, data []byte) err
 	obj.respHeader = header
 
 	pos := 0
-	// 前 2 字节为协议保留区，直接跳过。
-	pos += 2
-	if err := binary.Read(bytes.NewBuffer(data[pos:pos+2]), binary.LittleEndian, &obj.reply.Count); err != nil {
-		return err
+	// 头部 4 字节：保留 2 + 条数 2，不足直接拒绝截断负载。
+	rawCount, ok := readRange(data, &pos, 4)
+	if !ok {
+		return fmt.Errorf("invalid security quotes response length: %d", len(data))
 	}
-	pos += 2
+	obj.reply.Count = binary.LittleEndian.Uint16(rawCount[2:4])
 
 	for index := uint16(0); index < obj.reply.Count; index++ {
 		ele := SecurityQuote{}
 		// 市场 1 字节。
-		if err := binary.Read(bytes.NewBuffer(data[pos:pos+1]), binary.LittleEndian, &ele.Market); err != nil {
-			return err
+		rawMarket, ok := readRange(data, &pos, 1)
+		if !ok {
+			return fmt.Errorf("invalid security quotes item %d: market overflow", index)
 		}
-		pos++
+		ele.Market = rawMarket[0]
 
 		// 代码 6 字节，按 `GBK` 解码。
-		var code [6]byte
-		if err := binary.Read(bytes.NewBuffer(data[pos:pos+6]), binary.LittleEndian, &code); err != nil {
-			return err
+		rawCode, ok := readRange(data, &pos, 6)
+		if !ok {
+			return fmt.Errorf("invalid security quotes item %d: code overflow", index)
 		}
-		ele.Code = Utf8ToGbk(code[:])
-		pos += 6
+		ele.Code = Utf8ToGbk(rawCode)
 
 		// 活跃度字段 1，2 字节。
-		if err := binary.Read(bytes.NewBuffer(data[pos:pos+2]), binary.LittleEndian, &ele.Active1); err != nil {
-			return err
+		rawActive1, ok := readRange(data, &pos, 2)
+		if !ok {
+			return fmt.Errorf("invalid security quotes item %d: active overflow", index)
 		}
-		pos += 2
+		ele.Active1 = binary.LittleEndian.Uint16(rawActive1)
 
 		// 基准价与各价格差值；后续价位为基准价加差值。
 		basePrice := getprice(data, &pos)
@@ -269,25 +271,28 @@ func (obj *GetSecurityQuotes) ParseResponse(header *RespHeader, data []byte) err
 		ele.AskVol5 = ele.AskLevels[4].Vol
 
 		// 尾部未知 2 字节字段，语义待确认。
-		if err := binary.Read(bytes.NewBuffer(data[pos:pos+2]), binary.LittleEndian, &ele.Unknown); err != nil {
-			return err
+		rawUnknown, ok := readRange(data, &pos, 2)
+		if !ok {
+			return fmt.Errorf("invalid security quotes item %d: unknown overflow", index)
 		}
-		pos += 2
+		ele.Unknown = int16(binary.LittleEndian.Uint16(rawUnknown))
 		// 4 字节协议保留区，整体跳过。
-		pos += 4
+		if _, ok = readRange(data, &pos, 4); !ok {
+			return fmt.Errorf("invalid security quotes item %d: reserved overflow", index)
+		}
 
 		// 涨速为的无符号整数转有符号短整数，放大 100 倍存储，解析后除以 100。
-		var riseSpeed int16
-		if err := binary.Read(bytes.NewBuffer(data[pos:pos+2]), binary.LittleEndian, &riseSpeed); err != nil {
-			return err
+		rawRise, ok := readRange(data, &pos, 2)
+		if !ok {
+			return fmt.Errorf("invalid security quotes item %d: rise speed overflow", index)
 		}
-		pos += 2
-		ele.Rate = float64(riseSpeed) / 100.0
+		ele.Rate = float64(int16(binary.LittleEndian.Uint16(rawRise))) / 100.0
 		// 活跃度字段 2，2 字节。
-		if err := binary.Read(bytes.NewBuffer(data[pos:pos+2]), binary.LittleEndian, &ele.Active2); err != nil {
-			return err
+		rawActive2, ok := readRange(data, &pos, 2)
+		if !ok {
+			return fmt.Errorf("invalid security quotes item %d: active2 overflow", index)
 		}
-		pos += 2
+		ele.Active2 = binary.LittleEndian.Uint16(rawActive2)
 
 		obj.reply.List = append(obj.reply.List, ele)
 	}

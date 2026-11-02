@@ -212,8 +212,10 @@ flowchart TD
 | MAC 扩展站 | `gotdx.NewMACEx` | `ConnectMAC()` | MAC 协议握手 | MAC 扩展行情，查询方法同 MAC 协议族 |
 
 ```go
-// 主行情入口
-client := gotdx.New(gotdx.WithTimeoutSec(6))
+client := gotdx.New(
+	gotdx.WithPoolSize(3),       // 默认 3，非正数忽略并回退默认
+	gotdx.WithTimeoutSec(6),     // 默认 2 秒，非正数忽略并回退默认
+)
 if _, err := client.Connect(); err != nil {
 	log.Fatal(err)
 }

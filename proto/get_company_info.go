@@ -3,6 +3,7 @@ package proto
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"math"
 	"sort"
 	"strings"
@@ -497,6 +498,11 @@ func (obj *GetXDXRInfo) BuildRequest() ([]byte, error) {
 func (obj *GetXDXRInfo) ParseResponse(header *RespHeader, data []byte) error {
 	obj.respHeader = header
 
+	// 公共头 11 字节不足直接拒绝截断负载。
+	if len(data) < 11 {
+		return fmt.Errorf("invalid xdxr info response length: %d", len(data))
+	}
+
 	// 0 字节：市场代码。
 	obj.reply.Market = data[0]
 	// 1:3 回显市场字段，语义待确认。
@@ -509,6 +515,10 @@ func (obj *GetXDXRInfo) ParseResponse(header *RespHeader, data []byte) error {
 	for i := uint16(0); i < obj.reply.Count; i++ {
 		// 每条记录固定 29 字节，起始偏移为 11 字节公共头加序号乘 29。
 		pos := 11 + int(i)*29
+		// 记录区不足 29 字节视为截断，返回错误避免越界读取。
+		if pos+29 > len(data) {
+			return fmt.Errorf("invalid xdxr info item %d: truncated", i)
+		}
 		item := XDXRItem{
 			Market:   data[pos],
 			Code:     Utf8ToGbk(data[pos+1 : pos+7]),

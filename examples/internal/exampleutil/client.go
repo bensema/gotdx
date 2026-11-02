@@ -17,6 +17,20 @@ func NewMainClient() *gotdx.Client {
 	)
 }
 
+// NewMainClientWithTimeoutSec 使用内置主站地址构造主站客户端，并显式指定连接与读写超时秒数。
+//
+// 参数 `timeoutSec` 为连接与读写共用的超时秒数，传入非正数时库内回退默认值。其余行为与
+// `NewMainClient` 一致。适用于对响应时限敏感、或部分服务器不支持所请求协议的示例：短超时
+// 让不支持协议的主机快速失败，避免逐个等满默认 8 秒。
+func NewMainClientWithTimeoutSec(timeoutSec int) *gotdx.Client {
+	primary, pool := splitHosts(gotdx.MainHostAddresses())
+	return gotdx.New(
+		gotdx.WithTCPAddress(primary),
+		gotdx.WithTCPAddressPool(pool...),
+		gotdx.WithTimeoutSec(timeoutSec),
+	)
+}
+
 // NewMainClientForHost 使用指定主站地址构造主站客户端。
 //
 // 参数 `host` 为目标主站 `host:port` 地址；地址池保留内置主站候选地址，拨号与读写超时固定为 6 秒。

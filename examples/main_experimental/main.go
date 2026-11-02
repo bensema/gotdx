@@ -11,7 +11,9 @@ import (
 )
 
 func main() {
-	client := exampleutil.NewMainClient()
+	// 试验协议仅在部分主站主机上可用：对不支持的主机设短超时（2 秒）快速失败，
+	// 避免池化请求逐个等满默认 8 秒读写超时；正常试验协议响应在毫秒级，2 秒足够。
+	client := exampleutil.NewMainClientWithTimeoutSec(2)
 	defer client.Disconnect()
 
 	// 闭包 `run` 统一执行一次试验协议调用。参数 `name` 为日志中展示的协议名称；参数 `call` 为无业务入参、

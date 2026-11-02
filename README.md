@@ -123,7 +123,7 @@ client := gotdx.New(
 ```go
 client := gotdx.New(
 	gotdx.WithPoolSize(3),       // 默认 3，非正数忽略并回退默认
-	gotdx.WithTimeoutSec(6),
+	gotdx.WithTimeoutSec(6),     // 默认 2 秒，非正数忽略并回退默认
 )
 if _, err := client.Connect(); err != nil {
 	log.Fatal(err)

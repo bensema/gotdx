@@ -47,7 +47,7 @@ type ICFQSTable struct {
 // NewICFQS 创建访问默认 ICFQS 服务的 HTTP 客户端。
 //
 // 参数 `opts` 为按顺序覆盖默认地址、`http.Client`、超时等配置的函数式选项，后传入的选项优先生效；
-// 不传选项时使用 `DefaultICFQSAddress` 与内置 8 秒超时。返回的客户端零值不可用，方法可并发调用。
+// 不传选项时使用 `DefaultICFQSAddress` 与内置 2 秒超时。返回的客户端零值不可用，方法可并发调用。
 func NewICFQS(opts ...ICFQSOption) *ICFQSClient {
 	client := &ICFQSClient{
 		address: DefaultICFQSAddress,

@@ -11,8 +11,12 @@ const (
 	_defaultMacTCPAddress   = "121.36.248.138:7709"
 	_defaultMacExTCPAddress = "116.205.135.205:7727"
 	_defaultRetryTimes      = 3
-	_defaultTimeoutSec      = 8
-	_defaultPoolSize        = 3
+	// 默认连接与读写共用超时：行情接口实测响应在几十至两百毫秒量级（快照/K线/分时/历史
+	// 大负载均 <200ms），2 秒对正常请求保有 10 倍以上余量；缩短默认值让慢服务器快速判负、
+	// 由池化换节点/补建兜底，不再逐个等满 8 秒。拨号另有独立快路径自适应超时（500ms 起），
+	// 正常建池不受此值约束。
+	_defaultTimeoutSec = 2
+	_defaultPoolSize   = 3
 )
 
 // Options 保存客户端创建时使用的主站、扩展站、MAC 站地址与地址池、重试次数、超时等全部配置。
@@ -30,7 +34,7 @@ type Options struct {
 	MacExTCPAddress        string   // MAC 扩展行情服务器单点地址，格式为 `host:port`；空串时回退到 MAC 扩展站地址池
 	MacExTCPAddressPool    []string // MAC 扩展行情服务器地址池；空切片使用内置默认池
 	MaxRetryTimes          int      // 单次请求写失败的重试次数；构造阶段由默认值 3 填充，连接流程中按该值重试
-	TimeoutSec             int      // 连接与读写共用的超时时间，单位秒；构造阶段由默认值 8 秒填充，非正数回退默认
+	TimeoutSec             int      // 连接与读写共用的超时时间，单位秒；构造阶段由默认值 2 秒填充，非正数回退默认
 	PoolSize               int      // 连接池大小，即并行可用的 TCP 连接条数；构造阶段由默认值 3 填充，非正数回退默认
 	DisableEmptyNodeSwitch bool     // 关闭空数据换节点：空应答直接返回首次结果，不并行探测其他连接；默认 `false` 保持池化换节点行为
 	FuturesCalendarPath    string   // 期货交易日历 SQLite 路径；为空时不转换 MAC 期货自然时间

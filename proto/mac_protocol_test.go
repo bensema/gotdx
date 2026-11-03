@@ -955,6 +955,10 @@ func TestMACTransactionsBuildRequestAndParseResponse(t *testing.T) {
 	if len(reply.List) != 2 || reply.List[0].Time != "09:30:15" || reply.List[1].BuyOrSell != 1 {
 		t.Fatalf("unexpected list: %+v", reply.List)
 	}
+	// 完整成交时间标签由回显交易日与成交时间合并。
+	if reply.List[0].Datetime != "2026-04-18 09:30:15" || reply.List[1].Datetime != "2026-04-18 15:30:00" {
+		t.Fatalf("unexpected datetime merge: %+v", reply.List)
+	}
 	assertNearFloat64(t, reply.List[0].Price, 10.5, "transaction_price_0")
 	assertNearFloat64(t, reply.List[1].Price, 10.8, "transaction_price_1")
 }
@@ -1145,6 +1149,18 @@ func TestMACTickChartsBuildRequestAndParseResponse(t *testing.T) {
 	}
 	if reply.Charts[0].Date != "2026-04-18" || len(reply.Charts[0].Ticks) != 2 || reply.Charts[1].Ticks[1].Unknown != 10 {
 		t.Fatalf("unexpected charts: %+v", reply.Charts)
+	}
+	// 分时点 `DateTime` 应为交易日日期与该点时间标签合并的完整本地时间：
+	// 分钟偏移 570/571 换算为 09:31:00/09:32:00，第一个交易日为 2026-04-18，
+	// 第二个交易日为 2026-04-17。
+	if got := reply.Charts[0].Ticks[0].DateTime.Format(time.DateTime); got != "2026-04-18 09:31:00" {
+		t.Fatalf("unexpected tick datetime 0: %s", got)
+	}
+	if got := reply.Charts[0].Ticks[1].DateTime.Format(time.DateTime); got != "2026-04-18 09:32:00" {
+		t.Fatalf("unexpected tick datetime 1: %s", got)
+	}
+	if got := reply.Charts[1].Ticks[0].DateTime.Format(time.DateTime); got != "2026-04-17 09:31:00" {
+		t.Fatalf("unexpected tick datetime day2: %s", got)
 	}
 	if reply.Name != "PingAn Bank" || reply.DateTime.Format(time.DateTime) != "2026-04-18 15:00:05" || reply.Industry != 83005 || reply.IndustryCode != "881282" {
 		t.Fatalf("unexpected summary: %+v", reply)

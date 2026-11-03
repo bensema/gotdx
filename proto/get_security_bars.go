@@ -197,8 +197,11 @@ func (obj *GetSecurityBars) ParseResponse(header *RespHeader, data []byte) error
 		}
 		obj.reply.List = append(obj.reply.List, bar)
 	}
-	// 条数同样减一，与丢弃首条的逻辑保持一致。
-	obj.reply.Count = obj.reply.Count - 1
+	// 条数同样减一，与丢弃首条的逻辑保持一致；服务器可能返回 0 条
+	// （该周期无数据），避免无符号下溢成 65535 导致判空失效。
+	if obj.reply.Count > 0 {
+		obj.reply.Count--
+	}
 
 	return nil
 }

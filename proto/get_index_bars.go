@@ -185,8 +185,11 @@ func (obj *GetIndexBars) ParseResponse(header *RespHeader, data []byte) error {
 	}
 	// 修正当天下午 13:00 被错映射为 11:30 的 K 线时间。
 	obj.reply.List = FixKlineTimeIndexBar(obj.reply.List)
-	// 结果条数扣除开头被舍弃的那一根。
-	obj.reply.Count = obj.reply.Count - 1
+	// 结果条数扣除开头被舍弃的那一根；服务器可能返回 0 条（该周期无数据），
+	// 避免无符号下溢成 65535 导致判空失效。
+	if obj.reply.Count > 0 {
+		obj.reply.Count--
+	}
 
 	return nil
 }

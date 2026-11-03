@@ -3,6 +3,7 @@ package gotdx
 import (
 	"path/filepath"
 	"runtime"
+	"time"
 )
 
 const (
@@ -17,6 +18,9 @@ const (
 	// 正常建池不受此值约束。
 	_defaultTimeoutSec = 2
 	_defaultPoolSize   = 3
+	// 默认熔断配置：连续 5 次请求失败打开熔断，冷却 5 秒后放行单个试探请求验证恢复。
+	_defaultGuardFailThreshold = 5
+	_defaultGuardOpenTimeout   = 5 * time.Second
 )
 
 // Options 保存客户端创建时使用的主站、扩展站、MAC 站地址与地址池、重试次数、超时等全部配置。
@@ -25,19 +29,22 @@ const (
 // 对应字段，后传入的选项优先生效。各字段的零值表示"沿用对应默认值"，字段级并发读写
 // 应在构造阶段完成，连接建立后不应再修改。
 type Options struct {
-	TCPAddress             string   // 主行情服务器单点地址，格式为 `host:port`；空串时回退到主站地址池
-	TCPAddressPool         []string // 主行情服务器地址池，连接时按顺序或测速结果依次尝试；空切片使用内置默认池
-	ExTCPAddress           string   // 扩展行情服务器单点地址，格式为 `host:port`；空串时回退到扩展站地址池
-	ExTCPAddressPool       []string // 扩展行情服务器地址池；空切片使用内置默认池
-	MacTCPAddress          string   // MAC 主行情服务器单点地址，格式为 `host:port`；空串时回退到 MAC 主站地址池
-	MacTCPAddressPool      []string // MAC 主行情服务器地址池；空切片使用内置默认池
-	MacExTCPAddress        string   // MAC 扩展行情服务器单点地址，格式为 `host:port`；空串时回退到 MAC 扩展站地址池
-	MacExTCPAddressPool    []string // MAC 扩展行情服务器地址池；空切片使用内置默认池
-	MaxRetryTimes          int      // 单次请求写失败的重试次数；构造阶段由默认值 3 填充，连接流程中按该值重试
-	TimeoutSec             int      // 连接与读写共用的超时时间，单位秒；构造阶段由默认值 2 秒填充，非正数回退默认
-	PoolSize               int      // 连接池大小，即并行可用的 TCP 连接条数；构造阶段由默认值 3 填充，非正数回退默认
-	DisableEmptyNodeSwitch bool     // 关闭空数据换节点：空应答直接返回首次结果，不并行探测其他连接；默认 `false` 保持池化换节点行为
-	FuturesCalendarPath    string   // 期货交易日历 SQLite 路径；为空时不转换 MAC 期货自然时间
+	TCPAddress             string        // 主行情服务器单点地址，格式为 `host:port`；空串时回退到主站地址池
+	TCPAddressPool         []string      // 主行情服务器地址池，连接时按顺序或测速结果依次尝试；空切片使用内置默认池
+	ExTCPAddress           string        // 扩展行情服务器单点地址，格式为 `host:port`；空串时回退到扩展站地址池
+	ExTCPAddressPool       []string      // 扩展行情服务器地址池；空切片使用内置默认池
+	MacTCPAddress          string        // MAC 主行情服务器单点地址，格式为 `host:port`；空串时回退到 MAC 主站地址池
+	MacTCPAddressPool      []string      // MAC 主行情服务器地址池；空切片使用内置默认池
+	MacExTCPAddress        string        // MAC 扩展行情服务器单点地址，格式为 `host:port`；空串时回退到 MAC 扩展站地址池
+	MacExTCPAddressPool    []string      // MAC 扩展行情服务器地址池；空切片使用内置默认池
+	MaxRetryTimes          int           // 单次请求写失败的重试次数；构造阶段由默认值 3 填充，连接流程中按该值重试
+	TimeoutSec             int           // 连接与读写共用的超时时间，单位秒；构造阶段由默认值 2 秒填充，非正数回退默认
+	PoolSize               int           // 连接池大小，即并行可用的 TCP 连接条数；构造阶段由默认值 3 填充，非正数回退默认
+	DisableEmptyNodeSwitch bool          // 关闭空数据换节点：空应答直接返回首次结果，不并行探测其他连接；默认 `false` 保持池化换节点行为
+	GuardEnabled           bool          // 开启 `execute` 入口的熔断与防击穿保护；默认 `true`，四个入口全部数据查询统一受保护
+	GuardFailThreshold     int           // 熔断阈值：同一命令码连续失败多少次打开熔断；构造阶段由默认值 5 填充，非正数回退默认
+	GuardOpenTimeout       time.Duration // 熔断冷却时长：打开后冷却多久放行单个试探请求；零或负数回退默认 5 秒
+	FuturesCalendarPath    string        // 期货交易日历 SQLite 路径；为空时不转换 MAC 期货自然时间
 }
 
 // defaultOptions 构造内置默认配置：各站点使用内置主机列表与兜底地址，并设置默认重试次数、超时与日历路径。
@@ -59,6 +66,9 @@ func defaultOptions() *Options {
 		MaxRetryTimes:       _defaultRetryTimes,
 		TimeoutSec:          _defaultTimeoutSec,
 		PoolSize:            _defaultPoolSize,
+		GuardEnabled:        true,
+		GuardFailThreshold:  _defaultGuardFailThreshold,
+		GuardOpenTimeout:    _defaultGuardOpenTimeout,
 		FuturesCalendarPath: defaultFuturesCalendarPath(),
 	}
 }
@@ -200,5 +210,32 @@ func WithSingleConnectionMode() Option {
 func WithEmptyNodeSwitchDisabled(disabled bool) Option {
 	return func(o *Options) {
 		o.DisableEmptyNodeSwitch = disabled
+	}
+}
+
+// WithGuardDisabled 设置是否关闭 `execute` 入口的熔断与防击穿保护。
+//
+// 参数 `disabled` 为 `true` 时关闭保护：请求直接走原有执行路径，不统计失败、
+// 不合并并发；为 `false`（默认）时保持熔断+防击穿。适用于需要完全保留原始
+// 行为（如自定义容错策略）的调用方。
+func WithGuardDisabled(disabled bool) Option {
+	return func(o *Options) {
+		o.GuardEnabled = !disabled
+	}
+}
+
+// WithGuardConfig 设置熔断阈值与冷却时长。
+//
+// 参数 `failThreshold` 为同一命令码连续失败多少次打开熔断，非正数保持默认 5；
+// 参数 `openTimeout` 为熔断打开后冷却多久放行单个试探请求，非正数保持默认 5 秒。
+// 熔断按协议命令码分桶，互不影响。
+func WithGuardConfig(failThreshold int, openTimeout time.Duration) Option {
+	return func(o *Options) {
+		if failThreshold > 0 {
+			o.GuardFailThreshold = failThreshold
+		}
+		if openTimeout > 0 {
+			o.GuardOpenTimeout = openTimeout
+		}
 	}
 }

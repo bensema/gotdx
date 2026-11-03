@@ -103,15 +103,18 @@ type Client struct {
 	ex                  *Client
 	decimalPoints       map[uint8]map[string]int8
 	decimalPointsLoaded map[uint8]bool
-	lastReachable       []string                 // 最近一次探活确认可达的地址列表，按测得耗时升序，供重平衡与补建收敛候选
-	addrLatency         map[string]time.Duration // 各地址最近一次建连测得的拨号+握手总耗时，供候选排序与后台预比较；池锁保护
-	dialSamples         []time.Duration          // 最近若干次成功建连耗时样本（环形窗口），供快路径超时取中位数自适应；池锁保护
-	health              map[string]*nodeHealth   // 各地址连续空数据健康度统计，定向借出对降权节点跳过；池锁保护
-	heartbeatLatency    map[string]time.Duration // 各地址最近一次心跳往返耗时，供慢连接判定与池内分布比较；池锁保护
-	slow                map[string]bool          // 心跳识别出的慢连接标记，触发缩短重平衡周期与放宽切换阈值；池锁保护
-	lastActivityAt      time.Time                // 最近一次业务借出连接的时间，供心跳周期按活动度拉长；池锁保护
-	rebalanceMu         sync.Mutex               // 重平衡串行锁：避免定时 tick 与全空后台修复并发重建连接
-	rebalanceTick       int                      // 重平衡执行计数，每 5 次触发一次全量探活刷新可达集
+	lastReachable       []string                   // 最近一次探活确认可达的地址列表，按测得耗时升序，供重平衡与补建收敛候选
+	addrLatency         map[string]time.Duration   // 各地址最近一次建连测得的拨号+握手总耗时，供候选排序与后台预比较；池锁保护
+	dialSamples         []time.Duration            // 最近若干次成功建连耗时样本（环形窗口），供快路径超时取中位数自适应；池锁保护
+	health              map[string]*nodeHealth     // 各地址连续空数据健康度统计，定向借出对降权节点跳过；池锁保护
+	heartbeatLatency    map[string]time.Duration   // 各地址最近一次心跳往返耗时，供慢连接判定与池内分布比较；池锁保护
+	slow                map[string]bool            // 心跳识别出的慢连接标记，触发缩短重平衡周期与放宽切换阈值；池锁保护
+	lastActivityAt      time.Time                  // 最近一次业务借出连接的时间，供心跳周期按活动度拉长；池锁保护
+	rebalanceMu         sync.Mutex                 // 重平衡串行锁：避免定时 tick 与全空后台修复并发重建连接
+	rebalanceTick       int                        // 重平衡执行计数，每 5 次触发一次全量探活刷新可达集
+	guardMu             sync.Mutex                 // 熔断桶锁：保护命令码到熔断器的惰性分桶
+	guards              map[uint16]*circuitBreaker // 各命令码的熔断器，`execute` 统一挂载
+	flights             *flightGroup               // 防击穿合并器：同参数请求合并为一次网络请求
 }
 
 // pooledConn 为池内一条 TCP 连接：自带串行锁，保证该连接上的请求严格
@@ -181,8 +184,10 @@ func (client *Client) FastestHost() (HostProbeResult, error) {
 // MAC 扩展站，不同模式把对应站点的单点地址与地址池切换为后续拨号使用的默认目标。
 func newClientWithOptions(opt *Options, mode clientMode) *Client {
 	client := &Client{
-		opt:  cloneOptions(opt),
-		mode: mode,
+		opt:     cloneOptions(opt),
+		mode:    mode,
+		guards:  make(map[uint16]*circuitBreaker),
+		flights: newFlightGroup(),
 	}
 	// 连接池大小非正数时回退默认，避免零值构造出不可用池。
 	if client.opt.PoolSize <= 0 {

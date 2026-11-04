@@ -74,6 +74,7 @@ type MACTickChartItem struct {
 	Amount   float64   // 派生成交额，由成交量、均价与固定系数 100 推算，报文未直接给出。
 	Unknown  uint16    // 协议保留槽位，语义待确认。
 	DateTime time.Time // 合并后的完整本地时间：交易日日期 `Date` 与该点时间标签 `Time` 拼接解析；日期为空或解析失败时为零值。
+	PreClose float64   // 当日昨收价，由头部昨收数组按交易日序号取出，便于计算涨跌幅。
 }
 
 // NewMACTickCharts 创建多日分时查询对象；请求参数为空时使用内置默认交易日数。
@@ -226,6 +227,7 @@ func (obj *MACTickCharts) ParseResponse(header *RespHeader, data []byte) error {
 		for j := range day.Ticks {
 			if parsed, err := time.ParseInLocation("2006-01-02 15:04:05", day.Date+" "+day.Ticks[j].Time, time.Local); err == nil {
 				day.Ticks[j].DateTime = parsed
+				day.Ticks[j].PreClose = day.PreClose
 			}
 		}
 	}

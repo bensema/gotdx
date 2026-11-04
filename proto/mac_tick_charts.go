@@ -67,12 +67,14 @@ type MACTickChartDay struct {
 // MACTickChartItem 表示一个分时点，包含时间标签、价格、均价、成交量与派生成交额；
 // 其中一个保留槽位语义待确认，原样保存。
 type MACTickChartItem struct {
-	Time    string  // 分时时间标签，格式 HH:MM:SS，由分钟偏移换算并整体后移一分钟。
-	Price   float64 // 该时点成交价，单精度浮点还原。
-	Avg     float64 // 该时点均价，单精度浮点还原。
-	Vol     uint16  // 分时累计成交量，两字节。
-	Amount  float64 // 派生成交额，由成交量、均价与固定系数 100 推算，报文未直接给出。
-	Unknown uint16  // 协议保留槽位，语义待确认。
+	Time     string    // 分时时间标签，格式 HH:MM:SS，由分钟偏移换算并整体后移一分钟。
+	Price    float64   // 该时点成交价，单精度浮点还原。
+	Avg      float64   // 该时点均价，单精度浮点还原。
+	Vol      uint16    // 分时累计成交量，两字节。
+	Amount   float64   // 派生成交额，由成交量、均价与固定系数 100 推算，报文未直接给出。
+	Unknown  uint16    // 协议保留槽位，语义待确认。
+	DateTime time.Time // 合并后的完整本地时间：交易日日期 `Date` 与该点时间标签 `Time` 拼接解析；日期为空或解析失败时为零值。
+	PreClose float64   // 当日昨收价，由头部昨收数组按交易日序号取出，便于计算涨跌幅。
 }
 
 // NewMACTickCharts 创建多日分时查询对象；请求参数为空时使用内置默认交易日数。
@@ -212,6 +214,22 @@ func (obj *MACTickCharts) ParseResponse(header *RespHeader, data []byte) error {
 	if n := int(obj.request.Days); len(obj.reply.Charts) > n {
 		obj.reply.Charts = obj.reply.Charts[:n]
 		obj.reply.Count = uint16(n)
+	}
+
+	// 分组与裁剪完成后，把每个交易日的日期与该日各分时点的时间标签合并为完整本地时间，
+	// 回填到各分时点 `DateTime`：`Date`（`YYYY-MM-DD`）与 `Time`（`HH:MM:SS`）拼接解析；
+	// 占位交易日日期为空或解析失败时无法合并，保持零值。
+	for i := range obj.reply.Charts {
+		day := &obj.reply.Charts[i]
+		if day.Date == "" {
+			continue
+		}
+		for j := range day.Ticks {
+			day.Ticks[j].PreClose = day.PreClose
+			if parsed, err := time.ParseInLocation("2006-01-02 15:04:05", day.Date+" "+day.Ticks[j].Time, time.Local); err == nil {
+				day.Ticks[j].DateTime = parsed
+			}
+		}
 	}
 
 	// 汇总行情段不足 120 字节时直接返回，跳过尾部字段解析。

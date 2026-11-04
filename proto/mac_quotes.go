@@ -62,11 +62,13 @@ type MACQuotesReply struct {
 
 // MACQuoteChartItem 表示分时图上的一个采样点，包含分钟时间标签、成交价、均价、累计成交量与动量值。
 type MACQuoteChartItem struct {
-	Time     string  // 分时时间标签，格式 HH:MM:SS，由分钟偏移换算得到。
-	Price    float64 // 该时点成交价，单精度浮点还原。
-	Avg      float64 // 该时点均价，单精度浮点还原。
-	Vol      uint32  // 累计成交量，四字节。
-	Momentum float64 // 该时点动量值，单精度浮点还原，语义待确认。
+	Time     string    // 分时时间标签，格式 HH:MM:SS，由分钟偏移换算得到。
+	Price    float64   // 该时点成交价，单精度浮点还原。
+	Avg      float64   // 该时点均价，单精度浮点还原。
+	Vol      uint32    // 累计成交量，四字节。
+	Momentum float64   // 该时点动量值，单精度浮点还原，语义待确认。
+	DateTime time.Time // 该时点对应的本地时间，由分钟偏移换算得到。
+	PreClose float64   // 该时点前一根分时点的收盘价，单精度浮点还原，语义待确认。
 }
 
 // NewMACQuotes 创建行情快照查询对象；请求参数为空时使用内置默认参数。
@@ -147,6 +149,8 @@ func (obj *MACQuotes) ParseResponse(header *RespHeader, data []byte) error {
 			Vol:      binary.LittleEndian.Uint32(data[pos+10 : pos+14]),
 			Momentum: float64(math.Float32frombits(binary.LittleEndian.Uint32(data[pos+14 : pos+18]))),
 		}
+		item.PreClose = obj.reply.Price
+		item.DateTime = formatMACQuoteDateTime(obj.reply.Date, uint32(minutes/60*10000+minutes%60*100))
 		obj.reply.ChartData = append(obj.reply.ChartData, item)
 		pos += 18
 	}

@@ -191,8 +191,11 @@ func (obj *MACSymbolBars) ParseResponse(header *RespHeader, data []byte) error {
 		}
 		obj.reply.List = append(obj.reply.List, item)
 	}
-	// 结果条数比报文条数少一，即被舍弃的首条基准。
-	obj.reply.Count = obj.reply.Count - 1
+	// 结果条数比报文条数少一，即被舍弃的首条基准；服务器可能返回 0 条
+	// （该周期无数据），避免无符号下溢成 65535 导致判空失效。
+	if obj.reply.Count > 0 {
+		obj.reply.Count--
+	}
 
 	// 汇总行情段不足 120 字节时直接返回，不再解析尾部字段。
 	if pos+120 > len(data) {

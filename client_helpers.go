@@ -13,7 +13,10 @@ import (
 // `makeStocks`、`makeExStocks` 在配对前校验长度时返回。
 var ErrMarketCodeCount = errors.New("market code count error")
 
-// execute 完成一次协议请求-响应流程：从池内借出一条连接（借出即移出池）、持该连接
+// execute 完成一次协议请求-响应流程的对外入口：熔断与防击穿开启时（默认）经
+// `executeGuarded` 统一挂载保护，关闭时直连 `executePlain`。
+//
+// `executePlain` 是真实执行路径：从池内借出一条连接（借出即移出池）、持该连接
 // 串行锁执行收发，解析成功后归还池内；收发或解析失败时由池销毁该条并后台补建。
 //
 // 解析成功后记录本次借出连接地址为"最近成功响应的服务器"（`lastDataAddr`），后续借出
@@ -30,6 +33,16 @@ var ErrMarketCodeCount = errors.New("market code count error")
 // 参数 `protocol` 为待执行的协议对象，泛型 `T` 为应答类型；池内暂无连接（未连接或全部被
 // 借出/丢弃待补建）或收发、解析失败时返回 `T` 零值与错误。
 func (client *Client) execute[T any](protocol proto.Protocol[T]) (T, error) {
+	if client.opt.GuardEnabled {
+		return client.executeGuarded(protocol)
+	}
+	return client.executePlain(protocol)
+}
+
+// executePlain 完成一次协议请求-响应流程：从池内借出一条连接（借出即移出池）、
+// 持该连接串行锁执行收发，解析成功后归还池内；收发或解析失败时由池销毁该条并
+// 后台补建。空数据换节点、健康度记账与定向复用逻辑见 `execute` 的文档说明。
+func (client *Client) executePlain[T any](protocol proto.Protocol[T]) (T, error) {
 	var zero T
 	reply, addr, err := client.executeOnce(protocol)
 	if err != nil {

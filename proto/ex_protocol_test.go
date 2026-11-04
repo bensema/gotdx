@@ -437,9 +437,22 @@ func TestExGetKLineBuildRequestAndParseResponse(t *testing.T) {
 	if err := binary.Write(buf, binary.LittleEndian, uint32(5)); err != nil {
 		t.Fatal(err)
 	}
-	if err := binary.Write(buf, binary.LittleEndian, uint16(1)); err != nil {
+	if err := binary.Write(buf, binary.LittleEndian, uint16(2)); err != nil {
 		t.Fatal(err)
 	}
+	// 首根为昨收基准（解析时丢弃），随后才是真实 K 线。
+	if err := binary.Write(buf, binary.LittleEndian, uint32(20260330)); err != nil {
+		t.Fatal(err)
+	}
+	writeFloat32(t, buf, 100.0)
+	writeFloat32(t, buf, 101.0)
+	writeFloat32(t, buf, 99.5)
+	writeFloat32(t, buf, 100.5)
+	writeFloat32(t, buf, 999999)
+	if err := binary.Write(buf, binary.LittleEndian, uint32(1)); err != nil {
+		t.Fatal(err)
+	}
+	writeFloat32(t, buf, 0)
 	if err := binary.Write(buf, binary.LittleEndian, uint32(20260331)); err != nil {
 		t.Fatal(err)
 	}

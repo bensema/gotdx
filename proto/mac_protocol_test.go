@@ -955,6 +955,10 @@ func TestMACTransactionsBuildRequestAndParseResponse(t *testing.T) {
 	if len(reply.List) != 2 || reply.List[0].Time != "09:30:15" || reply.List[1].BuyOrSell != 1 {
 		t.Fatalf("unexpected list: %+v", reply.List)
 	}
+	// 完整成交时间标签由回显交易日与成交时间合并。
+	if !reply.List[0].Datetime.Equal(time.Date(2026, 4, 18, 9, 30, 15, 0, time.Local)) || !reply.List[1].Datetime.Equal(time.Date(2026, 4, 18, 15, 30, 0, 0, time.Local)) {
+		t.Fatalf("unexpected datetime merge: %+v", reply.List)
+	}
 	assertNearFloat64(t, reply.List[0].Price, 10.5, "transaction_price_0")
 	assertNearFloat64(t, reply.List[1].Price, 10.8, "transaction_price_1")
 }
@@ -1019,7 +1023,7 @@ func TestMACAuctionBuildRequestAndParseResponse(t *testing.T) {
 	if reply.Market != 1 || reply.Code != "600000" || reply.Count != 2 || len(reply.List) != 2 {
 		t.Fatalf("unexpected reply: %+v", reply)
 	}
-	if reply.List[0].Time != "09:30:15" || reply.List[0].Unmatched != -50 || reply.List[0].Flag != -1 {
+	if reply.List[0].Time != "09:30:15" || reply.List[0].Unmatched != 50 || reply.List[0].Flag != -1 {
 		t.Fatalf("unexpected first auction item: %+v", reply.List[0])
 	}
 	if reply.List[1].Time != "15:30:00" || reply.List[1].Unmatched != 30 || reply.List[1].Flag != 1 {
@@ -1145,6 +1149,18 @@ func TestMACTickChartsBuildRequestAndParseResponse(t *testing.T) {
 	}
 	if reply.Charts[0].Date != "2026-04-18" || len(reply.Charts[0].Ticks) != 2 || reply.Charts[1].Ticks[1].Unknown != 10 {
 		t.Fatalf("unexpected charts: %+v", reply.Charts)
+	}
+	// 分时点 `DateTime` 应为交易日日期与该点时间标签合并的完整本地时间：
+	// 分钟偏移 570/571 换算为 09:31:00/09:32:00，第一个交易日为 2026-04-18，
+	// 第二个交易日为 2026-04-17。
+	if got := reply.Charts[0].Ticks[0].DateTime.Format(time.DateTime); got != "2026-04-18 09:31:00" {
+		t.Fatalf("unexpected tick datetime 0: %s", got)
+	}
+	if got := reply.Charts[0].Ticks[1].DateTime.Format(time.DateTime); got != "2026-04-18 09:32:00" {
+		t.Fatalf("unexpected tick datetime 1: %s", got)
+	}
+	if got := reply.Charts[1].Ticks[0].DateTime.Format(time.DateTime); got != "2026-04-17 09:31:00" {
+		t.Fatalf("unexpected tick datetime day2: %s", got)
 	}
 	if reply.Name != "PingAn Bank" || reply.DateTime.Format(time.DateTime) != "2026-04-18 15:00:05" || reply.Industry != 83005 || reply.IndustryCode != "881282" {
 		t.Fatalf("unexpected summary: %+v", reply)
@@ -1333,7 +1349,7 @@ func TestMACTickChartsParseResponseSupportsPartialLeadingDay(t *testing.T) {
 	if reply.Charts[0].Date != "2026-05-06" || reply.Charts[1].Date != "2026-04-30" || reply.Charts[2].Date != "2026-04-29" {
 		t.Fatalf("unexpected chart dates: %+v", reply.Charts)
 	}
-	if reply.Charts[1].Ticks[0].Time != "09:30:00" || reply.Charts[2].Ticks[3].Unknown != 9 {
+	if reply.Charts[1].Ticks[0].Time != "09:31:00" || reply.Charts[2].Ticks[3].Unknown != 9 {
 		t.Fatalf("unexpected tick data: %+v", reply.Charts)
 	}
 }
@@ -1652,7 +1668,7 @@ func TestMACSymbolBarsBuildRequestAndParseResponse(t *testing.T) {
 	if err := binary.Read(bytes.NewReader(raw[12:]), binary.LittleEndian, &req); err != nil {
 		t.Fatalf("read request failed: %v", err)
 	}
-	if req.Market != 1 || req.Period != types.KLINE_TYPE_DAILY || req.Count != 1 || req.Flag1 != 1 || req.Flag2 != 1 || req.Flag4 != 1 {
+	if req.Market != 1 || req.Period != types.KLINE_TYPE_DAILY || req.Count != 2 || req.Flag1 != 1 || req.Flag2 != 1 || req.Flag4 != 1 {
 		t.Fatalf("unexpected request: %+v", req)
 	}
 
@@ -1670,12 +1686,26 @@ func TestMACSymbolBarsBuildRequestAndParseResponse(t *testing.T) {
 	if err := binary.Write(buf, binary.LittleEndian, uint16(1)); err != nil {
 		t.Fatal(err)
 	}
-	if err := binary.Write(buf, binary.LittleEndian, uint16(1)); err != nil {
+	if err := binary.Write(buf, binary.LittleEndian, uint16(2)); err != nil {
 		t.Fatal(err)
 	}
 	if err := binary.Write(buf, binary.LittleEndian, uint32(0)); err != nil {
 		t.Fatal(err)
 	}
+	// 首根为昨收基准（解析时丢弃），随后才是真实 K 线。
+	if err := binary.Write(buf, binary.LittleEndian, uint32(20260330)); err != nil {
+		t.Fatal(err)
+	}
+	if err := binary.Write(buf, binary.LittleEndian, uint32(34200)); err != nil {
+		t.Fatal(err)
+	}
+	writeMACFloat32(t, buf, 10.0)
+	writeMACFloat32(t, buf, 10.6)
+	writeMACFloat32(t, buf, 9.8)
+	writeMACFloat32(t, buf, 10.2)
+	writeMACFloat32(t, buf, 11111.1)
+	writeMACFloat32(t, buf, 100.0)
+	writeMACFloat32(t, buf, 50.0)
 	if err := binary.Write(buf, binary.LittleEndian, uint32(20260331)); err != nil {
 		t.Fatal(err)
 	}

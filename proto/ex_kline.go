@@ -152,7 +152,11 @@ func (obj *ExGetKLine) ParseResponse(header *RespHeader, data []byte) error {
 		}
 		obj.reply.List = append(obj.reply.List, item)
 	}
-	obj.reply.Count = obj.reply.Count - 1
+	// 首根仅用于取得昨收基准，不进入最终 K 线列表；服务器可能返回 0 条
+	// （该周期无数据），避免无符号下溢成 65535 导致判空失效。
+	if obj.reply.Count > 0 {
+		obj.reply.Count--
+	}
 	return nil
 }
 

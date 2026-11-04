@@ -489,6 +489,32 @@ func TestGetSecurityBarsBuildRequestAndParseResponse(t *testing.T) {
 	}
 }
 
+// TestGetSecurityBarsEmptyReplyNoUnderflow 覆盖空应答回归：服务器对无数据周期
+// 返回 `Count=0`，解析时"多要一条昨收基准"的减一不得下溢成 65535（否则
+// `isEmptyReply` 判空失效、空数据换节点不触发）。修复前该场景得到
+// `Count=65535` 且 `List` 长度与 65535 不符。
+func TestGetSecurityBarsEmptyReplyNoUnderflow(t *testing.T) {
+	msg := NewGetSecurityBars(&GetSecurityBarsRequest{
+		Market:   1,
+		Code:     [6]byte{'6', '0', '0', '0', '0', '0'},
+		Category: types.KLINE_TYPE_DAILY,
+		Times:    2,
+		Start:    3,
+		Count:    4,
+		Adjust:   1,
+	})
+	if err := msg.ParseResponse(&RespHeader{}, []byte{0, 0}); err != nil {
+		t.Fatalf("parse empty response failed: %v", err)
+	}
+	reply := msg.Response()
+	if reply.Count != 0 {
+		t.Fatalf("empty reply underflow: count=%d, want 0", reply.Count)
+	}
+	if len(reply.List) != 0 {
+		t.Fatalf("empty reply should have no bars, got %d", len(reply.List))
+	}
+}
+
 func TestGetSecurityQuotesBuildRequestAndParseResponse(t *testing.T) {
 	msg := NewGetSecurityQuotes(&GetSecurityQuotesRequest{
 		StockList: []Stock{{Market: 1, Code: "600000"}},

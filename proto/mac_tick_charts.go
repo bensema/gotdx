@@ -225,9 +225,9 @@ func (obj *MACTickCharts) ParseResponse(header *RespHeader, data []byte) error {
 			continue
 		}
 		for j := range day.Ticks {
+			day.Ticks[j].PreClose = day.PreClose
 			if parsed, err := time.ParseInLocation("2006-01-02 15:04:05", day.Date+" "+day.Ticks[j].Time, time.Local); err == nil {
 				day.Ticks[j].DateTime = parsed
-				day.Ticks[j].PreClose = day.PreClose
 			}
 		}
 	}

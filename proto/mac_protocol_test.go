@@ -956,7 +956,7 @@ func TestMACTransactionsBuildRequestAndParseResponse(t *testing.T) {
 		t.Fatalf("unexpected list: %+v", reply.List)
 	}
 	// 完整成交时间标签由回显交易日与成交时间合并。
-	if reply.List[0].Datetime != "2026-04-18 09:30:15" || reply.List[1].Datetime != "2026-04-18 15:30:00" {
+	if !reply.List[0].Datetime.Equal(time.Date(2026, 4, 18, 9, 30, 15, 0, time.Local)) || !reply.List[1].Datetime.Equal(time.Date(2026, 4, 18, 15, 30, 0, 0, time.Local)) {
 		t.Fatalf("unexpected datetime merge: %+v", reply.List)
 	}
 	assertNearFloat64(t, reply.List[0].Price, 10.5, "transaction_price_0")

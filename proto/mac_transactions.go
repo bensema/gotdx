@@ -42,12 +42,12 @@ type MACTransactionsReply struct {
 
 // MACTransactionItem 表示一条逐笔成交记录，包含时间标签、成交价、成交量、成交笔数与买卖方向标记。
 type MACTransactionItem struct {
-	Time       string  // 成交时间标签，格式 HH:MM:SS，由当日秒数拆分得到。
-	Datetime   string  // 完整成交时间标签，格式 YYYY-MM-DD HH:MM:SS，由回显交易日与成交时间合并得到；交易日为空时保持零值。
-	Price      float64 // 成交价，单精度浮点还原。
-	Vol        uint32  // 成交量，四字节无符号整数。
-	TradeCount uint32  // 成交笔数，四字节无符号整数。
-	BuyOrSell  uint16  // 买卖方向标记，两字节，取值含义语义待确认。
+	Time       string    // 成交时间标签，格式 HH:MM:SS，由当日秒数拆分得到。
+	Datetime   time.Time // 完整成交时间标签，格式 YYYY-MM-DD HH:MM:SS，由回显交易日与成交时间合并得到；交易日为空时保持零值。
+	Price      float64   // 成交价，单精度浮点还原。
+	Vol        uint32    // 成交量，四字节无符号整数。
+	TradeCount uint32    // 成交笔数，四字节无符号整数。
+	BuyOrSell  uint16    // 买卖方向标记，两字节，取值含义语义待确认。
 }
 
 // NewMACTransactions 创建逐笔成交查询对象；请求参数为空时使用内置默认条数。
@@ -123,11 +123,15 @@ func (obj *MACTransactions) ParseResponse(header *RespHeader, data []byte) error
 		timeStr := time.Date(0, 1, 1, int(seconds/3600)%24, int((seconds%3600)/60), int(seconds%60), 0, time.Local).Format("15:04:05")
 		// 回显交易日非零时合并为完整时间标签（YYYY-MM-DD HH:MM:SS）；实时
 		// 查询（交易日为零）无法确定日期，保持零值。
-		datetime := ""
+		var datetime time.Time
 		if obj.reply.QueryDate != 0 {
 			if d, derr := time.Parse("20060102", fmt.Sprintf("%08d", obj.reply.QueryDate)); derr == nil {
-				datetime = d.Format("2006-01-02") + " " + timeStr
+				datetimeRaw := d.Format("2006-01-02") + " " + timeStr
+				if parsed, err := time.ParseInLocation("2006-01-02 15:04:05", datetimeRaw, time.Local); err == nil {
+					datetime = parsed
+				}
 			}
+
 		}
 		obj.reply.List = append(obj.reply.List, MACTransactionItem{
 			Time:       timeStr,

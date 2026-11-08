@@ -39,7 +39,7 @@
 //
 // # 穿透与击穿防护
 //
-//   - 回源失败或回源结果为空时写入短 TTL 空标记（默认 30 秒），空标记
+//   - 回源失败或回源结果为空时写入短 TTL 空标记（默认 5 秒），空标记
 //     存活期内不再回源，防止恶意穿透打垮行情源。
 //   - 击穿防护分两层：同进程内 `singleflight` 把同键并发合并为一次回源；
 //     跨进程由 `Redis` 分布式锁合并（SET NX EX，锁超时默认 5 秒防死锁，
@@ -67,7 +67,7 @@ const (
 	// DefaultKeyPrefix 为全部缓存键的共享前缀。
 	DefaultKeyPrefix = "gotdx"
 	// DefaultEmptyTTL 为空标记的存活时长，期间不再回源。
-	DefaultEmptyTTL = 30 * time.Second
+	DefaultEmptyTTL = 5 * time.Second
 	// DefaultLockTimeout 为分布式锁的最长持有时长，超时自动释放防死锁。
 	DefaultLockTimeout = 5 * time.Second
 	// DefaultLiveTTL 为 `String` 实时槽的兜底存活时长，仅行情源断流时兜底。

@@ -4,25 +4,32 @@
 package main
 
 import (
+	"fmt"
 	"log"
 
+	"github.com/bensema/gotdx/cache"
 	"github.com/bensema/gotdx/examples/internal/exampleutil"
 	"github.com/bensema/gotdx/types"
+	"github.com/redis/go-redis/v9"
 )
 
 func main() {
 	client := exampleutil.NewMainClient()
-	defer client.Disconnect()
+	// defer client.Disconnect()
+
+	rdb := redis.NewClient(&redis.Options{Addr: "localhost:6379", DB: 2})
+	//
+	cached := cache.NewCacheClient(rdb, client)
 
 	// `category` 取 `types.KLINE_TYPE_SECONDS`（多秒 K 线，编号 13；下方注释掉的 `types.KLINE_TYPE_1MIN` 为备选周期）；
 	// `market` 取 `types.MarketSZ`（深市），代码 `000001`（平安银行）；`start=0` 为起始偏移条数，`count=10`
 	// 为请求条数；`times=1` 为周期倍数；`adjust` 取 `types.AdjustNone` 表示不复权。
-	bars, err := client.StockKLine(
-		types.KLINE_TYPE_SECONDS,
+	bars, err := cached.StockKLine(
+		types.KLINE_TYPE_DAILY,
 		// types.KLINE_TYPE_1MIN,
 		types.MarketSZ.Uint8(),
 		"000001",
-		0,
+		10,
 		10,
 		1,
 		types.AdjustNone,
@@ -36,4 +43,7 @@ func main() {
 		log.Printf("%s preClose=%.3f open=%.3f high=%.3f low=%.3f close=%.3f rate=%.2f  price=%.2f vol=%.0f amount=%.0f turnover=%.2f%%",
 			bar.DateTime, bar.PreClose, bar.Open, bar.High, bar.Low, bar.Close, bar.RiseRate, bar.RisePrice, bar.Vol, bar.Amount, bar.Turnover)
 	}
+
+	stats := cached.Stats()
+	fmt.Println(stats.Hits, stats.EmptyHits, stats.Fetches, stats.SourceErrors, stats.CircuitRejects)
 }

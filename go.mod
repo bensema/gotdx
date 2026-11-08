@@ -3,6 +3,7 @@ module github.com/bensema/gotdx
 go 1.27.0
 
 require (
+	github.com/alicebob/miniredis/v2 v2.40.0
 	github.com/redis/go-redis/v9 v9.23.0
 	github.com/spf13/cast v1.10.0
 	github.com/vmihailenco/msgpack/v5 v5.4.1
@@ -12,7 +13,6 @@ require (
 )
 
 require (
-	github.com/alicebob/miniredis/v2 v2.40.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/dustin/go-humanize v1.1.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect

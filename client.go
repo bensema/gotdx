@@ -786,8 +786,8 @@ func (client *Client) dropHeartbeatConn(pc *pooledConn) {
 
 // heartbeatPool 对池内空闲连接执行应用层心跳：主站/扩展站发送握手协议请求并以
 // 短超时读回完整响应帧，能完整收发即视为连接存活；失败即丢弃该连接，由补建循环补齐。
-// MAC 模式使用 MACServerInfo 作为轻量应用层心跳；服务端不支持时退回 TCP keepalive。
-// 连接正被业务请求占用时跳过（`TryLock`），避免抢占在途请求。
+// MAC 模式使用 KMSG_HEARTBEAT 作为轻量应用层心跳，失败时降级到 MACServerInfo，
+// 两者都不支持时退回 TCP keepalive。连接正被业务请求占用时跳过（`TryLock`），避免抢占在途请求。
 //
 // 方案决策：心跳除判死外顺带识别"慢连接"——样本充足时，单条心跳耗时明显劣于池内心跳
 // 中位数即打慢标记并后台触发一次候选测速；慢连接仍然存活不丢弃，迁出决策交给重平衡，
@@ -870,7 +870,7 @@ func shouldTryMACServerInfo(err error) bool {
 	if err == nil {
 		return true
 	}
-	if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
+	if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, types.ErrBadData) {
 		return false
 	}
 	var opErr *net.OpError

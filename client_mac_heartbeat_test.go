@@ -47,6 +47,12 @@ func fakeMACHeartbeatServer(t *testing.T, heartbeatBody, infoBody []byte) (addr 
 						body = heartbeatBody
 					case proto.KMSG_MACSERVERINFO:
 						body = infoBody
+					case proto.KMSG_MACQUOTES:
+						// 35 字节头部 + 1 个分时点 + 120 字节 summary。
+						body = make([]byte, 173)
+						binary.LittleEndian.PutUint32(body[24:28], 20261108)
+						binary.LittleEndian.PutUint32(body[29:33], 0x41200000) // 10.0f
+						body[33] = 1                                           // 1 个分时点
 					}
 					if _, err := conn.Write(append(fakeRespHeader(seq, method, uint16(len(body))), body...)); err != nil {
 						return

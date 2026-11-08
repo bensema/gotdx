@@ -484,7 +484,18 @@ cached := cache.NewCacheClient(rdb, cli) // 可传 cache.WithKeyPrefix、cache.W
                                          // cache.WithCircuitFailThreshold、cache.WithCircuitOpenTimeout
 // 非法选项值（阈值 0、负 TTL、空前缀）自动回退默认值。
 // 能力层在此基座上按族构建（每个能力族一个源文件，覆盖 gotdx 全部查询能力）；
-// 构建后调用方式与 gotdx.Client 同名方法一致，仅首位新增 context.Context。
+// 构建后调用方式与 gotdx.Client 同名方法一致（参数与返回值相同）。
+// 已构建：client_line.go（StockKLine）。start 为 offset、count 为 limit，
+// 返回从早到晚。未闭合的最新一根（index 0）存 String 实时槽：start=0 的
+// 查询按 5 秒新鲜度回源刷新（盘中同一根数值演化会覆盖槽值），start>0 的
+// 翻页不按新鲜度刷新、只在槽缺失时补一次（槽是位置基准的一部分，缺失会
+// 让深页 offset 整体偏移）。其余已闭合根以
+// 「时间戳分数 + 单根 MessagePack 成员」存入 ZSet，永久保留；查询时由
+// 时序基座把两者合并、按位置切片，start=0 天然等价于「(0,1) 实时 +
+// (1,count-1) 历史」的合并结果。窗口未覆盖时按原窗口 (start,count) 回源，
+// 从不预先拉取 (0,start+count)（深 offset 与未加缓存一样只发一次正常请求）；
+// 回源结果仅在缓存已覆盖窗口起点之前（深度 >= start）时并入 ZSet，因此
+// 缓存始终是从最新端起的连续前缀，跳页只直通返回、不写缓存。
 
 // 运行时观测：Stats() 返回命中/空标记命中/回源/回源失败/熔断拒绝五项原子计数快照，
 // 可据此计算缓存命中率并判断行情源健康度。
@@ -493,7 +504,9 @@ fmt.Println(stats.Hits, stats.EmptyHits, stats.Fetches, stats.SourceErrors, stat
 ```
 
 基座文件：`client.go`（入口与配置）、`kv.go`（键值缓存机制）、`ts.go`（时序双结构
-机制）、`lua.go`（原子脚本）、`breaker.go`（回源熔断器）。
+机制）、`lua.go`（原子脚本）、`breaker.go`（回源熔断器）；能力文件：
+`client_line.go`（K 线，ZSet 存已闭合历史根 + 实时槽存未闭合最新一根，
+合并后按 offset 窗口返回）。
 
 ## 示例
 

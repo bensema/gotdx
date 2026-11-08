@@ -88,33 +88,34 @@ func NewMACEx(opts ...Option) *Client {
 // Client 须由 `New`、`NewEx`、`NewMAC`、`NewMACEx` 构造，零值不可用；各方法可并发调用，请求
 // 按轮询分散到池内各连接：连接之间并行、单连接上的请求由该连接内部串行化，调用方无需自行加锁。
 type Client struct {
-	opt                 *Options      // 深拷贝后的连接配置
-	pool                []*pooledConn // 连接池：仅存放空闲连接，借出的连接移出池、归还时放回
-	mu                  sync.Mutex    // 池管理锁：保护借还、补建、关闭与池状态
-	closed              bool          // 池已关闭标记，关闭后拒绝借出
-	inUse               int           // 借出中的连接计数，供补建判断容量时与池内数量合计
-	lastAddr            string        // 池内最近一条连接的实际地址，供池空时诊断兜底
-	lastDataAddr        string        // 最近一次历史查询命中数据的服务器地址，空数据重试优先使用
-	next                int           // 轮询游标：借出连接时按此下标取池内连接并自增
-	done                chan struct{} // 补建循环停止信号，`Disconnect` 时关闭
-	refill              sync.Once     // 补建循环只启动一次
-	mode                clientMode
-	main                *Client
-	ex                  *Client
-	decimalPoints       map[uint8]map[string]int8
-	decimalPointsLoaded map[uint8]bool
-	lastReachable       []string                   // 最近一次探活确认可达的地址列表，按测得耗时升序，供重平衡与补建收敛候选
-	addrLatency         map[string]time.Duration   // 各地址最近一次建连测得的拨号+握手总耗时，供候选排序与后台预比较；池锁保护
-	dialSamples         []time.Duration            // 最近若干次成功建连耗时样本（环形窗口），供快路径超时取中位数自适应；池锁保护
-	health              map[string]*nodeHealth     // 各地址连续空数据健康度统计，定向借出对降权节点跳过；池锁保护
-	heartbeatLatency    map[string]time.Duration   // 各地址最近一次心跳往返耗时，供慢连接判定与池内分布比较；池锁保护
-	slow                map[string]bool            // 心跳识别出的慢连接标记，触发缩短重平衡周期与放宽切换阈值；池锁保护
-	lastActivityAt      time.Time                  // 最近一次业务借出连接的时间，供心跳周期按活动度拉长；池锁保护
-	rebalanceMu         sync.Mutex                 // 重平衡串行锁：避免定时 tick 与全空后台修复并发重建连接
-	rebalanceTick       int                        // 重平衡执行计数，每 5 次触发一次全量探活刷新可达集
-	guardMu             sync.Mutex                 // 熔断桶锁：保护命令码到熔断器的惰性分桶
-	guards              map[uint16]*circuitBreaker // 各命令码的熔断器，`execute` 统一挂载
-	flights             *flightGroup               // 防击穿合并器：同参数请求合并为一次网络请求
+	opt                  *Options      // 深拷贝后的连接配置
+	pool                 []*pooledConn // 连接池：仅存放空闲连接，借出的连接移出池、归还时放回
+	mu                   sync.Mutex    // 池管理锁：保护借还、补建、关闭与池状态
+	closed               bool          // 池已关闭标记，关闭后拒绝借出
+	inUse                int           // 借出中的连接计数，供补建判断容量时与池内数量合计
+	lastAddr             string        // 池内最近一条连接的实际地址，供池空时诊断兜底
+	lastDataAddr         string        // 最近一次历史查询命中数据的服务器地址，空数据重试优先使用
+	next                 int           // 轮询游标：借出连接时按此下标取池内连接并自增
+	done                 chan struct{} // 补建循环停止信号，`Disconnect` 时关闭
+	refill               sync.Once     // 补建循环只启动一次
+	mode                 clientMode
+	main                 *Client
+	ex                   *Client
+	decimalPoints        map[uint8]map[string]int8
+	decimalPointsLoaded  map[uint8]bool
+	lastReachable        []string                   // 最近一次探活确认可达的地址列表，按测得耗时升序，供重平衡与补建收敛候选
+	addrLatency          map[string]time.Duration   // 各地址最近一次建连测得的拨号+握手总耗时，供候选排序与后台预比较；池锁保护
+	dialSamples          []time.Duration            // 最近若干次成功建连耗时样本（环形窗口），供快路径超时取中位数自适应；池锁保护
+	health               map[string]*nodeHealth     // 各地址连续空数据健康度统计，定向借出对降权节点跳过；池锁保护
+	heartbeatLatency     map[string]time.Duration   // 各地址最近一次心跳往返耗时，供慢连接判定与池内分布比较；池锁保护
+	slow                 map[string]bool            // 心跳识别出的慢连接标记，触发缩短重平衡周期与放宽切换阈值；池锁保护
+	lastActivityAt       time.Time                  // 最近一次业务借出连接的时间，供心跳周期按活动度拉长；池锁保护
+	macHeartbeatDisabled bool                       // MAC 应用层心跳不可用时置位，退回 TCP keepalive；池锁保护
+	rebalanceMu          sync.Mutex                 // 重平衡串行锁：避免定时 tick 与全空后台修复并发重建连接
+	rebalanceTick        int                        // 重平衡执行计数，每 5 次触发一次全量探活刷新可达集
+	guardMu              sync.Mutex                 // 熔断桶锁：保护命令码到熔断器的惰性分桶
+	guards               map[uint16]*circuitBreaker // 各命令码的熔断器，`execute` 统一挂载
+	flights              *flightGroup               // 防击穿合并器：同参数请求合并为一次网络请求
 }
 
 // pooledConn 为池内一条 TCP 连接：自带串行锁，保证该连接上的请求严格
@@ -275,6 +276,14 @@ func (client *Client) buildPoolConnWithTimeout(address string, dialTimeout time.
 	if tc, ok := conn.(*net.TCPConn); ok {
 		_ = tc.SetKeepAlive(true)
 		_ = tc.SetKeepAlivePeriod(15 * time.Second)
+		// 更激进的 TCP keepalive 作为 MAC 应用层心跳不可用时的兜底：
+		// 空闲 15s 开始探测，每 5s 一次，连续 3 次无响应则断开。
+		_ = tc.SetKeepAliveConfig(net.KeepAliveConfig{
+			Enable:   true,
+			Idle:     15 * time.Second,
+			Interval: 5 * time.Second,
+			Count:    3,
+		})
 	}
 	pc := &pooledConn{conn: conn, addr: address}
 	// 握手按连接串行锁执行（此时池未并发，锁仅为形态一致）。
@@ -630,9 +639,10 @@ func (client *Client) refillLoop() {
 			client.refillPool()
 		case <-heartbeatTicker.C:
 			client.heartbeatPool()
-			// 心跳后按活动度调整下一轮周期：空闲长驻拉长到 60s，恢复业务访问回到 30s。
+			// 心跳后按活动度调整下一轮周期：MAC 连接的服务端空闲回收比 TCP keepalive 更激进，
+			// 必须始终保持 30s 心跳，不能因为 isIdle() 拉长到 60s。
 			wantHeartbeat := heartbeatIntervalActive
-			if client.isIdle() {
+			if client.isIdle() && !client.isMACMode() {
 				wantHeartbeat = heartbeatIntervalIdle
 			}
 			if wantHeartbeat != heartbeatInterval {
@@ -668,7 +678,14 @@ const (
 	heartbeatIntervalIdle   = 60 * time.Second
 	idleActivityThreshold   = 2 * time.Minute
 	heartbeatFreshWindow    = 2 * time.Minute
+	// MAC 连接的服务端回收窗口约 60~90s；活跃连接超过 15s 没业务请求就
+	// 应进入心跳，不能沿用主站 2 分钟的 fresh window。
+	macHeartbeatFreshWindow = 15 * time.Second
 )
+
+// errMACHeartbeatUnsupported 表示服务端不支持可用的 MAC 应用层心跳（KMSG_HEARTBEAT / MACServerInfo）。
+// 收到该错误后只关闭 MAC 应用层心跳，TCP keepalive 仍然生效。
+var errMACHeartbeatUnsupported = errors.New("mac heartbeat unsupported")
 
 // 重平衡阈值与周期的保守默认值：健康网络下与改动前行为完全一致，仅在池内出现慢节点时
 // 放宽切换阈值、缩短重平衡周期，避免慢连接长时间驻留。
@@ -709,10 +726,28 @@ const (
 	dialTimeoutHeadroom = 1.5
 )
 
+// isMACMode 返回当前客户端是否使用 MAC 协议。MAC 没有协议握手/原生心跳，
+// 连接生命周期需要和主站/扩展站分开处理。
+func (client *Client) isMACMode() bool {
+	return client.mode == clientModeMacMain || client.mode == clientModeMacEx
+}
+
+func (client *Client) macHeartbeatDisabledState() bool {
+	client.mu.Lock()
+	defer client.mu.Unlock()
+	return client.macHeartbeatDisabled
+}
+
+func (client *Client) disableMACHeartbeat() {
+	client.mu.Lock()
+	client.macHeartbeatDisabled = true
+	client.mu.Unlock()
+}
+
 // heartbeatPool 对池内空闲连接执行应用层心跳：主站/扩展站发送握手协议请求并以
 // 短超时读回完整响应帧，能完整收发即视为连接存活；失败即丢弃该连接，由补建循环补齐。
-// MAC 模式无握手协议跳过（由 TCP keepalive 兜底）。连接正被业务请求占用时跳过
-// （`TryLock`），避免抢占在途请求。
+// MAC 模式使用 MACServerInfo 作为轻量应用层心跳；服务端不支持时退回 TCP keepalive。
+// 连接正被业务请求占用时跳过（`TryLock`），避免抢占在途请求。
 //
 // 方案决策：心跳除判死外顺带识别"慢连接"——样本充足时，单条心跳耗时明显劣于池内心跳
 // 中位数即打慢标记并后台触发一次候选测速；慢连接仍然存活不丢弃，迁出决策交给重平衡，
@@ -739,8 +774,12 @@ func (client *Client) heartbeatPool() {
 			continue
 		}
 		// 近期被业务请求使用过的连接跳过本轮心跳：业务收发本身已证明连接存活，避免
-		// 对活跃连接重复发送握手帧、争抢连接锁；时间戳在池锁内快照，避免与借出路径竞争。
-		if !snap.usedAt.IsZero() && time.Since(snap.usedAt) < heartbeatFreshWindow {
+		// 对活跃连接重复发送握手帧、争抢连接锁；MAC 服务端回收更激进，fresh window 更短。
+		freshWindow := heartbeatFreshWindow
+		if client.isMACMode() {
+			freshWindow = macHeartbeatFreshWindow
+		}
+		if !snap.usedAt.IsZero() && time.Since(snap.usedAt) < freshWindow {
 			pc.mu.Unlock()
 			continue
 		}
@@ -749,6 +788,10 @@ func (client *Client) heartbeatPool() {
 		elapsed := time.Since(started)
 		pc.mu.Unlock()
 		if err != nil {
+			if errors.Is(err, errMACHeartbeatUnsupported) {
+				// 服务端不支持 MACServerInfo：退回 TCP keepalive，不要误杀连接。
+				continue
+			}
 			client.discard(pc)
 			continue
 		}
@@ -776,13 +819,36 @@ func (client *Client) heartbeatPool() {
 
 // heartbeatConn 在单条连接上执行应用层心跳：发送当前模式握手请求并以 `heartbeatTimeout`
 // 超时读回完整响应帧，能完整收发即返回 `nil`，不校验响应内容（验证的是连接存活而非
-// 应答正确性）。MAC 模式无握手协议，直接返回 `nil`（由 TCP keepalive 兜底）。
+// 应答正确性）。MAC 模式优先使用主站同款 KMSG_HEARTBEAT；不支持时退回 MACServerInfo，
+// 再退回 TCP keepalive。
 func (client *Client) heartbeatConn(pc *pooledConn) error {
 	var obj proto.RequestBuilder
 	switch client.mode {
 	case clientModeEx:
 		obj = proto.NewExLogin()
 	case clientModeMacMain, clientModeMacEx:
+		if client.macHeartbeatDisabledState() {
+			return nil
+		}
+		// 先尝试通用 HeartBeat（KMSG_HEARTBEAT）；MAC 服务端实测也接受。
+		heartbeat := proto.NewHeartBeat()
+		header, payload, err := client.exchangeWithTimeout(pc.conn, heartbeat, heartbeatTimeout)
+		if err != nil {
+			return err
+		}
+		if err := heartbeat.ParseResponse(header, payload); err == nil {
+			return nil
+		}
+		// 部分 MAC 服务端只支持 MACServerInfo，继续尝试轻量服务信息查询。
+		info := proto.NewMACServerInfo(nil)
+		header, payload, err = client.exchangeWithTimeout(pc.conn, info, heartbeatTimeout)
+		if err != nil {
+			return err
+		}
+		if err := info.ParseResponse(header, payload); err != nil {
+			client.disableMACHeartbeat()
+			return fmt.Errorf("%w: %v", errMACHeartbeatUnsupported, err)
+		}
 		return nil
 	default:
 		obj = proto.NewHello1()
@@ -1242,11 +1308,17 @@ func (client *Client) refillPool() {
 // 已无法保证帧边界，调用方（`execute`）须丢弃该连接，避免残留字节破坏后续帧。`BuildRequest` 可能
 // 写入协议对象内部状态，调用方必须保证该对象不被多个 goroutine 并发使用。
 func (client *Client) exchange(conn net.Conn, builder proto.RequestBuilder) (respHeader *proto.RespHeader, payload []byte, err error) {
+	return client.exchangeWithTimeout(conn, builder, client.timeout())
+}
+
+// exchangeWithTimeout 与 exchange 相同，但允许调用方指定本次收发的超时。
+// 心跳不能沿用业务请求的长超时，否则一条僵死连接会拖慢整轮池巡检。
+func (client *Client) exchangeWithTimeout(conn net.Conn, builder proto.RequestBuilder, timeout time.Duration) (respHeader *proto.RespHeader, payload []byte, err error) {
 	sendData, err := builder.BuildRequest()
 	if err != nil {
 		return nil, nil, err
 	}
-	return client.exchangeBytes(conn, sendData)
+	return client.exchangeBytesWithTimeout(conn, sendData, timeout)
 }
 
 // exchangeBytes 在单条连接上发送预构建完成的不可变请求字节并读回响应头与负载。
@@ -1256,8 +1328,13 @@ func (client *Client) exchange(conn net.Conn, builder proto.RequestBuilder) (res
 // 解析仍回到主线程串行进行，避免 `ParseResponse` 并发写应答体。`sendData` 必须在进入本函数
 // 前构建完成，调用方负责保证其在收发期间不被修改。
 func (client *Client) exchangeBytes(conn net.Conn, sendData []byte) (respHeader *proto.RespHeader, payload []byte, err error) {
+	return client.exchangeBytesWithTimeout(conn, sendData, client.timeout())
+}
+
+// exchangeBytesWithTimeout 与 exchangeBytes 相同，但使用调用方指定的收发超时。
+func (client *Client) exchangeBytesWithTimeout(conn net.Conn, sendData []byte, timeout time.Duration) (respHeader *proto.RespHeader, payload []byte, err error) {
 	// 为本次收发设置整体截止时间，结束后清空超时以免影响后续操作。
-	_ = conn.SetDeadline(time.Now().Add(client.timeout()))
+	_ = conn.SetDeadline(time.Now().Add(timeout))
 	defer func() {
 		_ = conn.SetDeadline(time.Time{})
 	}()

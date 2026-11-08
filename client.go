@@ -744,6 +744,46 @@ func (client *Client) disableMACHeartbeat() {
 	client.mu.Unlock()
 }
 
+// claimHeartbeatConn 从 pool 摘出一条连接用于心跳。
+// 摘除时同步增加 inUse，确保 refill 不会在心跳期间补一条重复连接；
+// 业务 acquire 也不会再拿到这条正在巡检的连接。
+func (client *Client) claimHeartbeatConn(pc *pooledConn) bool {
+	client.mu.Lock()
+	defer client.mu.Unlock()
+	for i, p := range client.pool {
+		if p == pc {
+			client.pool = append(client.pool[:i], client.pool[i+1:]...)
+			client.inUse++
+			return true
+		}
+	}
+	return false
+}
+
+// returnHeartbeatConn 把心跳成功的连接放回 pool；池已关闭或容量已满时关闭。
+func (client *Client) returnHeartbeatConn(pc *pooledConn) {
+	client.mu.Lock()
+	defer client.mu.Unlock()
+	if client.inUse > 0 {
+		client.inUse--
+	}
+	if client.closed || len(client.pool)+client.inUse >= client.opt.PoolSize {
+		_ = pc.conn.Close()
+		return
+	}
+	client.poolAppendLocked(pc)
+}
+
+// dropHeartbeatConn 关闭心跳失败的连接；它已经不在 pool 中，只回退 inUse。
+func (client *Client) dropHeartbeatConn(pc *pooledConn) {
+	client.mu.Lock()
+	if client.inUse > 0 {
+		client.inUse--
+	}
+	client.mu.Unlock()
+	_ = pc.conn.Close()
+}
+
 // heartbeatPool 对池内空闲连接执行应用层心跳：主站/扩展站发送握手协议请求并以
 // 短超时读回完整响应帧，能完整收发即视为连接存活；失败即丢弃该连接，由补建循环补齐。
 // MAC 模式使用 MACServerInfo 作为轻量应用层心跳；服务端不支持时退回 TCP keepalive。
@@ -769,10 +809,6 @@ func (client *Client) heartbeatPool() {
 	slowDetected := false
 	for _, snap := range snaps {
 		pc := snap.pc
-		// 心跳只在连接空闲时进行：`TryLock` 失败表示该连接正在执行业务请求。
-		if !pc.mu.TryLock() {
-			continue
-		}
 		// 近期被业务请求使用过的连接跳过本轮心跳：业务收发本身已证明连接存活，避免
 		// 对活跃连接重复发送握手帧、争抢连接锁；MAC 服务端回收更激进，fresh window 更短。
 		freshWindow := heartbeatFreshWindow
@@ -780,7 +816,15 @@ func (client *Client) heartbeatPool() {
 			freshWindow = macHeartbeatFreshWindow
 		}
 		if !snap.usedAt.IsZero() && time.Since(snap.usedAt) < freshWindow {
-			pc.mu.Unlock()
+			continue
+		}
+		// 先从 pool 摘除连接，避免 heartbeat 巡检与 acquire 并发拿到同一条连接。
+		if !client.claimHeartbeatConn(pc) {
+			continue
+		}
+		// 持有连接串行锁执行心跳。
+		if !pc.mu.TryLock() {
+			client.returnHeartbeatConn(pc)
 			continue
 		}
 		started := time.Now()
@@ -790,11 +834,13 @@ func (client *Client) heartbeatPool() {
 		if err != nil {
 			if errors.Is(err, errMACHeartbeatUnsupported) {
 				// 服务端不支持 MACServerInfo：退回 TCP keepalive，不要误杀连接。
+				client.returnHeartbeatConn(pc)
 				continue
 			}
-			client.discard(pc)
+			client.dropHeartbeatConn(pc)
 			continue
 		}
+		client.returnHeartbeatConn(pc)
 
 		client.mu.Lock()
 		client.recordHeartbeatLatencyLocked(pc.addr, elapsed)
@@ -817,6 +863,27 @@ func (client *Client) heartbeatPool() {
 	}
 }
 
+// shouldTryMACServerInfo 判断 KMSG_HEARTBEAT 失败后是否值得尝试 MACServerInfo。
+// EOF/reset 说明连接本身已坏，再发 MACServerInfo 也是白费；解析/协议错误
+// 则可能是服务端不支持通用心跳，值得降级尝试。
+func shouldTryMACServerInfo(err error) bool {
+	if err == nil {
+		return true
+	}
+	if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
+		return false
+	}
+	var opErr *net.OpError
+	if errors.As(err, &opErr) {
+		return false
+	}
+	var netErr net.Error
+	if errors.As(err, &netErr) && netErr.Timeout() {
+		return false
+	}
+	return true
+}
+
 // heartbeatConn 在单条连接上执行应用层心跳：发送当前模式握手请求并以 `heartbeatTimeout`
 // 超时读回完整响应帧，能完整收发即返回 `nil`，不校验响应内容（验证的是连接存活而非
 // 应答正确性）。MAC 模式优先使用主站同款 KMSG_HEARTBEAT；不支持时退回 MACServerInfo，
@@ -834,9 +901,10 @@ func (client *Client) heartbeatConn(pc *pooledConn) error {
 		heartbeat := proto.NewHeartBeat()
 		header, payload, err := client.exchangeWithTimeout(pc.conn, heartbeat, heartbeatTimeout)
 		if err != nil {
-			return err
-		}
-		if err := heartbeat.ParseResponse(header, payload); err == nil {
+			if !shouldTryMACServerInfo(err) {
+				return err
+			}
+		} else if err := heartbeat.ParseResponse(header, payload); err == nil {
 			return nil
 		}
 		// 部分 MAC 服务端只支持 MACServerInfo，继续尝试轻量服务信息查询。

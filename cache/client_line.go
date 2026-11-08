@@ -346,6 +346,61 @@ func (c *CacheClient) ExGetKLine2(category uint8, code string, period uint16,
 	return items, nil
 }
 
+// macBarsCacheKey 返回 MAC 证券 K 线能力的语义键：按市场、代码、周期类别、
+// 周期倍数与复权方式隔离。times 为零按 1 归一，与协议构造器的默认处理一致。
+func macBarsCacheKey(market uint8, code string, period, times, adjust uint16) string {
+	if times == 0 {
+		times = 1
+	}
+	return fmt.Sprintf("macbars:%d:%s:%d:%d:%d", market, code, period, times, adjust)
+}
+
+// MACSymbolBars 缓存版 MAC 证券 K 线查询。
+//
+// 方案：与 StockKLine、GetIndexBars、ExGetKLine2 同构——已闭合根按「时间戳
+// 分数 + 单根 MessagePack 成员」存 `ZSet`，未闭合的最新一根存实时槽并按
+// klineLiveRefresh 刷新，查询时由基座合并两段后按 offset 窗口返回（start 为
+// offset、count 为 limit、start=0 为最新端）。参数与返回值与
+// `gotdx.Client.MACSymbolBars` 完全一致：market/code/period/times/start/
+// count/adjust，返回 `[]proto.MACSymbolBar`。
+//
+// 回源仍走原方法，因此分页拼接、换手率按流通股本回填
+// （applyMACSymbolBarTurnover）与期货 K 线时间换算（resolveMACFuturesDateTimes）
+// 都在回源时完成；命中缓存直接返回写入时的快照，不重算换手率。
+//
+// 已知边界（继承原接口）：`MACSymbolBars` 的多页循环以「不足一页即停」判断，
+// 而协议每次多取一根又被剔除，单页实际返回 `DefaultMACSymbolBarsPage-1` 条，
+// 因此 count 超过该值时原方法也只返回约一页的量；缓存对此保持同样的返回，
+// 且因条数不足 count 而每次都会回源（不做额外补偿）。
+func (c *CacheClient) MACSymbolBars(market uint8, code string, period uint16,
+	times uint16, start uint32, count uint32, adjust uint16) ([]proto.MACSymbolBar, error) {
+	// 空窗口不触网：原方法在 count=0 时同样直接返回空列表。
+	if count == 0 {
+		return []proto.MACSymbolBar{}, nil
+	}
+	p := c.newPositionPager(
+		macBarsCacheKey(market, code, period, times, adjust),
+		// fetch：按原窗口回源（裸调用，熔断与统计由 pager 统一包装）。
+		func(ctx context.Context, start, count int) ([]proto.MACSymbolBar, error) {
+			return c.cli.MACSymbolBars(market, code, period, times, uint32(start), uint32(count), adjust)
+		},
+		// head：取最新端两根，最新根进槽、次新根进 `ZSet`。
+		func(ctx context.Context) ([]proto.MACSymbolBar, error) {
+			return c.cli.MACSymbolBars(market, code, period, times, 0, klineLiveFetch, adjust)
+		},
+		int(klineLiveFetch),
+		// score：越新分数越大（Unix 毫秒）。
+		func(b proto.MACSymbolBar) float64 { return float64(b.DateTime.UnixMilli()) },
+		klineLiveRefresh,
+	)
+	ctx := context.Background()
+	items, err := p.query(ctx, int(start), int(count))
+	if err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 // positionPager 为「start 为 offset、count 为 limit、index 0 为最新端」
 // 型接口的通用缓存引擎，由 newPositionPager 工厂构造。
 //

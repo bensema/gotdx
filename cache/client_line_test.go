@@ -1068,3 +1068,145 @@ func TestExGetKLine2TimesNormalize(t *testing.T) {
 			after.Hits, after.Fetches, before.Hits+1, before.Fetches)
 	}
 }
+
+// testMACBars 构造从 09:31 起每分钟一根的 MAC 证券 K 线（从旧到新），
+// 收盘价按序号递增、换手率随序号变化，便于断言窗口位置与回填字段。
+func testMACBars(n int) []proto.MACSymbolBar {
+	base := time.Date(2026, 11, 6, 9, 31, 0, 0, time.Local)
+	bars := make([]proto.MACSymbolBar, n)
+	for i := range bars {
+		bars[i] = proto.MACSymbolBar{
+			DateTime: base.Add(time.Duration(i) * time.Minute),
+			Open:     float64(i + 1),
+			High:     float64(i + 1),
+			Low:      float64(i + 1),
+			Close:    float64(i + 1),
+			Vol:      float64(i + 1),
+			Turnover: float64(i+1) / 100,
+		}
+	}
+	return bars
+}
+
+// assertMACBarsAscending 断言 MAC K 线序列按时间从早到晚严格递增。
+func assertMACBarsAscending(tb testing.TB, bars []proto.MACSymbolBar) {
+	tb.Helper()
+	for i := 1; i < len(bars); i++ {
+		if !bars[i-1].DateTime.Before(bars[i].DateTime) {
+			tb.Fatalf("mac bars not ascending at %d: %s >= %s",
+				i, bars[i-1].DateTime, bars[i].DateTime)
+		}
+	}
+}
+
+// TestMACSymbolBarsCacheHitWindow 验证命中路径与 StockKLine 同构：窗口按
+// offset 正确定位、返回顺序从早到晚、不触碰行情源，回填的换手率保持写入时快照。
+func TestMACSymbolBarsCacheHitWindow(t *testing.T) {
+	c := newTestCache(t)
+	ctx := context.Background()
+	key := macBarsCacheKey(0, "000001", 4, 1, 0)
+	bars := testMACBars(200)
+	if err := c.storeWindow(ctx, key, bars, func(b proto.MACSymbolBar) float64 {
+		return float64(b.DateTime.UnixMilli())
+	}); err != nil {
+		t.Fatalf("store mac bars: %v", err)
+	}
+
+	cases := []struct {
+		name       string
+		start      uint32
+		count      uint32
+		firstClose float64
+		turnover   float64
+	}{
+		{"start=0 取整窗", 0, 200, 1, 0.01},
+		{"start=0 取最新 20 根", 0, 20, 181, 1.81},
+		{"start=10 count=20", 10, 20, 171, 1.71},
+		{"start=199 count=1", 199, 1, 1, 0.01},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			before := c.Stats()
+			got, err := c.MACSymbolBars(0, "000001", 4, 1, tc.start, tc.count, 0)
+			if err != nil {
+				t.Fatalf("MACSymbolBars: %v", err)
+			}
+			if len(got) != int(tc.count) {
+				t.Fatalf("len = %d, want %d", len(got), tc.count)
+			}
+			if got[0].Close != tc.firstClose || got[0].Turnover != tc.turnover {
+				t.Fatalf("window head = close %v turnover %v, want %v/%v",
+					got[0].Close, got[0].Turnover, tc.firstClose, tc.turnover)
+			}
+			assertMACBarsAscending(t, got)
+			after := c.Stats()
+			if after.Hits != before.Hits+1 || after.Fetches != before.Fetches {
+				t.Fatalf("stats hits/fetches = %d/%d, want %d/%d",
+					after.Hits, after.Fetches, before.Hits+1, before.Fetches)
+			}
+		})
+	}
+}
+
+// TestMACSymbolBarsCacheKeyIsolation 验证市场、代码、周期类别、周期倍数与
+// 复权方式各自独立成键；times 为零按 1 归一。
+func TestMACSymbolBarsCacheKeyIsolation(t *testing.T) {
+	c := newTestCache(t)
+	ctx := context.Background()
+	store := func(market uint8, code string, period, times, adjust uint16, n int) {
+		key := macBarsCacheKey(market, code, period, times, adjust)
+		if err := c.storeWindow(ctx, key, testMACBars(n), func(b proto.MACSymbolBar) float64 {
+			return float64(b.DateTime.UnixMilli())
+		}); err != nil {
+			t.Fatalf("store %s: %v", key, err)
+		}
+	}
+	store(0, "000001", 4, 1, 0, 10)
+	store(1, "000001", 4, 1, 0, 20)
+	store(0, "600000", 4, 1, 0, 30)
+	store(0, "000001", 0, 1, 0, 40)
+	store(0, "000001", 0, 2, 0, 50)
+	store(0, "000001", 0, 2, 1, 60)
+
+	if got := macBarsCacheKey(0, "000001", 4, 0, 0); got != macBarsCacheKey(0, "000001", 4, 1, 0) {
+		t.Fatalf("times 0/1 应为同一键: %s", got)
+	}
+
+	cases := []struct {
+		market  uint8
+		code    string
+		period  uint16
+		times   uint16
+		adjust  uint16
+		wantLen int
+	}{
+		{0, "000001", 4, 1, 0, 10},
+		{1, "000001", 4, 1, 0, 20},
+		{0, "600000", 4, 1, 0, 30},
+		{0, "000001", 0, 1, 0, 40},
+		{0, "000001", 0, 2, 0, 50},
+		{0, "000001", 0, 2, 1, 60},
+	}
+	for _, tc := range cases {
+		got, err := c.MACSymbolBars(tc.market, tc.code, tc.period, tc.times, 0, uint32(tc.wantLen), tc.adjust)
+		if err != nil {
+			t.Fatalf("MACSymbolBars(%d,%s,%d,%d,%d): %v", tc.market, tc.code, tc.period, tc.times, tc.adjust, err)
+		}
+		if len(got) != tc.wantLen {
+			t.Fatalf("key(%d,%s,%d,%d,%d) len = %d, want %d",
+				tc.market, tc.code, tc.period, tc.times, tc.adjust, len(got), tc.wantLen)
+		}
+	}
+}
+
+// TestMACSymbolBarsCountZero 验证 count 为零时不触网、返回空切片无错误。
+func TestMACSymbolBarsCountZero(t *testing.T) {
+	c := newTestCache(t)
+	got, err := c.MACSymbolBars(0, "000001", 4, 1, 0, 0, 0)
+	if err != nil || len(got) != 0 {
+		t.Fatalf("count=0 should return empty, got %v err %v", got, err)
+	}
+	if stats := c.Stats(); stats.Fetches != 0 {
+		t.Fatalf("count=0 should not fetch, fetches = %d", stats.Fetches)
+	}
+}

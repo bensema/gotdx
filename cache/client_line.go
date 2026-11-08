@@ -313,25 +313,11 @@ func (c *CacheClient) ExGetKLine2(category uint8, code string, period uint16,
 		// 主连接，扩展站客户端（只配 WithExTCPAddress）会报 no available
 		// connection；ExKLine2 内部先用 exQuotationClient 完成扩展站连接。
 		func(ctx context.Context, start, count int) ([]proto.ExKLineItem, error) {
-			reply, err := c.cli.ExGetKLine2(category, code, period, uint32(start), uint32(count), times)
-			if err != nil {
-				return nil, err
-			}
-			if reply == nil {
-				return nil, nil
-			}
-			return reply.List, nil
+			return c.cli.ExKLine2(category, code, period, uint32(start), uint32(count), times)
 		},
 		// head：取最新端两根，最新根进槽、次新根进 `ZSet`。
 		func(ctx context.Context) ([]proto.ExKLineItem, error) {
-			reply, err := c.cli.ExGetKLine2(category, code, period, 0, klineLiveFetch, times)
-			if err != nil {
-				return nil, err
-			}
-			if reply == nil {
-				return nil, nil
-			}
-			return reply.List, nil
+			return c.cli.ExKLine2(category, code, period, 0, uint32(klineLiveFetch), times)
 		},
 		int(klineLiveFetch),
 		// score：越新分数越大（Unix 毫秒）。
@@ -340,6 +326,102 @@ func (c *CacheClient) ExGetKLine2(category uint8, code string, period uint16,
 	)
 	ctx := context.Background()
 	items, err := p.query(ctx, int(start), int(count))
+	if err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+// exKLineCacheKey 返回扩展市场 K 线（协议 `0x23ff`）能力的语义键：按市场
+// 类别、代码、周期类别与周期倍数隔离，times 为零按 1 归一。与第二变体
+// `exkline2:` 分开存放——两者是不同报文、不同服务端实现，数据不可互用。
+func exKLineCacheKey(category uint8, code string, period, times uint16) string {
+	if times == 0 {
+		times = 1
+	}
+	return fmt.Sprintf("exkline:%d:%s:%d:%d", category, code, period, times)
+}
+
+// exKLinePager 构造扩展市场 K 线（协议 `0x23ff`）的位置分页器，供 ExGetKLine
+// 与 ExKLine 共用。
+//
+// 两者是同一协议的两层封装：`Client.ExGetKLine` 直接 execute、返回整个
+// `*proto.ExGetKLineReply`；`Client.ExKLine` 先经 `exQuotationClient()` 完成
+// 扩展站握手，再把 `reply.List` 原样返回。协议与数据完全相同，因此共用同一
+// 缓存键，同一根 K 线不会在 Redis 里存两份，任一入口写入另一入口即可命中。
+func (c *CacheClient) exKLinePager(category uint8, code string, period, times uint16) *positionPager[proto.ExKLineItem] {
+	return c.newPositionPager(
+		exKLineCacheKey(category, code, period, times),
+		// fetch：按原窗口回源。经由 Client.ExKLine 而非 Client.ExGetKLine：
+		// 后者直接 execute 走主连接，扩展站客户端（只配 WithExTCPAddress）
+		// 会报 no available connection；ExKLine 内部先用 exQuotationClient
+		// 完成扩展站握手，且本来就返回 []proto.ExKLineItem。
+		func(ctx context.Context, start, count int) ([]proto.ExKLineItem, error) {
+			return c.cli.ExKLine(category, code, period, uint32(start), uint16(count), times)
+		},
+		// head：取最新端两根，最新根进槽、次新根进 `ZSet`。
+		func(ctx context.Context) ([]proto.ExKLineItem, error) {
+			return c.cli.ExKLine(category, code, period, 0, klineLiveFetch, times)
+		},
+		int(klineLiveFetch),
+		// score：越新分数越大（Unix 毫秒）。
+		func(b proto.ExKLineItem) float64 { return float64(b.DateTime.UnixMilli()) },
+		klineLiveRefresh,
+	)
+}
+
+// ExGetKLine 缓存版扩展市场 K 线查询（协议 `0x23ff`），返回整个应答。
+//
+// 方案：与 StockKLine、GetIndexBars、ExGetKLine2 同构——已闭合的根按「时间戳
+// 分数 + 单根 MessagePack 成员」存 `ZSet`，未闭合的最新一根存实时槽并按
+// klineLiveRefresh 刷新，查询时由基座合并两段后按 offset 窗口返回（start 为
+// offset、count 为 limit、start=0 为最新端）。缓存键与分页器由
+// `exKLinePager` 统一提供，与 ExKLine 共用同一份数据。
+//
+// 与原接口的差异只有返回值形状：`gotdx.Client.ExGetKLine` 返回
+// `*proto.ExGetKLineReply`（Category/Name/Period/Times/Start/Count + List），
+// 这里直接返回 `[]proto.ExKLineItem`，语义等价于读 `reply.List`（Count 由
+// len 体现，Category/Name 等回显字段不返回）。参数含义与字段宽度完全一致。
+//
+// 适用前提：`period` 解码出的时间单调递增（实测日线旧到新、无重复时间点）。
+// 若某个周期的时间戳不单调，位置分页的前提不成立，应直接调用原接口。
+//
+// 已知边界：服务端单次最多返回 700 条原始记录，而协议构造器多取一根、解析时
+// 又剔除该首根，因此 count 达到 700 及以上时实际只得到 699 条（实测
+// 700/701/800/1000/2000 均为 699）。此时返回条数不足 count，缓存判据不成立，
+// 每次都会回源；该上限由服务端决定，缓存不做额外补偿。
+func (c *CacheClient) ExGetKLine(category uint8, code string, period uint16,
+	start uint32, count uint16, times uint16) ([]proto.ExKLineItem, error) {
+	// count 为 0 时协议构造器只多取一根、随后又剔除，等价于空窗口：
+	// 不触网，与原始接口的返回（空列表、无错误）一致。
+	if count == 0 {
+		return []proto.ExKLineItem{}, nil
+	}
+	ctx := context.Background()
+	items, err := c.exKLinePager(category, code, period, times).query(ctx, int(start), int(count))
+	if err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+// ExKLine 缓存版扩展市场 K 线查询（协议 `0x23ff`），参数与
+// `gotdx.Client.ExKLine` 一致，直接返回 `[]proto.ExKLineItem`。
+//
+// 方案：与 ExGetKLine 完全同构，共用 `exKLinePager` 提供的同一个缓存键与回源
+// 回调。不另建缓存的理由：`Client.ExKLine` 只是 `Client.ExGetKLine` 的扩展站
+// 握手封装，两者取到的是同一份报文数据；若按方法名各存一份，同样的一批 K 线
+// 会在 Redis 里出现两套，既浪费空间又可能因两条路径刷新时机不同而互相矛盾。
+//
+// 适用前提与已知边界同 ExGetKLine：时间需单调递增；count 达到 700 及以上时
+// 服务端只给 699 条，条数不足 count 会每次回源。
+func (c *CacheClient) ExKLine(category uint8, code string, period uint16,
+	start uint32, count uint16, times uint16) ([]proto.ExKLineItem, error) {
+	if count == 0 {
+		return []proto.ExKLineItem{}, nil
+	}
+	ctx := context.Background()
+	items, err := c.exKLinePager(category, code, period, times).query(ctx, int(start), int(count))
 	if err != nil {
 		return nil, err
 	}

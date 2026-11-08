@@ -459,7 +459,7 @@ sub.Subscribe(
 
 **防护机制（两类通用）**：
 
-- 穿透防护：回源失败或结果为空时写入短 TTL 空标记（默认 30 秒），存活期内不再回源，
+- 穿透防护：回源失败或结果为空时写入短 TTL 空标记（默认 5 秒），存活期内不再回源，
   防恶意穿透打垮行情源；失败与空结果用不同标记值区分。
 - 击穿防护：同进程 `singleflight` 合并同键并发；跨进程抢 Redis 分布式锁
   （SET NX EX，5 秒超时防死锁），持锁方二次确认后才回源，以 Lua 校验 token 解锁；
@@ -485,7 +485,7 @@ cached := cache.NewCacheClient(rdb, cli) // 可传 cache.WithKeyPrefix、cache.W
 // 非法选项值（阈值 0、负 TTL、空前缀）自动回退默认值。
 // 能力层在此基座上按族构建（每个能力族一个源文件，覆盖 gotdx 全部查询能力）；
 // 构建后调用方式与 gotdx.Client 同名方法一致（参数与返回值相同）。
-// 已构建：client_line.go（StockKLine、GetIndexBars、ExGetKLine2、MACSymbolBars）。
+// 已构建：client_line.go（StockKLine、GetIndexBars、ExGetKLine、ExKLine、ExGetKLine2、MACSymbolBars）。
 // 统一口径 start 为 offset、
 // count 为 limit，返回从早到晚。未闭合的最新一根（index 0）存 String 实时槽：start=0 的
 // 查询按 5 秒新鲜度回源刷新（盘中同一根数值演化会覆盖槽值），start>0 的
@@ -507,7 +507,9 @@ fmt.Println(stats.Hits, stats.EmptyHits, stats.Fetches, stats.SourceErrors, stat
 基座文件：`client.go`（入口与配置）、`kv.go`（键值缓存机制）、`ts.go`（时序双结构
 机制）、`lua.go`（原子脚本）、`breaker.go`（回源熔断器）；能力文件：
 `client_line.go`（K 线族：StockKLine 返回 `[]proto.SecurityBar`、
-GetIndexBars 返回 `[]proto.IndexBar`、ExGetKLine2 返回 `[]proto.ExKLineItem`、
+GetIndexBars 返回 `[]proto.IndexBar`、ExGetKLine 与 ExKLine 共用一份
+`[]proto.ExKLineItem` 缓存（同一协议 `0x23ff` 的两层封装，不重复存储）、
+ExGetKLine2 返回 `[]proto.ExKLineItem`（协议 `0x2489`，与前者分键存放）、
 MACSymbolBars 返回 `[]proto.MACSymbolBar`；ZSet 存已闭合历史根 + 实时槽存未闭合
 最新一根，合并后按 offset 窗口返回）。
 

@@ -180,8 +180,8 @@ func (c *CacheClient) StockKLine(category uint16, market uint8, code string,
 	p := c.newPositionPager(
 		klineCacheKey(category, market, code, times, adjust),
 		// fetch：按原窗口回源（裸调用，熔断与统计由 pager 统一包装）。
-		func(ctx context.Context, start, count uint16) ([]proto.SecurityBar, error) {
-			return c.cli.StockKLine(category, market, code, start, count, times, adjust)
+		func(ctx context.Context, start, count int) ([]proto.SecurityBar, error) {
+			return c.cli.StockKLine(category, market, code, uint16(start), uint16(count), times, adjust)
 		},
 		// head：取最新端两根，最新根进槽、次新根进 `ZSet`。
 		func(ctx context.Context) ([]proto.SecurityBar, error) {
@@ -193,7 +193,7 @@ func (c *CacheClient) StockKLine(category uint16, market uint8, code string,
 		klineLiveRefresh,
 	)
 	ctx := context.Background()
-	items, err := p.query(ctx, start, count)
+	items, err := p.query(ctx, int(start), int(count))
 	if err != nil {
 		return nil, err
 	}
@@ -236,8 +236,8 @@ func (c *CacheClient) GetIndexBars(category uint16, market uint8, code string,
 	p := c.newPositionPager(
 		indexBarCacheKey(category, market, code),
 		// fetch：按原窗口回源（裸调用，熔断与统计由 pager 统一包装）。
-		func(ctx context.Context, start, count uint16) ([]proto.IndexBar, error) {
-			reply, err := c.cli.GetIndexBars(category, market, code, start, count)
+		func(ctx context.Context, start, count int) ([]proto.IndexBar, error) {
+			reply, err := c.cli.GetIndexBars(category, market, code, uint16(start), uint16(count))
 			if err != nil {
 				return nil, err
 			}
@@ -263,7 +263,83 @@ func (c *CacheClient) GetIndexBars(category uint16, market uint8, code string,
 		klineLiveRefresh,
 	)
 	ctx := context.Background()
-	items, err := p.query(ctx, start, count)
+	items, err := p.query(ctx, int(start), int(count))
+	if err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+// exKLine2CacheKey 返回扩展市场 K 线第二变体能力的语义键：按市场类别、
+// 代码、周期类别与周期倍数隔离。扩展协议没有复权维度，times 为零按 1
+// 归一，与构造器的默认处理保持一致，避免 0/1 分裂成两个键。
+func exKLine2CacheKey(category uint8, code string, period, times uint16) string {
+	if times == 0 {
+		times = 1
+	}
+	return fmt.Sprintf("exkline2:%d:%s:%d:%d", category, code, period, times)
+}
+
+// ExGetKLine2 缓存版扩展市场 K 线查询（协议 `0x2489` 第二变体）。
+//
+// 方案：与 StockKLine、GetIndexBars 同构——已闭合的根按「时间戳分数 + 单根
+// MessagePack 成员」存 `ZSet`，未闭合的最新一根存实时槽并按 klineLiveRefresh
+// 刷新，查询时由基座合并两段后按 offset 窗口返回（start 为 offset、count
+// 为 limit、start=0 为最新端）。
+//
+// 与原接口的差异只有返回值形状：`gotdx.Client.ExGetKLine2` 返回
+// `*proto.ExGetKLine2Reply`（Category/Name/Period/Times/Start/Count + List），
+// 这里直接返回 `[]proto.ExKLineItem`，语义等价于读 `reply.List`（Count 由
+// len 体现，Category/Name 等回显字段不返回）。参数含义完全一致，只是偏移
+// 与条数按协议宽度用 `uint32`，pager 内部统一按 `int` 承接。
+//
+// 适用前提：`period` 解码出的时间单调递增（日线、分钟线等周期均满足）。
+// 若某个周期的时间戳不单调，位置分页的前提不成立，应直接调用原接口。
+//
+// 取舍：`ExKLineItem` 的 PreClose/RisePrice/RiseRate 由协议解析时按「上一根
+// 收盘」滚动计算，命中缓存后返还的是写入时的快照。对已闭合根而言前一根
+// 收盘固定，两者恒等，故不做重算。
+func (c *CacheClient) ExGetKLine2(category uint8, code string, period uint16,
+	start uint32, count uint32, times uint16) ([]proto.ExKLineItem, error) {
+	// count 为 0 时协议构造器只多取一根、随后又剔除，等价于空窗口：
+	// 不触网，与原始接口的返回（空列表、无错误）一致。
+	if count == 0 {
+		return []proto.ExKLineItem{}, nil
+	}
+	p := c.newPositionPager(
+		exKLine2CacheKey(category, code, period, times),
+		// fetch：按原窗口回源（裸调用，熔断与统计由 pager 统一包装）。
+		// 经由 Client.ExKLine2 而非 Client.ExGetKLine2：后者直接 execute 走
+		// 主连接，扩展站客户端（只配 WithExTCPAddress）会报 no available
+		// connection；ExKLine2 内部先用 exQuotationClient 完成扩展站连接。
+		func(ctx context.Context, start, count int) ([]proto.ExKLineItem, error) {
+			reply, err := c.cli.ExGetKLine2(category, code, period, uint32(start), uint32(count), times)
+			if err != nil {
+				return nil, err
+			}
+			if reply == nil {
+				return nil, nil
+			}
+			return reply.List, nil
+		},
+		// head：取最新端两根，最新根进槽、次新根进 `ZSet`。
+		func(ctx context.Context) ([]proto.ExKLineItem, error) {
+			reply, err := c.cli.ExGetKLine2(category, code, period, 0, klineLiveFetch, times)
+			if err != nil {
+				return nil, err
+			}
+			if reply == nil {
+				return nil, nil
+			}
+			return reply.List, nil
+		},
+		int(klineLiveFetch),
+		// score：越新分数越大（Unix 毫秒）。
+		func(b proto.ExKLineItem) float64 { return float64(b.DateTime.UnixMilli()) },
+		klineLiveRefresh,
+	)
+	ctx := context.Background()
+	items, err := p.query(ctx, int(start), int(count))
 	if err != nil {
 		return nil, err
 	}
@@ -276,9 +352,11 @@ func (c *CacheClient) GetIndexBars(category uint16, market uint8, code string,
 // 字段全部是构造时注入的回源配置，pager 不感知具体业务类型，只按
 // score 的单调性维护「实时槽 + `ZSet` 连续前缀」两段式缓存。
 type positionPager[T any] struct {
-	c     *CacheClient
-	key   string
-	fetch func(ctx context.Context, start, count uint16) ([]T, error)
+	c   *CacheClient
+	key string
+	// fetch 按原窗口回源；start/count 统一为 int，各业务方法按自身协议的
+	// 宽度（uint16/uint32）自行收窄，pager 不绑定具体接口的参数宽度。
+	fetch func(ctx context.Context, start, count int) ([]T, error)
 	head  func(ctx context.Context) ([]T, error)
 	headN int
 	score func(T) float64
@@ -291,7 +369,7 @@ type positionPager[T any] struct {
 // 接入新方法只需调用它再 p.query(ctx, start, count)，不需要重复实现
 // 实时槽刷新、连续前缀判据、singleflight、分布式锁与降级兜底。
 func (c *CacheClient) newPositionPager[T any](key string,
-	fetch func(ctx context.Context, start, count uint16) ([]T, error),
+	fetch func(ctx context.Context, start, count int) ([]T, error),
 	head func(ctx context.Context) ([]T, error),
 	headN int,
 	score func(T) float64,
@@ -320,7 +398,7 @@ func (c *CacheClient) newPositionPager[T any](key string,
 // 流程：按上述条件刷新实时槽 → 读合并窗口（命中的判据是「条数正好等于
 // count」，只判无错会把「深度不足」当成命中并静默返回短窗口）→ 未命中或
 // 深度不足时走 ensure（原窗口回源，必要时并入缓存）。
-func (p *positionPager[T]) query(ctx context.Context, start, count uint16) ([]T, error) {
+func (p *positionPager[T]) query(ctx context.Context, start, count int) ([]T, error) {
 	if count == 0 {
 		return make([]T, 0), nil
 	}
@@ -330,9 +408,9 @@ func (p *positionPager[T]) query(ctx context.Context, start, count uint16) ([]T,
 		p.refreshLive(ctx)
 	}
 
-	got, qerr := p.c.tsQuery[T](ctx, p.key, int(start), int(count), 0, nil)
+	got, qerr := p.c.tsQuery[T](ctx, p.key, start, count, 0, nil)
 	switch {
-	case qerr == nil && len(got) == int(count):
+	case qerr == nil && len(got) == count:
 		p.c.stats.hits.Add(1)
 		tsReverse(got)
 		return got, nil
@@ -419,14 +497,14 @@ func (p *positionPager[T]) liveExists(ctx context.Context) bool {
 // 已知取舍：请求窗口超出标的实际历史深度（历史尽头）时，回源结果本身
 // 就不足 `count`，每次调用都会再回源一次；这类请求罕见且不影响正确性，
 // 故不额外引入「深度到头」标记。
-func (p *positionPager[T]) ensure(ctx context.Context, start, count uint16) ([]T, error) {
+func (p *positionPager[T]) ensure(ctx context.Context, start, count int) ([]T, error) {
 	v, err, _ := p.c.group.Do(p.c.tsKeyBase(p.key), func() (any, error) {
 		var out []T
 		lockErr := p.c.lock(ctx, p.c.tsLockKey(p.key), func() error {
 			// 二次确认：持锁期间可能已有其他进程补齐数据或写入空标记。
-			got, qerr := p.c.tsQuery[T](ctx, p.key, int(start), int(count), 0, nil)
+			got, qerr := p.c.tsQuery[T](ctx, p.key, start, count, 0, nil)
 			switch {
-			case qerr == nil && len(got) == int(count):
+			case qerr == nil && len(got) == count:
 				p.c.stats.hits.Add(1)
 				out = got
 				return nil
@@ -456,13 +534,13 @@ func (p *positionPager[T]) ensure(ctx context.Context, start, count uint16) ([]T
 			// 条，避免把缓存深度拉歪；返回给调用方的仍是源端原样，与未加
 			// 缓存一致。
 			storable := items
-			if len(storable) > int(count) {
-				storable = storable[len(storable)-int(count):]
+			if len(storable) > count {
+				storable = storable[len(storable)-count:]
 			}
 			// 缓存已覆盖窗口起点之前才并入，保证 `ZSet` 始终是从最新端起
 			// 的连续前缀；跳页时直通不写，避免中间留洞。
-			if depth, derr := p.depth(ctx); derr == nil && depth >= int(start) {
-				if int(start) == 0 {
+			if depth, derr := p.depth(ctx); derr == nil && depth >= start {
+				if start == 0 {
 					// start=0 的窗口含未闭合的最新一条：拆成实时槽 + 已闭合根。
 					_ = p.store(ctx, storable)
 				} else {
@@ -506,7 +584,7 @@ func (p *positionPager[T]) ensure(ctx context.Context, start, count uint16) ([]T
 }
 
 // fetchWindowGuarded 按原窗口回源，统一经过熔断保护与回源统计。
-func (p *positionPager[T]) fetchWindowGuarded(ctx context.Context, start, count uint16) ([]T, error) {
+func (p *positionPager[T]) fetchWindowGuarded(ctx context.Context, start, count int) ([]T, error) {
 	var items []T
 	gerr := p.c.fetchGuarded(ctx, func(ctx context.Context) error {
 		var e error

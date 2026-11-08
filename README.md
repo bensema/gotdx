@@ -485,7 +485,7 @@ cached := cache.NewCacheClient(rdb, cli) // 可传 cache.WithKeyPrefix、cache.W
 // 非法选项值（阈值 0、负 TTL、空前缀）自动回退默认值。
 // 能力层在此基座上按族构建（每个能力族一个源文件，覆盖 gotdx 全部查询能力）；
 // 构建后调用方式与 gotdx.Client 同名方法一致（参数与返回值相同）。
-// 已构建：client_line.go（StockKLine、GetIndexBars）。start 为 offset、
+// 已构建：client_line.go（StockKLine、GetIndexBars、ExGetKLine2）。start 为 offset、
 // count 为 limit，返回从早到晚。未闭合的最新一根（index 0）存 String 实时槽：start=0 的
 // 查询按 5 秒新鲜度回源刷新（盘中同一根数值演化会覆盖槽值），start>0 的
 // 翻页不按新鲜度刷新、只在槽缺失时补一次（槽是位置基准的一部分，缺失会
@@ -506,8 +506,8 @@ fmt.Println(stats.Hits, stats.EmptyHits, stats.Fetches, stats.SourceErrors, stat
 基座文件：`client.go`（入口与配置）、`kv.go`（键值缓存机制）、`ts.go`（时序双结构
 机制）、`lua.go`（原子脚本）、`breaker.go`（回源熔断器）；能力文件：
 `client_line.go`（K 线族：StockKLine 返回 `[]proto.SecurityBar`、
-GetIndexBars 返回 `[]proto.IndexBar`；ZSet 存已闭合历史根 + 实时槽存未闭合
-最新一根，合并后按 offset 窗口返回）。
+GetIndexBars 返回 `[]proto.IndexBar`、ExGetKLine2 返回 `[]proto.ExKLineItem`；
+ZSet 存已闭合历史根 + 实时槽存未闭合最新一根，合并后按 offset 窗口返回）。
 
 ## 示例
 

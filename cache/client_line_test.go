@@ -516,7 +516,7 @@ func TestPositionPagerLiveRefreshFrequency(t *testing.T) {
 	headCalls, fetchCalls := 0, 0
 	p := c.newPositionPager(
 		"refresh:demo",
-		func(ctx context.Context, start, count uint16) ([]int, error) {
+		func(ctx context.Context, start, count int) ([]int, error) {
 			fetchCalls++
 			hi := len(data) - int(start)
 			if hi <= 0 {
@@ -592,7 +592,7 @@ func TestPositionPagerSkipsRefreshForDeepPage(t *testing.T) {
 	headCalls := 0
 	p := c.newPositionPager(
 		"deep:demo",
-		func(ctx context.Context, start, count uint16) ([]int, error) {
+		func(ctx context.Context, start, count int) ([]int, error) {
 			return fx.window(int(start), int(count)), nil
 		},
 		func(ctx context.Context) ([]int, error) {
@@ -635,7 +635,7 @@ func TestPositionPagerRestoresSlotForDeepPage(t *testing.T) {
 	headCalls := 0
 	p := c.newPositionPager(
 		"restore:demo",
-		func(ctx context.Context, start, count uint16) ([]int, error) {
+		func(ctx context.Context, start, count int) ([]int, error) {
 			return fx.window(int(start), int(count)), nil
 		},
 		func(ctx context.Context) ([]int, error) {
@@ -706,7 +706,7 @@ func TestPositionPagerReusable(t *testing.T) {
 	}
 	p := c.newPositionPager(
 		"positions:demo",
-		func(ctx context.Context, start, count uint16) ([]int, error) {
+		func(ctx context.Context, start, count int) ([]int, error) {
 			return window(int(start), int(count)), nil
 		},
 		func(ctx context.Context) ([]int, error) {
@@ -905,5 +905,166 @@ func TestGetIndexBarsCountZero(t *testing.T) {
 	stats := c.Stats()
 	if stats.Fetches != 0 {
 		t.Fatalf("count=0 should not fetch, fetches = %d", stats.Fetches)
+	}
+}
+
+// testExKLineItems 构造从 09:31 起每分钟一根的扩展市场 K 线（从旧到新），
+// 收盘价与成交量按序号递增便于断言窗口位置。
+func testExKLineItems(n int) []proto.ExKLineItem {
+	base := time.Date(2026, 11, 6, 9, 31, 0, 0, time.Local)
+	items := make([]proto.ExKLineItem, n)
+	for i := range items {
+		items[i] = proto.ExKLineItem{
+			DateTime: base.Add(time.Duration(i) * time.Minute),
+			Open:     float64(i + 1),
+			High:     float64(i + 1),
+			Low:      float64(i + 1),
+			Close:    float64(i + 1),
+			Vol:      uint32(i + 1),
+		}
+	}
+	return items
+}
+
+// assertExKLineAscending 断言扩展 K 线序列按时间从早到晚严格递增。
+func assertExKLineAscending(tb testing.TB, items []proto.ExKLineItem) {
+	tb.Helper()
+	for i := 1; i < len(items); i++ {
+		if !items[i-1].DateTime.Before(items[i].DateTime) {
+			tb.Fatalf("ex kline not ascending at %d: %s >= %s",
+				i, items[i-1].DateTime, items[i].DateTime)
+		}
+	}
+}
+
+// TestExGetKLine2CacheHitWindow 验证命中路径与 StockKLine 同构：窗口按 offset
+// 正确定位、返回顺序从早到晚、不触碰行情源，且返回值是 []proto.ExKLineItem。
+func TestExGetKLine2CacheHitWindow(t *testing.T) {
+	c := newTestCache(t)
+	ctx := context.Background()
+	key := exKLine2CacheKey(1, "TSLA", 4, 1)
+	items := testExKLineItems(200)
+	if err := c.storeWindow(ctx, key, items, func(b proto.ExKLineItem) float64 {
+		return float64(b.DateTime.UnixMilli())
+	}); err != nil {
+		t.Fatalf("store ex kline: %v", err)
+	}
+
+	cases := []struct {
+		name      string
+		start     uint32
+		count     uint32
+		firstOpen float64
+		lastVol   uint32
+	}{
+		{"start=0 取整窗", 0, 200, 1, 200},
+		{"start=0 取最新 20 根", 0, 20, 181, 200},
+		{"start=10 count=20", 10, 20, 171, 190},
+		{"start=199 count=1", 199, 1, 1, 1},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			before := c.Stats()
+			got, err := c.ExGetKLine2(1, "TSLA", 4, tc.start, tc.count, 1)
+			if err != nil {
+				t.Fatalf("ExGetKLine2: %v", err)
+			}
+			if len(got) != int(tc.count) {
+				t.Fatalf("len = %d, want %d", len(got), tc.count)
+			}
+			if got[0].Open != tc.firstOpen || got[len(got)-1].Vol != tc.lastVol {
+				t.Fatalf("window = [%v, %v], want [%v, %v]",
+					got[0].Open, got[len(got)-1].Vol, tc.firstOpen, tc.lastVol)
+			}
+			assertExKLineAscending(t, got)
+			after := c.Stats()
+			if after.Hits != before.Hits+1 || after.Fetches != before.Fetches {
+				t.Fatalf("stats hits/fetches = %d/%d, want %d/%d",
+					after.Hits, after.Fetches, before.Hits+1, before.Fetches)
+			}
+		})
+	}
+}
+
+// TestExGetKLine2CacheKeyIsolation 验证市场类别、代码、周期类别与周期倍数
+// 各自独立成键；times 为零按 1 归一。
+func TestExGetKLine2CacheKeyIsolation(t *testing.T) {
+	c := newTestCache(t)
+	ctx := context.Background()
+	store := func(category uint8, code string, period, times uint16, n int) {
+		key := exKLine2CacheKey(category, code, period, times)
+		if err := c.storeWindow(ctx, key, testExKLineItems(n), func(b proto.ExKLineItem) float64 {
+			return float64(b.DateTime.UnixMilli())
+		}); err != nil {
+			t.Fatalf("store %s: %v", key, err)
+		}
+	}
+	store(1, "TSLA", 4, 1, 10)
+	store(1, "TSLA", 0, 1, 20)
+	store(2, "TSLA", 4, 1, 40)
+	store(1, "AAPL", 4, 1, 50)
+
+	if got := exKLine2CacheKey(1, "TSLA", 4, 0); got != exKLine2CacheKey(1, "TSLA", 4, 1) {
+		t.Fatalf("times 0/1 应为同一键: %s", got)
+	}
+
+	cases := []struct {
+		category uint8
+		code     string
+		period   uint16
+		count    uint32
+		wantLen  int
+	}{
+		{1, "TSLA", 4, 10, 10},
+		{1, "TSLA", 0, 20, 20},
+		{2, "TSLA", 4, 40, 40},
+		{1, "AAPL", 4, 50, 50},
+	}
+	for _, tc := range cases {
+		got, err := c.ExGetKLine2(tc.category, tc.code, tc.period, 0, tc.count, 1)
+		if err != nil {
+			t.Fatalf("ExGetKLine2(%d,%s,%d): %v", tc.category, tc.code, tc.period, err)
+		}
+		if len(got) != tc.wantLen {
+			t.Fatalf("key(%d,%s,%d) len = %d, want %d",
+				tc.category, tc.code, tc.period, len(got), tc.wantLen)
+		}
+	}
+}
+
+// TestExGetKLine2CountZero 验证 count 为零时不触网、返回空切片无错误。
+func TestExGetKLine2CountZero(t *testing.T) {
+	c := newTestCache(t)
+	got, err := c.ExGetKLine2(1, "TSLA", 4, 0, 0, 1)
+	if err != nil || len(got) != 0 {
+		t.Fatalf("count=0 should return empty, got %v err %v", got, err)
+	}
+	if stats := c.Stats(); stats.Fetches != 0 {
+		t.Fatalf("count=0 should not fetch, fetches = %d", stats.Fetches)
+	}
+}
+
+// TestExGetKLine2TimesNormalize 验证 times 传 0 与传 1 命中同一份缓存。
+func TestExGetKLine2TimesNormalize(t *testing.T) {
+	c := newTestCache(t)
+	ctx := context.Background()
+	key := exKLine2CacheKey(1, "TSLA", 4, 1)
+	if err := c.storeWindow(ctx, key, testExKLineItems(10), func(b proto.ExKLineItem) float64 {
+		return float64(b.DateTime.UnixMilli())
+	}); err != nil {
+		t.Fatalf("store ex kline: %v", err)
+	}
+	before := c.Stats()
+	got, err := c.ExGetKLine2(1, "TSLA", 4, 0, 10, 0)
+	if err != nil {
+		t.Fatalf("ExGetKLine2: %v", err)
+	}
+	if len(got) != 10 {
+		t.Fatalf("len = %d, want 10", len(got))
+	}
+	after := c.Stats()
+	if after.Hits != before.Hits+1 || after.Fetches != before.Fetches {
+		t.Fatalf("times=0 应命中同一键, hits/fetches = %d/%d, want %d/%d",
+			after.Hits, after.Fetches, before.Hits+1, before.Fetches)
 	}
 }

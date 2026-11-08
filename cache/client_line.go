@@ -200,6 +200,76 @@ func (c *CacheClient) StockKLine(category uint16, market uint8, code string,
 	return items, nil
 }
 
+// indexBarCacheKey 返回指数 K 线能力的语义键：按周期类别、市场、代码隔离，
+// 避免不同请求参数串用同一份缓存。
+//
+// gotdx.Client.GetIndexBars 固定 times=1、adjust=None（内部写死），键中不再
+// 携带这两项，也就不存在 0/1 归一的问题。
+func indexBarCacheKey(category uint16, market uint8, code string) string {
+	return fmt.Sprintf("indexbars:%d:%d:%s", category, market, code)
+}
+
+// GetIndexBars 缓存版指数 K 线查询。
+//
+// 方案：与 StockKLine 同构——已闭合的指数 K 线不再变化，未闭合的最新一根
+// 存实时槽并按 klineLiveRefresh 刷新，已闭合根按「时间戳分数 + 单根
+// MessagePack 成员」存 `ZSet`，查询时由基座合并两者、按 offset 窗口返回。
+//
+// 与原接口的差异只在返回值形状：`gotdx.Client.GetIndexBars` 返回
+// `*proto.GetIndexBarsReply`（Count + List），这里直接返回 `[]proto.IndexBar`，
+// 与 StockKLine 返回 `[]proto.SecurityBar` 的口径一致，语义等价于读
+// `reply.List`（Count 由 len 体现）。除此之外参数含义完全一致：category 为
+// `types.KLINE_TYPE_*`，market 为市场代码，code 为指数代码，start 为起始
+// 偏移（0 为最新端、增大向更早历史），count 为请求条数；命中缓存时不触碰
+// 行情源。
+//
+// 已知边界：`proto.FixKlineTimeIndexBar` 会把当天下午首根 13:00 的分钟 K 线
+// 改写为 11:30，该根与上午 11:30 同分；同一分数在 `ZSet` 中只保留一个成员，
+// 因此这种当天数据下缓存比源端少一根。这是协议层既有修正带来的结果，缓存
+// 按时间分数排序必须沿用同一时间，故不额外区分。
+func (c *CacheClient) GetIndexBars(category uint16, market uint8, code string,
+	start uint16, count uint16) ([]proto.IndexBar, error) {
+	// 空窗口不触网：与原接口对 count=0 的返回（空列表、无错误）一致。
+	if count == 0 {
+		return []proto.IndexBar{}, nil
+	}
+	p := c.newPositionPager(
+		indexBarCacheKey(category, market, code),
+		// fetch：按原窗口回源（裸调用，熔断与统计由 pager 统一包装）。
+		func(ctx context.Context, start, count uint16) ([]proto.IndexBar, error) {
+			reply, err := c.cli.GetIndexBars(category, market, code, start, count)
+			if err != nil {
+				return nil, err
+			}
+			if reply == nil {
+				return nil, nil
+			}
+			return reply.List, nil
+		},
+		// head：取最新端两根，最新根进槽、次新根进 `ZSet`。
+		func(ctx context.Context) ([]proto.IndexBar, error) {
+			reply, err := c.cli.GetIndexBars(category, market, code, 0, klineLiveFetch)
+			if err != nil {
+				return nil, err
+			}
+			if reply == nil {
+				return nil, nil
+			}
+			return reply.List, nil
+		},
+		int(klineLiveFetch),
+		// score：越新分数越大（Unix 毫秒）。
+		func(b proto.IndexBar) float64 { return float64(b.DateTime.UnixMilli()) },
+		klineLiveRefresh,
+	)
+	ctx := context.Background()
+	items, err := p.query(ctx, start, count)
+	if err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 // positionPager 为「start 为 offset、count 为 limit、index 0 为最新端」
 // 型接口的通用缓存引擎，由 newPositionPager 工厂构造。
 //

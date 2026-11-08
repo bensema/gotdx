@@ -9,6 +9,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -763,4 +764,146 @@ func subseqOffsetFromNewest(needle, hay []proto.SecurityBar) int {
 		}
 	}
 	return -1
+}
+
+// testIndexBars 构造从 09:31 起每分钟一根的指数 K 线序列（从旧到新），
+// 收盘点位按序号递增便于断言窗口位置。
+func testIndexBars(n int) []proto.IndexBar {
+	base := time.Date(2026, 11, 6, 9, 31, 0, 0, time.Local)
+	bars := make([]proto.IndexBar, n)
+	for i := range bars {
+		ts := base.Add(time.Duration(i) * time.Minute)
+		bars[i] = proto.IndexBar{
+			Open:      float64(i + 1),
+			Close:     float64(i + 1),
+			High:      float64(i + 1),
+			Low:       float64(i + 1),
+			UpCount:   uint16(i + 1),
+			DownCount: uint16(n - i),
+			DateTime:  ts,
+		}
+	}
+	return bars
+}
+
+// assertIndexAscending 断言指数 K 线序列按时间从早到晚严格递增。
+func assertIndexAscending(tb testing.TB, bars []proto.IndexBar) {
+	tb.Helper()
+	for i := 1; i < len(bars); i++ {
+		if !bars[i-1].DateTime.Before(bars[i].DateTime) {
+			tb.Fatalf("index bars not ascending at %d: %s >= %s",
+				i, bars[i-1].DateTime, bars[i].DateTime)
+		}
+	}
+}
+
+// TestGetIndexBarsCacheHitWindow 验证命中路径与 StockKLine 同构：窗口按 offset
+// 正确定位、返回顺序从早到晚、不触碰行情源，且返回值是 []proto.IndexBar。
+func TestGetIndexBarsCacheHitWindow(t *testing.T) {
+	c := newTestCache(t)
+	ctx := context.Background()
+	key := indexBarCacheKey(8, 1, "000001")
+	bars := testIndexBars(200)
+	if err := c.storeWindow(ctx, key, bars, func(b proto.IndexBar) float64 {
+		return float64(b.DateTime.UnixMilli())
+	}); err != nil {
+		t.Fatalf("store index bars: %v", err)
+	}
+
+	cases := []struct {
+		name       string
+		start      uint16
+		count      uint16
+		firstClose float64
+		lastClose  float64
+	}{
+		{"start=0 取整窗", 0, 200, 1, 200},
+		{"start=0 取最新 20 根", 0, 20, 181, 200},
+		{"start=10 count=20", 10, 20, 171, 190},
+		{"start=199 count=1", 199, 1, 1, 1},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			before := c.Stats()
+			var got []proto.IndexBar
+			var err error
+			got, err = c.GetIndexBars(8, 1, "000001", tc.start, tc.count)
+			if err != nil {
+				t.Fatalf("GetIndexBars: %v", err)
+			}
+			if len(got) != int(tc.count) {
+				t.Fatalf("len = %d, want %d", len(got), tc.count)
+			}
+			if got[0].Close != tc.firstClose || got[len(got)-1].Close != tc.lastClose {
+				t.Fatalf("window = [%v, %v], want [%v, %v]",
+					got[0].Close, got[len(got)-1].Close, tc.firstClose, tc.lastClose)
+			}
+			if got[0].UpCount == 0 || got[0].DownCount == 0 {
+				t.Fatalf("IndexBar 专属字段未保留: up=%d down=%d",
+					got[0].UpCount, got[0].DownCount)
+			}
+			assertIndexAscending(t, got)
+			after := c.Stats()
+			if after.Hits != before.Hits+1 || after.Fetches != before.Fetches {
+				t.Fatalf("stats hits/fetches = %d/%d, want %d/%d",
+					after.Hits, after.Fetches, before.Hits+1, before.Fetches)
+			}
+		})
+	}
+}
+
+// TestGetIndexBarsCacheKeyIsolation 验证周期类别、市场、代码各自独立成键。
+func TestGetIndexBarsCacheKeyIsolation(t *testing.T) {
+	c := newTestCache(t)
+	ctx := context.Background()
+	store := func(category uint16, market uint8, code string, n int) {
+		key := indexBarCacheKey(category, market, code)
+		if err := c.storeWindow(ctx, key, testIndexBars(n), func(b proto.IndexBar) float64 {
+			return float64(b.DateTime.UnixMilli())
+		}); err != nil {
+			t.Fatalf("store %s: %v", key, err)
+		}
+	}
+	store(8, 1, "000001", 10)
+	store(4, 1, "000001", 20)
+	store(8, 0, "000001", 30)
+	store(8, 1, "399001", 40)
+
+	cases := []struct {
+		category uint16
+		market   uint8
+		code     string
+		wantLen  int
+	}{
+		{8, 1, "000001", 10},
+		{4, 1, "000001", 20},
+		{8, 0, "000001", 30},
+		{8, 1, "399001", 40},
+	}
+	for _, tc := range cases {
+		got, err := c.GetIndexBars(tc.category, tc.market, tc.code, 0, uint16(tc.wantLen))
+		if err != nil {
+			t.Fatalf("GetIndexBars(%d,%d,%s): %v", tc.category, tc.market, tc.code, err)
+		}
+		if len(got) != tc.wantLen {
+			t.Fatalf("key(%d,%d,%s) len = %d, want %d",
+				tc.category, tc.market, tc.code, len(got), tc.wantLen)
+		}
+	}
+	if !strings.Contains(indexBarCacheKey(8, 1, "000001"), "indexbars:8:1:000001") {
+		t.Fatalf("unexpected key: %s", indexBarCacheKey(8, 1, "000001"))
+	}
+}
+
+// TestGetIndexBarsCountZero 验证 count 为零时不触网、返回空切片无错误。
+func TestGetIndexBarsCountZero(t *testing.T) {
+	c := newTestCache(t)
+	got, err := c.GetIndexBars(8, 1, "000001", 0, 0)
+	if err != nil || len(got) != 0 {
+		t.Fatalf("count=0 should return empty, got %v err %v", got, err)
+	}
+	stats := c.Stats()
+	if stats.Fetches != 0 {
+		t.Fatalf("count=0 should not fetch, fetches = %d", stats.Fetches)
+	}
 }

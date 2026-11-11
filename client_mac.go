@@ -3,6 +3,7 @@ package gotdx
 import (
 	"errors"
 	"fmt"
+	"sort"
 
 	"github.com/bensema/gotdx/proto"
 	"github.com/bensema/gotdx/types"
@@ -319,7 +320,8 @@ func (client *Client) GetMACAuction(market uint8, code string, start uint32, cou
 // 基准交易日，按 `YYYYMMDD` 打包成整数，传 0 表示取最新交易日；参数 `days` 为需要返回的交易日天数，
 // 从基准日向前取数，传 0 时由协议构造器使用默认值 5，服务端返回的多余交易日会按该值裁剪。返回
 // `*proto.MACTickChartsReply`，内含标的标识、交易日计数、逐日分时序列与汇总行情；连接或协议收发、
-// 解析失败时返回 `nil` 与对应错误。
+// 解析失败时返回 `nil` 与对应错误。`reply.Charts` 已按交易日升序（旧到新）重排：服务端实际按倒序
+// （新到旧）返回，调用方拿到的顺序与日期先后一致。
 func (client *Client) GetMACTickCharts(market uint8, code string, queryDate uint32, days uint16) (*proto.MACTickChartsReply, error) {
 	obj := proto.NewMACTickCharts(&proto.MACTickChartsRequest{
 		Market:    uint16(market),
@@ -327,7 +329,37 @@ func (client *Client) GetMACTickCharts(market uint8, code string, queryDate uint
 		QueryDate: queryDate,
 		Days:      days,
 	})
-	return client.execute(obj)
+	reply, err := client.execute(obj)
+	if reply == nil {
+		return nil, err
+	}
+	// 服务端按交易日倒序返回（新到旧），这里统一重排为升序（旧到新），
+	// 便于调用方直接按时间顺序绘图、拼接或做差分。
+	sortMACTickChartDaysAsc(reply.Charts)
+	return reply, err
+}
+
+// sortMACTickChartDaysAsc 把多日分时序列按交易日从旧到新重排。
+//
+// 方案：`Date` 是定长 `YYYY-MM-DD` 文本（报文头部日期为零时留空），字典序与时间序
+// 完全一致，因此直接比较字符串即可，不必解析成 `time.Time`，也避免了非法日期被
+// `time.Date` 归一化带来的歧义。日期为空的条目统一排在末尾，避免把"日期未知"当成
+// 最早的一天；相同日期用稳定排序，保持服务端原有相对顺序，不改变同一天的语义。
+// 切片为空或只有一个元素时无需排序。
+func sortMACTickChartDaysAsc(days []proto.MACTickChartDay) {
+	if len(days) < 2 {
+		return
+	}
+	sort.SliceStable(days, func(i, j int) bool {
+		a, b := days[i].Date, days[j].Date
+		if a == "" {
+			return false
+		}
+		if b == "" {
+			return true
+		}
+		return a < b
+	})
 }
 
 // GetMACSymbolInfo 获取 MAC 个股摘要（名称、价格、股本等静态与快照字段）。

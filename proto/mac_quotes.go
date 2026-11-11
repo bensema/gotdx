@@ -140,17 +140,21 @@ func (obj *MACQuotes) ParseResponse(header *RespHeader, data []byte) error {
 		}
 		// 条目布局：分钟偏移（0:2）、价格（2:6）、均价（6:10）、累计成交量（10:14）、动量（14:18）。
 		minutes := binary.LittleEndian.Uint16(data[pos : pos+2])
+		// 分钟偏移为分钟开始时刻，展示口径整体后移一分钟（第一根 09:31、最后一根
+		// 15:00，与 `MACTickChart` 一致）；`Time` 与 `DateTime` 统一取这个结束点，
+		// 两者不再出现一分钟错位。
+		tick := time.Date(0, 1, 1, int(minutes/60)%24, int(minutes%60), 0, 0, time.Local).Add(time.Minute)
 		item := MACQuoteChartItem{
-			// 分钟偏移为分钟开始时刻，分时标签取分钟结束时点（整体后移一分钟），
-			// 对齐行情展示口径：第一根 09:31、最后一根 15:00（与 `MACTickChart` 一致）。
-			Time:     time.Date(0, 1, 1, int(minutes/60)%24, int(minutes%60), 0, 0, time.Local).Add(time.Minute).Format("15:04:05"),
+			Time:     tick.Format("15:04:05"),
 			Price:    float64(math.Float32frombits(binary.LittleEndian.Uint32(data[pos+2 : pos+6]))),
 			Avg:      float64(math.Float32frombits(binary.LittleEndian.Uint32(data[pos+6 : pos+10]))),
 			Vol:      binary.LittleEndian.Uint32(data[pos+10 : pos+14]),
 			Momentum: float64(math.Float32frombits(binary.LittleEndian.Uint32(data[pos+14 : pos+18]))),
 		}
 		item.PreClose = obj.reply.Price
-		item.DateTime = formatMACQuoteDateTime(obj.reply.Date, uint32(minutes/60*10000+minutes%60*100))
+		// 日期取报文打包日期、时分秒取分钟结束点，复用汇总段同一套换算，
+		// 避免再引入字符串拼接与解析。
+		item.DateTime = formatMACQuoteDateTime(obj.reply.Date, uint32(tick.Hour()*10000+tick.Minute()*100))
 		obj.reply.ChartData = append(obj.reply.ChartData, item)
 		pos += 18
 	}

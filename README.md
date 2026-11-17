@@ -511,7 +511,10 @@ GetIndexBars 返回 `[]proto.IndexBar`、ExGetKLine 与 ExKLine 共用一份
 `[]proto.ExKLineItem` 缓存（同一协议 `0x23ff` 的两层封装，不重复存储）、
 ExGetKLine2 返回 `[]proto.ExKLineItem`（协议 `0x2489`，与前者分键存放）、
 MACSymbolBars 返回 `[]proto.MACSymbolBar`；ZSet 存已闭合历史根 + 实时槽存未闭合
-最新一根，合并后按 offset 窗口返回）。
+最新一根，合并后按 offset 窗口返回）。同文件另有 `KLineList[T]`：按 `zkey` 与
+`start`/`count` 直接读缓存、返回旧到新的 `[]T`，不刷新实时槽、不回源、不补窗口，
+供外部服务自写自读或旁路诊断；读取不计入 `Stats()` 命中计数，业务读取仍走上述
+业务方法（缺失即回源）。
 
 ## 示例
 

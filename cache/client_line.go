@@ -157,6 +157,17 @@ func klineCacheKey(category uint16, market uint8, code string, times, adjust uin
 	return fmt.Sprintf("kline:%d:%d:%s:%d:%d", category, market, code, times, adjust)
 }
 
+// KLineCacheKey 返回 K 线族的位置缓存键，供外部（预热脚本、旁路读取）自行构造
+// 键后调用 `KLineStore` / `KLineUpsertLive` / `KLineList`。
+//
+// 参数含义与 `StockKLine` 一致：`category` 为 `types.KLINE_TYPE_*`，`market` 为
+// 市场代码，`code` 为证券代码，`times` 为周期倍数（零值按 1），`adjust` 为复权
+// 方式。键形如 `kline:{category}:{market}:{code}:{times}:{adjust}`，与业务方法
+// 内部格式完全一致，因此外部写入的数据能被 `StockKLine` 等入口直接命中。
+func KLineCacheKey(category uint16, market uint8, code string, times, adjust uint16) string {
+	return klineCacheKey(category, market, code, times, adjust)
+}
+
 // StockKLine 缓存版 K 线查询。
 //
 // 方案：需要缓存 ✓（历史 K 线已闭合后不再变化）；未闭合的最新一根存
@@ -838,22 +849,39 @@ func (c *CacheClient) positionWriteLive[T any](ctx context.Context, zkey string,
 	return n == 1, nil
 }
 
-// klineStore 把一批从旧到新的 K 线写入缓存：除最后一根外全部按分数幂等
-// 写入 `ZSet`，最后一根覆盖写实时槽（同分覆盖，保证盘中演化能刷新到最新
-// 数值）。分数取 K 线的时间（Unix 毫秒）。
+// KLineStore 把一批从旧到新的 K 线写入缓存，供外部调用：除最后一根外全部按
+// 分数幂等写入 `ZSet`，最后一根覆盖写实时槽（同分覆盖，保证盘中演化能刷新到
+// 最新数值）。
 //
-// 保留此方法作为 K 线的便捷写入入口（与 storeWindow 等价，只是分数来源
-// 固定为 DateTime），便于构造缓存前置状态与测试使用。
-func (c *CacheClient) klineStore(ctx context.Context, zkey string, bars []proto.SecurityBar) error {
-	return c.storeWindow(ctx, zkey, bars, func(b proto.SecurityBar) float64 {
-		return float64(b.DateTime.UnixMilli())
-	})
+// 泛型 `T` 为条目类型，覆盖 `SecurityBar`、`IndexBar`、`ExKLineItem`、
+// `MACSymbolBar` 等各 K 线族；`score` 给出条目在时间轴上的分数（通常取条目
+// 时间的 Unix 毫秒）。之所以把分数做成参数而不在方法内取 `DateTime`：Go 的
+// 类型约束只能约束方法集，无法约束「结构体含某个字段」，泛型类型里写不出
+// `item.DateTime`。行为与 `storeWindow` 一致。
+//
+// 外部使用契约：
+//   - `items` 必须按时间从旧到新排列，末条会被当作「未闭合的最新一根」写入
+//     实时槽；顺序颠倒会让最新一根落进 `ZSet` 而槽里存了更旧的一根，位置基准
+//     随之错位；
+//   - `zkey` 应取自 `KLineCacheKey` 等键构造函数，与业务方法内部同一格式，写入
+//     的数据才能被 `StockKLine` 等入口命中；
+//   - 写入幂等：同一分数的条目重复写只覆盖不堆积；空切片直接返回 nil；
+//   - 实时槽存活时间由 `WithLiveTTL` 控制（默认 1 小时），过期后槽内那一根不再
+//     参与位置基准，需要时由业务查询补刷。
+func (c *CacheClient) KLineStore[T any](ctx context.Context, zkey string, items []T, score func(T) float64) error {
+	return c.storeWindow(ctx, zkey, items, score)
 }
 
-// klineUpsertLive 用 positionLiveScript 原子更新 K 线的实时槽：同分覆盖、
-// 跨分时把前一根幂等流转进 `ZSet`，并续写 `TTL`。
-func (c *CacheClient) klineUpsertLive(ctx context.Context, zkey string, bar proto.SecurityBar) (bool, error) {
-	return c.positionWriteLive(ctx, zkey, bar, float64(bar.DateTime.UnixMilli()))
+// KLineUpsertLive 用 positionLiveScript 原子更新 K 线的实时槽，供外部调用：
+// 同分覆盖、跨分时把前一根幂等流转进 `ZSet`，并续写 `TTL`。
+//
+// 泛型 `T` 为条目类型，`score` 为该条的分数（通常取条目时间的 Unix 毫秒）。
+// 返回值表示本次更新是否生效：现存槽的分数更新时返回 false，说明传入的这一根
+// 比槽里的更旧（乱序或过期），槽内容保持不变，这不是错误。`zkey` 取自
+// `KLineCacheKey` 等键构造函数；实时槽 TTL 由 `WithLiveTTL` 控制（默认 1 小时，
+// 不足 1 秒按 1 秒）。
+func (c *CacheClient) KLineUpsertLive[T any](ctx context.Context, zkey string, item T, score float64) (bool, error) {
+	return c.positionWriteLive(ctx, zkey, item, score)
 }
 
 // KLineList 按位置窗口直接读取缓存中已有的数据，不刷新实时槽、不回源、不写缓存。

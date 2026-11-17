@@ -71,7 +71,7 @@ func TestStockKLineCacheHitWindow(t *testing.T) {
 	ctx := context.Background()
 	zkey := klineCacheKey(8, 1, "000001", 1, 0)
 	bars := testBars(200)
-	if err := c.klineStore(ctx, zkey, bars); err != nil {
+	if err := c.KLineStore(ctx, zkey, bars, func(b proto.SecurityBar) float64 { return float64(b.DateTime.UnixMilli()) }); err != nil {
 		t.Fatalf("store kline: %v", err)
 	}
 
@@ -118,14 +118,14 @@ func TestStockKLineCacheKeyIsolation(t *testing.T) {
 	ctx := context.Background()
 
 	first := testBars(20)
-	if err := c.klineStore(ctx, klineCacheKey(8, 1, "000001", 1, 0), first); err != nil {
+	if err := c.KLineStore(ctx, klineCacheKey(8, 1, "000001", 1, 0), first, func(b proto.SecurityBar) float64 { return float64(b.DateTime.UnixMilli()) }); err != nil {
 		t.Fatalf("store times=1: %v", err)
 	}
 	second := testBars(10)
 	for i := range second {
 		second[i].Close += 100
 	}
-	if err := c.klineStore(ctx, klineCacheKey(8, 1, "000001", 5, 0), second); err != nil {
+	if err := c.KLineStore(ctx, klineCacheKey(8, 1, "000001", 5, 0), second, func(b proto.SecurityBar) float64 { return float64(b.DateTime.UnixMilli()) }); err != nil {
 		t.Fatalf("store times=5: %v", err)
 	}
 
@@ -151,7 +151,7 @@ func TestStockKLineEmptyMarker(t *testing.T) {
 	ctx := context.Background()
 	zkey := klineCacheKey(8, 1, "000001", 1, 0)
 	// 先写入一根并建槽，使实时槽处于新鲜状态，避免刷新路径触发回源。
-	if err := c.klineStore(ctx, zkey, testBars(1)); err != nil {
+	if err := c.KLineStore(ctx, zkey, testBars(1), func(b proto.SecurityBar) float64 { return float64(b.DateTime.UnixMilli()) }); err != nil {
 		t.Fatalf("store kline: %v", err)
 	}
 
@@ -191,11 +191,11 @@ func TestKlineLiveSameScoreOverwrite(t *testing.T) {
 
 	bar := proto.SecurityBar{Close: 10, High: 12, Low: 9,
 		DateTime: time.Date(2026, 11, 6, 10, 0, 0, 0, time.Local)}
-	if _, err := c.klineUpsertLive(ctx, zkey, bar); err != nil {
+	if _, err := c.KLineUpsertLive(ctx, zkey, bar, float64(bar.DateTime.UnixMilli())); err != nil {
 		t.Fatalf("upsert first: %v", err)
 	}
 	bar.Close, bar.High = 15, 16 // 同一分钟，数值继续演化
-	if ok, err := c.klineUpsertLive(ctx, zkey, bar); err != nil || !ok {
+	if ok, err := c.KLineUpsertLive(ctx, zkey, bar, float64(bar.DateTime.UnixMilli())); err != nil || !ok {
 		t.Fatalf("upsert same score should overwrite, ok=%v err=%v", ok, err)
 	}
 	raw, err := c.rds.Get(ctx, c.liveKey(zkey)).Result()
@@ -225,10 +225,10 @@ func TestKlineLiveRollForwardIdempotent(t *testing.T) {
 
 	first := proto.SecurityBar{Close: 10, DateTime: base}
 	second := proto.SecurityBar{Close: 11, DateTime: base.Add(time.Minute)}
-	if _, err := c.klineUpsertLive(ctx, zkey, first); err != nil {
+	if _, err := c.KLineUpsertLive(ctx, zkey, first, float64(first.DateTime.UnixMilli())); err != nil {
 		t.Fatalf("upsert first: %v", err)
 	}
-	if _, err := c.klineUpsertLive(ctx, zkey, second); err != nil {
+	if _, err := c.KLineUpsertLive(ctx, zkey, second, float64(second.DateTime.UnixMilli())); err != nil {
 		t.Fatalf("upsert second: %v", err)
 	}
 	card, err := c.rds.ZCard(ctx, c.tsKeyBase(zkey)).Result()
@@ -236,7 +236,7 @@ func TestKlineLiveRollForwardIdempotent(t *testing.T) {
 		t.Fatalf("zset card = %d (err %v), want 1", card, err)
 	}
 	// 重复写入同一根：同分覆盖，基数不变。
-	if _, err := c.klineUpsertLive(ctx, zkey, second); err != nil {
+	if _, err := c.KLineUpsertLive(ctx, zkey, second, float64(second.DateTime.UnixMilli())); err != nil {
 		t.Fatalf("upsert second again: %v", err)
 	}
 	card, err = c.rds.ZCard(ctx, c.tsKeyBase(zkey)).Result()
@@ -252,7 +252,7 @@ func TestStockKLineDepthShortFallback(t *testing.T) {
 	c := newTestCache(t)
 	ctx := context.Background()
 	zkey := klineCacheKey(8, 1, "000001", 1, 0)
-	if err := c.klineStore(ctx, zkey, testBars(100)); err != nil {
+	if err := c.KLineStore(ctx, zkey, testBars(100), func(b proto.SecurityBar) float64 { return float64(b.DateTime.UnixMilli()) }); err != nil {
 		t.Fatalf("store kline: %v", err)
 	}
 
@@ -272,7 +272,7 @@ func TestStockKLineDeepOffsetSingleFetch(t *testing.T) {
 	c := newTestCache(t)
 	ctx := context.Background()
 	zkey := klineCacheKey(8, 1, "000001", 1, 0)
-	if err := c.klineStore(ctx, zkey, testBars(10)); err != nil {
+	if err := c.KLineStore(ctx, zkey, testBars(10), func(b proto.SecurityBar) float64 { return float64(b.DateTime.UnixMilli()) }); err != nil {
 		t.Fatalf("store kline: %v", err)
 	}
 	before := c.Stats()
@@ -295,7 +295,7 @@ func TestKlineStorageUsesMsgpack(t *testing.T) {
 	ctx := context.Background()
 	zkey := klineCacheKey(8, 1, "000001", 1, 0)
 	bars := testBars(3)
-	if err := c.klineStore(ctx, zkey, bars); err != nil {
+	if err := c.KLineStore(ctx, zkey, bars, func(b proto.SecurityBar) float64 { return float64(b.DateTime.UnixMilli()) }); err != nil {
 		t.Fatalf("store kline: %v", err)
 	}
 
@@ -1426,7 +1426,7 @@ func TestKLineListReadsCachedWindow(t *testing.T) {
 	ctx := context.Background()
 	zkey := klineCacheKey(8, 1, "000001", 1, 0)
 	bars := testBars(30)
-	if err := c.klineStore(ctx, zkey, bars); err != nil {
+	if err := c.KLineStore(ctx, zkey, bars, func(b proto.SecurityBar) float64 { return float64(b.DateTime.UnixMilli()) }); err != nil {
 		t.Fatalf("store kline: %v", err)
 	}
 

@@ -514,7 +514,9 @@ MACSymbolBars 返回 `[]proto.MACSymbolBar`；ZSet 存已闭合历史根 + 实�
 最新一根，合并后按 offset 窗口返回）。同文件另有 `KLineList[T]`：按 `zkey` 与
 `start`/`count` 直接读缓存、返回旧到新的 `[]T`，不刷新实时槽、不回源、不补窗口，
 供外部服务自写自读或旁路诊断；读取不计入 `Stats()` 命中计数，业务读取仍走上述
-业务方法（缺失即回源）。
+业务方法（缺失即回源）。写入方向同样对外开放：`KLineCacheKey` 构造与业务方法
+一致的键，`KLineStore[T]` 批量写入（末条进实时槽）、`KLineUpsertLive[T]` 原子
+更新实时槽；外部预热写入的数据可被 `StockKLine` 等入口直接命中。
 
 ## 示例
 

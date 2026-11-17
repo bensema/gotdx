@@ -855,3 +855,35 @@ func (c *CacheClient) klineStore(ctx context.Context, zkey string, bars []proto.
 func (c *CacheClient) klineUpsertLive(ctx context.Context, zkey string, bar proto.SecurityBar) (bool, error) {
 	return c.positionWriteLive(ctx, zkey, bar, float64(bar.DateTime.UnixMilli()))
 }
+
+// KLineList 按位置窗口直接读取缓存中已有的数据，不刷新实时槽、不回源、不写缓存。
+//
+// 参数 `ctx` 为上下文；`zkey` 为位置缓存键，格式与对应业务方法一致（日线为
+// `kline:{category}:{market}:{code}:{times}:{adjust}`，各族的键见对应 Key 构造）；
+// `start` 为从最新端向旧端的偏移（0 表示最新一条），`count` 为读取条数。返回按
+// 时间升序（旧到新）的条目，方向与 `StockKLine` 等业务入口一致。
+//
+// 边界：本方法只读已写入缓存的数据，**不会**补齐缺失窗口——缓存未预热、窗口不足
+// 或起始偏移越界时，返回已读到的部分（长度可能小于 `count`），调用方需自行判断
+// 长度；命中失败空标记时返回 `ErrSourceFailed`。需要「缺失即回源」时请改用对应的
+// 业务方法。读取不计入 `Stats()` 的命中计数，避免旁路或诊断型调用污染命中率。
+//
+// 泛型类型参数无法从入参推断，调用时需显式指定，例如
+// `cl.KLineList[proto.SecurityBar](ctx, zkey, 0, 10)`。
+func (c *CacheClient) KLineList[T any](ctx context.Context, zkey string, start, count int) ([]T, error) {
+	if count <= 0 {
+		return make([]T, 0), nil
+	}
+	items, err := c.tsQuery[T](ctx, zkey, start, count, 0, nil)
+	switch {
+	case err == nil:
+		// `tsQuery` 按分数降序返回（新到旧），这里反转成旧到新，与业务入口一致。
+		tsReverse(items)
+		return items, nil
+	case errors.Is(err, errTsEmpty), errors.Is(err, errTsMiss):
+		// 空结果标记命中或未预热、起始偏移越界：视为「暂无数据」，不当作错误。
+		return nil, nil
+	default:
+		return nil, err
+	}
+}

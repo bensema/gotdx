@@ -1417,3 +1417,88 @@ func TestExKLineCountZero(t *testing.T) {
 		t.Fatalf("count=0 should not fetch, fetches = %d", stats.Fetches)
 	}
 }
+
+// TestKLineListReadsCachedWindow 验证 KLineList 的位置语义与返回方向：start 从
+// 最新端偏移、返回旧到新（与 StockKLine 一致）；窗口不足时只返回已有部分而不补齐；
+// 旁路读取既不计入命中，也不触发回源。
+func TestKLineListReadsCachedWindow(t *testing.T) {
+	c := newTestCache(t)
+	ctx := context.Background()
+	zkey := klineCacheKey(8, 1, "000001", 1, 0)
+	bars := testBars(30)
+	if err := c.klineStore(ctx, zkey, bars); err != nil {
+		t.Fatalf("store kline: %v", err)
+	}
+
+	cases := []struct {
+		name   string
+		start  int
+		count  int
+		wantLo int // 期望窗口在 bars 中的起始下标（含）
+		wantHi int // 期望窗口结束下标（不含）
+	}{
+		{"最新一页", 0, 10, 20, 30},
+		{"深一页", 10, 10, 10, 20},
+		{"窗口不足返回已有部分", 25, 10, 0, 5},
+		{"起始偏移越界返回空", 100, 10, 0, 0},
+		{"count 为零返回空切片", 0, 0, 0, 0},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			hitsBefore := c.Stats().Hits
+			got, err := c.KLineList[proto.SecurityBar](ctx, zkey, tc.start, tc.count)
+			if err != nil {
+				t.Fatalf("KLineList: %v", err)
+			}
+			if len(got) != tc.wantHi-tc.wantLo {
+				t.Fatalf("len = %d, want %d", len(got), tc.wantHi-tc.wantLo)
+			}
+			for i, b := range got {
+				if b.Close != bars[tc.wantLo+i].Close {
+					t.Fatalf("idx %d close = %v, want %v（窗口位置错位）",
+						i, b.Close, bars[tc.wantLo+i].Close)
+				}
+			}
+			if len(got) > 1 {
+				assertAscending(t, got)
+			}
+			if after := c.Stats().Hits; after != hitsBefore {
+				t.Fatalf("hits = %d, want %d（旁路读取不应计入命中）", after, hitsBefore)
+			}
+			if stats := c.Stats(); stats.Fetches != 0 {
+				t.Fatalf("fetches = %d, want 0（旁路读取不应回源）", stats.Fetches)
+			}
+		})
+	}
+}
+
+// TestKLineListSurfacesFailMarker 验证命中失败空标记时返回 ErrSourceFailed，
+// 使调用方能区分「缓存里没有数据」与「上次回源失败」。
+func TestKLineListSurfacesFailMarker(t *testing.T) {
+	c := newTestCache(t)
+	ctx := context.Background()
+	zkey := klineCacheKey(8, 1, "MARKFAIL", 1, 0)
+	if err := c.tsMarkEmpty(ctx, zkey, true); err != nil {
+		t.Fatalf("mark empty: %v", err)
+	}
+	got, err := c.KLineList[proto.SecurityBar](ctx, zkey, 0, 10)
+	if !errors.Is(err, ErrSourceFailed) {
+		t.Fatalf("err = %v, want ErrSourceFailed", err)
+	}
+	if len(got) != 0 {
+		t.Fatalf("len = %d, want 0", len(got))
+	}
+}
+
+// TestKLineListEmptyCacheReturnsNothing 验证缓存未预热时返回空且无错误、不回源。
+func TestKLineListEmptyCacheReturnsNothing(t *testing.T) {
+	c := newTestCache(t)
+	got, err := c.KLineList[proto.SecurityBar](context.Background(),
+		klineCacheKey(8, 1, "NOCACHE", 1, 0), 0, 10)
+	if err != nil || len(got) != 0 {
+		t.Fatalf("empty cache: got %v err %v, want empty nil", got, err)
+	}
+	if stats := c.Stats(); stats.Fetches != 0 {
+		t.Fatalf("empty cache should not fetch, fetches = %d", stats.Fetches)
+	}
+}

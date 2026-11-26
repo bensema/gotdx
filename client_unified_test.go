@@ -1,7 +1,9 @@
 package gotdx
 
 import (
+	"encoding/json"
 	"testing"
+	"time"
 
 	"github.com/bensema/gotdx/proto"
 	"github.com/bensema/gotdx/types"
@@ -174,5 +176,37 @@ func TestApplyMACSymbolBarTurnover(t *testing.T) {
 func TestRound2(t *testing.T) {
 	if got := round2(1.235); got != 1.24 {
 		t.Fatalf("unexpected rounded value: %.2f", got)
+	}
+}
+
+func TestBuild930SecurityBarPopulatesYMDFields(t *testing.T) {
+	day := time.Date(2026, 10, 16, 9, 31, 0, 0, time.Local)
+	ref := proto.SecurityBar{
+		Year:     day.Year(),
+		Month:    int(day.Month()),
+		Day:      day.Day(),
+		Hour:     9,
+		Minute:   31,
+		DateTime: day,
+		PreClose: 10.0,
+		Open:     10.2,
+		Close:    10.3,
+	}
+
+	bar := build930SecurityBar(ref, 10.1, 25)
+	if bar.Year != 2026 || bar.Month != 10 || bar.Day != 16 || bar.Hour != 9 || bar.Minute != 30 {
+		t.Fatalf("unexpected wall-clock fields: %04d-%02d-%02d %02d:%02d", bar.Year, bar.Month, bar.Day, bar.Hour, bar.Minute)
+	}
+	if !bar.DateTime.Equal(time.Date(2026, 10, 16, 9, 30, 0, 0, time.Local)) {
+		t.Fatalf("unexpected datetime: %v", bar.DateTime)
+	}
+	if bar.Open != 10.1 || bar.High != 10.1 || bar.Low != 10.1 || bar.Close != 10.1 {
+		t.Fatalf("unexpected OHLC: %+v", bar)
+	}
+	if bar.PreClose != 10.0 || bar.Vol != 25 || bar.Amount != 25250 {
+		t.Fatalf("unexpected volume/amount/preclose: %+v", bar)
+	}
+	if _, err := json.Marshal(bar); err != nil {
+		t.Fatalf("marshal synthetic 09:30 bar failed: %v", err)
 	}
 }

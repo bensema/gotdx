@@ -3,6 +3,7 @@ package proto
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"math"
 	"sync/atomic"
 	"time"
@@ -401,14 +402,22 @@ func formatServerTime(raw int) string {
 	return time.Date(0, 1, 1, hours, minutes, seconds, millis*int(time.Millisecond), time.Local).Format("15:04:05.000")
 }
 
-// parseYMD 把按年月日依次占两位打包的整数解析为本地日期，时分秒置零。
+// parseYMD 把按 YYYYMMDD 打包的整数解析为本地日期，时分秒置零。
 //
-// 参数 `raw` 为打包日期整数；返回本地日期时间，当前实现不返回错误。
+// 参数 `raw` 为打包日期整数；通达信空位填充行常出现 0 或越界日期，此时返回零值时间与错误，
+// 避免 `time.Date` 归一化出负年份导致后续 JSON 序列化失败。
 func parseYMD(raw uint32) (time.Time, error) {
 	year := int(raw / 10000)
 	month := int((raw % 10000) / 100)
 	day := int(raw % 100)
-	return time.Date(year, time.Month(month), day, 0, 0, 0, 0, time.Local), nil
+	if year < 1900 || year > 2100 || month < 1 || month > 12 || day < 1 || day > 31 {
+		return time.Time{}, fmt.Errorf("invalid YMD date %d", raw)
+	}
+	t := time.Date(year, time.Month(month), day, 0, 0, 0, 0, time.Local)
+	if t.Year() != year || int(t.Month()) != month || t.Day() != day {
+		return time.Time{}, fmt.Errorf("invalid YMD date %d", raw)
+	}
+	return t, nil
 }
 
 // getdatetime 从响应字节流当前偏移按周期类别读出年月日时分，编码格式与 `decodeDateNum` 对应。

@@ -1637,3 +1637,23 @@ func TestBaseUnitUsesHundredForShenZhenIndexPrefix(t *testing.T) {
 		}
 	}
 }
+
+func TestParseYMDRejectsInvalidDates(t *testing.T) {
+	valid, err := parseYMD(20240531)
+	if err != nil {
+		t.Fatalf("parseYMD(20240531) failed: %v", err)
+	}
+	if valid.Year() != 2024 || valid.Month() != 5 || valid.Day() != 31 {
+		t.Fatalf("unexpected valid date: %v", valid)
+	}
+
+	for _, raw := range []uint32{0, 18991231, 21010101, 20240010, 20241301, 20240230, 20240431, 99999999} {
+		got, err := parseYMD(raw)
+		if err == nil {
+			t.Fatalf("parseYMD(%d) = %v, nil; want error", raw, got)
+		}
+		if !got.IsZero() {
+			t.Fatalf("parseYMD(%d) returned non-zero time on error: %v", raw, got)
+		}
+	}
+}

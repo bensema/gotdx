@@ -196,6 +196,30 @@ func (client *Client) StockKLine(category uint16, market uint8, code string, sta
 	return reply.List, nil
 }
 
+// build930SecurityBar 依据 09:31 参考线与当日首笔成交构造 09:30 首根分钟线，
+// 同步填充 Year/Month/Day/Hour/Minute 与 DateTime，保持与协议解码字段一致。
+func build930SecurityBar(ref proto.SecurityBar, price float64, vol float64) proto.SecurityBar {
+	dt := time.Date(ref.DateTime.Year(), ref.DateTime.Month(), ref.DateTime.Day(), 9, 30, 0, 0, ref.DateTime.Location())
+	bar := proto.SecurityBar{
+		Open:     price,
+		High:     price,
+		Low:      price,
+		Close:    price,
+		PreClose: ref.PreClose,
+		Vol:      vol,
+		Amount:   vol * price * 100,
+		Year:     dt.Year(),
+		Month:    int(dt.Month()),
+		Day:      dt.Day(),
+		Hour:     9,
+		Minute:   30,
+		DateTime: dt,
+	}
+	bar.RiseRate = bar.GetRiseRate()
+	bar.RisePrice = bar.GetRisePrice()
+	return bar
+}
+
 // StockKLine930 补齐 1 分钟分时中缺失的 09:30 首根 K 线；仅对 1 分钟与扩展 1 分钟周期生效。
 //
 // 参数 `category` 为 K 线周期类别，仅 `types.KLINE_TYPE_1MIN` 与 `types.KLINE_TYPE_EXHQ_1MIN` 触发
@@ -210,37 +234,18 @@ func (client *Client) StockKLine930(category uint16, market uint8, code string, 
 			list := make([]proto.SecurityBar, 0)
 			for _, v := range reply.List {
 				if v.DateTime.Format(time.TimeOnly) == "09:31:00" {
-					data := proto.SecurityBar{}
 					if cast.ToUint32(v.DateTime.Format("20060102")) == info.Date {
 						// 当日：拉取当日全部逐笔成交，取首笔作为 09:30 线价格。
-						if trans, err := client.StockFullTransaction(market, code); err == nil {
-							data.Open = trans[0].Price
-							data.High = trans[0].Price
-							data.Low = trans[0].Price
-							data.Close = trans[0].Price
-							data.PreClose = v.PreClose
-							data.Vol = cast.ToFloat64(trans[0].Vol)
-							data.Amount = cast.ToFloat64(trans[0].Vol) * trans[0].Price * 100
-							data.DateTime = time.Date(v.DateTime.Year(), v.DateTime.Month(), v.DateTime.Day(), 9, 30, 0, 0, v.DateTime.Location())
+						if trans, err := client.StockFullTransaction(market, code); err == nil && len(trans) > 0 {
+							data := build930SecurityBar(v, trans[0].Price, cast.ToFloat64(trans[0].Vol))
 							v.PreClose = trans[0].Price
-							data.RiseRate = data.GetRiseRate()
-							data.RisePrice = data.GetRisePrice()
 							list = append(list, data)
 						}
 					} else {
 						// 历史日期：拉取当日历史逐笔成交重建 09:30 线。
-						if trans, err := client.StockHistoryFullTransaction(cast.ToUint32(v.DateTime.Format("20060102")), market, code); err == nil {
-							data.Open = trans[0].Price
-							data.High = trans[0].Price
-							data.Low = trans[0].Price
-							data.Close = trans[0].Price
-							data.PreClose = v.PreClose
-							data.Vol = cast.ToFloat64(trans[0].Vol)
-							data.Amount = cast.ToFloat64(trans[0].Vol) * trans[0].Price * 100
-							data.DateTime = time.Date(v.DateTime.Year(), v.DateTime.Month(), v.DateTime.Day(), 9, 30, 0, 0, v.DateTime.Location())
+						if trans, err := client.StockHistoryFullTransaction(cast.ToUint32(v.DateTime.Format("20060102")), market, code); err == nil && len(trans) > 0 {
+							data := build930SecurityBar(v, trans[0].Price, cast.ToFloat64(trans[0].Vol))
 							v.PreClose = trans[0].Price
-							data.RiseRate = data.GetRiseRate()
-							data.RisePrice = data.GetRisePrice()
 							list = append(list, data)
 						}
 					}

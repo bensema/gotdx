@@ -61,22 +61,41 @@ func resolveMACFuturesDateTimes(items []proto.MACSymbolBar, code, calendarPath s
 
 // futuresExchange 根据期货合约代码前缀映射交易所代码。
 //
-// `code` 为期货合约代码，函数先去除首尾空白、转大写并剥离尾部数字，再按品种字母前缀匹配
-// 交易所。识别成功时返回 `Tushare` 交易日历使用的交易所标识（`SHFE`、`INE`、`DCE`、
-// `CZCE`、`CFFEX`）与 `true`；识别失败时返回空串与 `false`。
+// `code` 为期货合约代码，兼容具体月份合约（如 `RB2610`、`L2609`）与通达信连续合约
+// （如 `RBL8`、`LL8`、`ICL0`）。先按剥离尾部数字后的品种前缀直接匹配交易所，未命中时
+// 再尝试剥离连续标识（`L` 加一位数字）后回查。识别成功时返回 `Tushare` 交易日历使用的
+// 交易所标识（`SHFE`、`INE`、`DCE`、`CZCE`、`CFFEX`；广期所品种与国内商品期货节假日
+// 日历一致，本地日历库缺少 `GFEX` 行时复用 `SHFE`）与 `true`；识别失败时返回空串与 `false`。
 func futuresExchange(code string) (string, bool) {
-	prefix := strings.TrimRight(strings.ToUpper(strings.TrimSpace(code)), "0123456789")
+	s := strings.ToUpper(strings.TrimSpace(code))
+	if exchange, ok := futuresExchangeByPrefix(strings.TrimRight(s, "0123456789")); ok {
+		return exchange, true
+	}
+	if len(s) >= 3 && s[len(s)-2] == 'L' && s[len(s)-1] >= '0' && s[len(s)-1] <= '9' {
+		base := strings.TrimSuffix(s[:len(s)-2], "-F")
+		if exchange, ok := futuresExchangeByPrefix(base); ok {
+			return exchange, true
+		}
+	}
+	return "", false
+}
+
+// futuresExchangeByPrefix 按纯品种字母前缀查找对应的交易日历交易所代码。
+func futuresExchangeByPrefix(prefix string) (string, bool) {
 	switch prefix {
-	case "AL", "AO", "AG", "AU", "BR", "BU", "CU", "FU", "HC", "NI", "PB", "RB", "RU", "SN", "SP", "SS", "WR", "ZN":
+	case "AD", "AG", "AL", "AO", "AU", "BR", "BU", "CU", "FU", "HC", "NI", "OP", "PB", "RB", "RU", "SN", "SP", "SS", "WR", "ZN":
 		return "SHFE", true
 	case "BC", "EC", "LU", "NR", "SC":
 		return "INE", true
-	case "A", "B", "C", "CS", "EB", "EG", "FB", "I", "J", "JD", "JM", "L", "LH", "M", "P", "PG", "PP", "RR", "V", "Y":
+	case "A", "B", "BB", "BZ", "C", "CS", "EB", "EG", "FB", "I", "J", "JD", "JM", "L", "LG", "LH", "M", "P", "PG", "PP", "RR", "V", "Y":
 		return "DCE", true
-	case "AP", "CF", "CJ", "CY", "FG", "JR", "MA", "OI", "PF", "PK", "PM", "PR", "RM", "RS", "SA", "SF", "SM", "SR", "TA", "UR", "WH", "ZC":
+	case "AP", "CF", "CJ", "CY", "FG", "JR", "MA", "OI", "PF", "PK", "PL", "PM", "PR", "PX", "RM", "RS", "SA", "SF", "SH", "SM", "SR", "TA", "UR", "WH", "ZC":
 		return "CZCE", true
 	case "IC", "IF", "IH", "IM", "T", "TF", "TL", "TS":
 		return "CFFEX", true
+	case "LC", "PD", "PS", "PT", "SI":
+		// 广期所与国内商品期货节假日日历一致，本地日历库无 GFEX 记录时复用 SHFE。
+		return "SHFE", true
 	default:
 		return "", false
 	}

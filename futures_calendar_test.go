@@ -48,14 +48,55 @@ func TestResolveMACFuturesDateTimesWeekend(t *testing.T) {
 
 // TestFuturesExchange 验证主要期货交易所的合约前缀映射。
 func TestFuturesExchange(t *testing.T) {
-	// 验证各交易所常用合约可正确映射到 `Tushare` 交易日历使用的交易所代码。
-	cases := map[string]string{"AG2610": "SHFE", "SC2610": "INE", "I2609": "DCE", "SR609": "CZCE", "IF2609": "CFFEX"}
+	// 验证各交易所常用合约、新上市品种、广期所品种与连续合约（L7/L8/L9/L0）均可正确映射。
+	cases := map[string]string{
+		"AG2610": "SHFE",
+		"AL0":    "SHFE",
+		"ALL8":   "SHFE",
+		"RBL8":   "SHFE",
+		"RBL9":   "SHFE",
+		"RBL7":   "SHFE",
+		"SC2610": "INE",
+		"SCL8":   "INE",
+		"I2609":  "DCE",
+		"IL8":    "DCE",
+		"L2609":  "DCE",
+		"LL8":    "DCE",
+		"SR609":  "CZCE",
+		"PL6":    "CZCE",
+		"PLL8":   "CZCE",
+		"TAL8":   "CZCE",
+		"SHL8":   "CZCE",
+		"IF2609": "CFFEX",
+		"IFL8":   "CFFEX",
+		"ICL0":   "CFFEX",
+		"TL0":    "CFFEX",
+		"TLL8":   "CFFEX",
+		"SIL8":   "SHFE",
+		"LCL9":   "SHFE",
+	}
 	for code, expected := range cases {
 		actual, ok := futuresExchange(code)
 		if !ok || actual != expected {
 			t.Fatalf("futures exchange for %s = %q, %t; want %q, true", code, actual, ok, expected)
 		}
 	}
+}
+
+// TestResolveMACFuturesDateTimesContinuous 验证主连/加权（如 RBL8）的夜盘可正确转换自然时间。
+func TestResolveMACFuturesDateTimesContinuous(t *testing.T) {
+	path := newTestFuturesCalendar(t, []testCalendarRow{{"SHFE", "20261125", "20261124"}})
+	items := []proto.MACSymbolBar{
+		{RawYMD: 20261125, RawSeconds: 22 * 60 * 60},
+		{RawYMD: 20261125, RawSeconds: 23 * 60 * 60},
+		{RawYMD: 20261125, RawSeconds: 1 * 60 * 60},
+	}
+	if err := resolveMACFuturesDateTimes(items, "RBL8", path); err != nil {
+		t.Fatalf("resolve MAC continuous futures datetime: %v", err)
+	}
+	assertDateTime(t, items[0].DateTime, "2026-11-24 22:00:00")
+	assertDateTime(t, items[1].DateTime, "2026-11-24 23:00:00")
+	assertDateTime(t, items[2].DateTime, "2026-11-25 01:00:00")
 }
 
 // testCalendarRow 表示测试 `SQLite` 日历中的一条开市日记录，字段与 `futures_trade_calendar`
